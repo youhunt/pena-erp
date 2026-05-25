@@ -12,6 +12,15 @@
 <?php endif; ?>
 <div class="card">
     <div class="card-body">
+        <form class="row g-2 align-items-end mb-4" method="get" action="<?= $isEdit ? site_url('administration/branches/' . $branch['id'] . '/edit') : site_url('administration/branches/new') ?>">
+            <div class="col-md-8">
+                <label class="form-label">Cari Pilihan Desa / Kelurahan</label>
+                <input name="village_q" class="form-control" value="<?= esc($villageSearch ?? '', 'attr') ?>" placeholder="Nama desa, kecamatan, kabupaten atau provinsi">
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-outline-primary" type="submit">Tampilkan Wilayah</button>
+            </div>
+        </form>
         <form method="post" action="<?= $isEdit ? site_url('administration/branches/' . $branch['id']) : site_url('administration/branches') ?>">
             <?= csrf_field() ?>
             <div class="row">
@@ -43,7 +52,7 @@
                 <div class="col-md-8 mb-3">
                     <label class="form-label">Desa / Kelurahan</label>
                     <select name="village_id" class="form-select">
-                        <option value="">- Pilih wilayah -</option>
+                        <option value="">- Pilih dari maksimal 100 hasil pencarian -</option>
                         <?php foreach ($villages as $village) : ?>
                             <?php $selected = (string) old('village_id', $branch['village_id'] ?? '') === (string) $village['id']; ?>
                             <option value="<?= esc($village['id']) ?>" <?= $selected ? 'selected' : '' ?>><?= esc($village['province'] . ' / ' . $village['regency'] . ' / ' . $village['district'] . ' / ' . $village['name']) ?></option>

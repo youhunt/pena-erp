@@ -27,16 +27,24 @@ final class Administration extends BaseController
 
     public function regions(): string
     {
+        $model  = new AdministrationReadModel();
+        $search = trim((string) $this->request->getGet('q'));
+
         return view('administration/regions', [
-            'villages' => (new AdministrationReadModel())->villages(),
+            'villages' => $model->villages($search),
+            'counts'   => $model->regionCounts(),
+            'search'   => $search,
         ]);
     }
 
     public function newCompany(): string
     {
+        $search = trim((string) $this->request->getGet('village_q'));
+
         return view('administration/company_form', [
-            'company'  => null,
-            'villages' => (new AdministrationReadModel())->villageOptions(),
+            'company'       => null,
+            'villages'      => (new AdministrationReadModel())->villageOptions($search),
+            'villageSearch' => $search,
         ]);
     }
 
@@ -68,8 +76,9 @@ final class Administration extends BaseController
         }
 
         return view('administration/company_form', [
-            'company'  => $company,
-            'villages' => (new AdministrationReadModel())->villageOptions(),
+            'company'       => $company,
+            'villages'      => (new AdministrationReadModel())->villageOptions(trim((string) $this->request->getGet('village_q')), (int) ($company['village_id'] ?? 0) ?: null),
+            'villageSearch' => trim((string) $this->request->getGet('village_q')),
         ]);
     }
 
@@ -99,12 +108,14 @@ final class Administration extends BaseController
 
     public function newBranch(): string
     {
-        $model = new AdministrationReadModel();
+        $model  = new AdministrationReadModel();
+        $search = trim((string) $this->request->getGet('village_q'));
 
         return view('administration/branch_form', [
-            'branch'    => null,
-            'companies' => $model->companies(),
-            'villages'  => $model->villageOptions(),
+            'branch'        => null,
+            'companies'     => $model->companies(),
+            'villages'      => $model->villageOptions($search),
+            'villageSearch' => $search,
         ]);
     }
 
@@ -145,9 +156,10 @@ final class Administration extends BaseController
         }
 
         return view('administration/branch_form', [
-            'branch'    => $branch,
-            'companies' => $model->companies(),
-            'villages'  => $model->villageOptions(),
+            'branch'        => $branch,
+            'companies'     => $model->companies(),
+            'villages'      => $model->villageOptions(trim((string) $this->request->getGet('village_q')), (int) ($branch['village_id'] ?? 0) ?: null),
+            'villageSearch' => trim((string) $this->request->getGet('village_q')),
         ]);
     }
 
@@ -192,7 +204,114 @@ final class Administration extends BaseController
             'companies'   => $model->companies(),
             'roles'       => $model->roles(),
             'users'       => $model->users(),
+            'branches'    => $model->branchOptions(),
         ]);
+    }
+
+    public function rbac(): string
+    {
+        $model = new AdministrationReadModel();
+
+        return view('administration/rbac', [
+            'companies'   => $model->companies(),
+            'roles'       => $model->roles(),
+            'permissions' => $model->permissions(),
+            'grants'      => $model->rolePermissionGrants(),
+        ]);
+    }
+
+    public function createRole(): RedirectResponse
+    {
+        $data = [
+            'company_id' => (int) $this->request->getPost('company_id'),
+            'code'       => strtolower(trim((string) $this->request->getPost('code'))),
+            'name'       => trim((string) $this->request->getPost('name')),
+            'status'     => (string) $this->request->getPost('status'),
+        ];
+        $model = new AdministrationReadModel();
+
+        if (! $this->validateData($data, [
+            'company_id' => 'required|is_natural_no_zero',
+            'code'       => 'required|alpha_dash|max_length[50]',
+            'name'       => 'required|max_length[100]',
+            'status'     => 'required|in_list[active,inactive]',
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        if ($model->company($data['company_id']) === null) {
+            return redirect()->back()->withInput()->with('errors', ['company_id' => 'Company tidak ditemukan.']);
+        }
+
+        if ($model->roleCodeExists($data['company_id'], $data['code'])) {
+            return redirect()->back()->withInput()->with('errors', ['code' => 'Kode role sudah digunakan pada company ini.']);
+        }
+
+        (new AdministrationWriteModel())->createRole($data, $this->actorId());
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Role tenant berhasil ditambahkan.');
+    }
+
+    public function createPermission(): RedirectResponse
+    {
+        $data = [
+            'company_id' => (int) $this->request->getPost('company_id'),
+            'code'       => strtolower(trim((string) $this->request->getPost('code'))),
+            'name'       => trim((string) $this->request->getPost('name')),
+            'module'     => strtolower(trim((string) $this->request->getPost('module'))),
+        ];
+        $model = new AdministrationReadModel();
+
+        if (! $this->validateData($data, [
+            'company_id' => 'required|is_natural_no_zero',
+            'code'       => 'required|regex_match[/^[a-z0-9_.-]+$/]|max_length[100]',
+            'name'       => 'required|max_length[120]',
+            'module'     => 'required|alpha_dash|max_length[40]',
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        if ($model->company($data['company_id']) === null) {
+            return redirect()->back()->withInput()->with('errors', ['company_id' => 'Company tidak ditemukan.']);
+        }
+
+        if ($model->permissionCodeExists($data['company_id'], $data['code'])) {
+            return redirect()->back()->withInput()->with('errors', ['code' => 'Kode permission sudah digunakan pada company ini.']);
+        }
+
+        (new AdministrationWriteModel())->createPermission($data, $this->actorId());
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Permission tenant berhasil ditambahkan.');
+    }
+
+    public function grantPermission(): RedirectResponse
+    {
+        $data = [
+            'company_id'    => $this->request->getPost('company_id'),
+            'role_id'       => $this->request->getPost('role_id'),
+            'permission_id' => $this->request->getPost('permission_id'),
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id'    => 'required|is_natural_no_zero',
+            'role_id'       => 'required|is_natural_no_zero',
+            'permission_id' => 'required|is_natural_no_zero',
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $saved = (new AdministrationWriteModel())->grantRolePermission(
+            (int) $data['company_id'],
+            (int) $data['role_id'],
+            (int) $data['permission_id'],
+            $this->actorId(),
+        );
+
+        if (! $saved) {
+            return redirect()->back()->withInput()->with('errors', ['permission_id' => 'Role dan permission harus berasal dari company aktif yang sama.']);
+        }
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Permission berhasil diberikan ke role.');
     }
 
     public function assignAccess(): RedirectResponse
@@ -201,12 +320,14 @@ final class Administration extends BaseController
             'company_id' => $this->request->getPost('company_id'),
             'user_id'    => $this->request->getPost('user_id'),
             'role_id'    => $this->request->getPost('role_id'),
+            'branch_id'  => $this->request->getPost('branch_id') ?: null,
         ];
 
         if (! $this->validateData($data, [
             'company_id' => 'required|is_natural_no_zero',
             'user_id'    => 'required|is_natural_no_zero',
             'role_id'    => 'required|is_natural_no_zero',
+            'branch_id'  => 'permit_empty|is_natural_no_zero',
         ])) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
@@ -215,11 +336,12 @@ final class Administration extends BaseController
             (int) $data['company_id'],
             (int) $data['user_id'],
             (int) $data['role_id'],
+            $data['branch_id'] === null ? null : (int) $data['branch_id'],
             $this->actorId(),
         );
 
         if (! $saved) {
-            return redirect()->back()->withInput()->with('errors', ['role_id' => 'Role bukan milik company yang dipilih.']);
+            return redirect()->back()->withInput()->with('errors', ['role_id' => 'Role atau branch bukan milik company yang dipilih.']);
         }
 
         return redirect()->to(site_url('administration/access'))->with('message', 'Akses user berhasil diberikan.');

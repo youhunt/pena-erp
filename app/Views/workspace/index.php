@@ -11,6 +11,9 @@
     <div class="card-body">
         <h4 class="card-title">Company Aktif</h4>
         <p class="mb-1"><strong><?= esc($company['code']) ?></strong> - <?= esc($company['name']) ?></p>
+        <?php if ($context !== null && $context['branch_name'] !== null) : ?>
+            <p class="mb-1"><strong>Branch:</strong> <?= esc($context['branch_code'] . ' - ' . $context['branch_name']) ?></p>
+        <?php endif; ?>
         <p class="text-muted mb-0">Modul transaksi akan ditempatkan di workspace tenant ini setelah master dan workflow siap.</p>
     </div>
 </div>

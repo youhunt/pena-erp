@@ -1,4 +1,5 @@
 <?php
+$tenantContext = $tenantContext ?? (new \App\Services\TenantContextService())->current((int) auth()->id());
 $user = auth()->user();
 $username = $user?->username ?? $user?->email ?? 'User';
 $canManageCompanies = $user?->can('platform.company.manage') ?? false;
@@ -35,6 +36,12 @@ $canManageCompanies = $user?->can('platform.company.manage') ?? false;
                     </button>
                 </div>
                 <div class="d-flex">
+                    <?php if ($tenantContext !== null) : ?>
+                        <a class="btn header-item waves-effect d-none d-md-inline-flex align-items-center" href="<?= site_url('workspace') ?>">
+                            <i class="bx bx-briefcase-alt-2 font-size-18 me-1"></i>
+                            <span><?= esc($tenantContext['company_code']) ?><?= $tenantContext['branch_code'] !== null ? ' / ' . esc($tenantContext['branch_code']) : '' ?></span>
+                        </a>
+                    <?php endif; ?>
                     <div class="dropdown d-inline-block">
                         <button type="button" class="btn header-item waves-effect" data-bs-toggle="dropdown">
                             <img class="rounded-circle header-profile-user" src="<?= base_url('assets/images/users/user-dummy-img.jpg') ?>" alt="">
@@ -61,6 +68,11 @@ $canManageCompanies = $user?->can('platform.company.manage') ?? false;
                                 <i class="bx bx-home-circle"></i><span>Dashboard</span>
                             </a>
                         </li>
+                        <li>
+                            <a href="<?= site_url('workspace') ?>" class="waves-effect">
+                                <i class="bx bx-briefcase-alt-2"></i><span>Workspace</span>
+                            </a>
+                        </li>
                         <?php if ($canManageCompanies) : ?>
                             <li class="menu-title">Administrasi</li>
                             <li>
@@ -81,6 +93,11 @@ $canManageCompanies = $user?->can('platform.company.manage') ?? false;
                             <li>
                                 <a href="<?= site_url('administration/access') ?>" class="waves-effect">
                                     <i class="bx bx-user-check"></i><span>Akses User</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="<?= site_url('administration/rbac') ?>" class="waves-effect">
+                                    <i class="bx bx-lock-open-alt"></i><span>Role & Permission</span>
                                 </a>
                             </li>
                         <?php endif; ?>

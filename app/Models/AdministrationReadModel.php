@@ -81,37 +81,75 @@ final class AdministrationReadModel extends Model
     /**
      * @return list<array<string, mixed>>
      */
-    public function villages(): array
+    public function villages(string $search = '', int $limit = 100): array
     {
-        return $this->db->table('villages v')
+        $builder = $this->db->table('villages v')
             ->select('p.code AS province_code, p.name AS province, r.name AS regency, d.name AS district, v.code, v.name, v.type, v.postal_code, v.source_version')
             ->join('districts d', 'd.id = v.district_id')
             ->join('regencies r', 'r.id = d.regency_id')
             ->join('provinces p', 'p.id = r.province_id')
-            ->where('v.is_active', true)
+            ->where('v.is_active', true);
+
+        $this->applyVillageSearch($builder, $search);
+
+        return $builder
             ->orderBy('p.code', 'ASC')
             ->orderBy('r.name', 'ASC')
             ->orderBy('d.name', 'ASC')
             ->orderBy('v.name', 'ASC')
+            ->limit($limit)
             ->get()
             ->getResultArray();
     }
 
     /**
+     * @return array{provinces: int, regencies: int, districts: int, villages: int}
+     */
+    public function regionCounts(): array
+    {
+        return [
+            'provinces' => $this->db->table('provinces')->where('is_active', true)->countAllResults(),
+            'regencies' => $this->db->table('regencies')->where('is_active', true)->countAllResults(),
+            'districts' => $this->db->table('districts')->where('is_active', true)->countAllResults(),
+            'villages'  => $this->db->table('villages')->where('is_active', true)->countAllResults(),
+        ];
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
-    public function villageOptions(): array
+    public function villageOptions(string $search = '', ?int $selectedId = null, int $limit = 100): array
     {
-        return $this->db->table('villages v')
+        $builder = $this->db->table('villages v')
             ->select("v.id, v.name, d.name AS district, r.name AS regency, p.name AS province")
             ->join('districts d', 'd.id = v.district_id')
             ->join('regencies r', 'r.id = d.regency_id')
             ->join('provinces p', 'p.id = r.province_id')
-            ->where('v.is_active', true)
+            ->where('v.is_active', true);
+
+        $this->applyVillageSearch($builder, $search);
+
+        $options = $builder
             ->orderBy('p.name', 'ASC')
             ->orderBy('v.name', 'ASC')
+            ->limit($limit)
             ->get()
             ->getResultArray();
+
+        if ($selectedId === null || array_filter($options, static fn (array $option): bool => (int) $option['id'] === $selectedId) !== []) {
+            return $options;
+        }
+
+        $selected = $this->db->table('villages v')
+            ->select("v.id, v.name, d.name AS district, r.name AS regency, p.name AS province")
+            ->join('districts d', 'd.id = v.district_id')
+            ->join('regencies r', 'r.id = d.regency_id')
+            ->join('provinces p', 'p.id = r.province_id')
+            ->where('v.id', $selectedId)
+            ->get()
+            ->getFirstRow('array');
+
+        return $selected === null ? $options : [$selected, ...$options];
     }
 
     /**
@@ -152,12 +190,90 @@ final class AdministrationReadModel extends Model
     public function roles(): array
     {
         return $this->db->table('roles r')
-            ->select('r.id, r.company_id, r.name, c.code AS company_code')
+            ->select('r.id, r.company_id, r.code, r.name, r.is_system, r.status, c.code AS company_code, c.name AS company_name')
             ->join('companies c', 'c.id = r.company_id')
-            ->where('r.status', 'active')
             ->orderBy('c.name', 'ASC')
             ->orderBy('r.name', 'ASC')
             ->get()
             ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function branchOptions(): array
+    {
+        return $this->db->table('branches b')
+            ->select('b.id, b.company_id, b.code, b.name, c.code AS company_code')
+            ->join('companies c', 'c.id = b.company_id')
+            ->where('b.deleted_at', null)
+            ->where('b.status', 'active')
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('b.name', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function permissions(): array
+    {
+        return $this->db->table('permissions p')
+            ->select('p.id, p.company_id, p.code, p.name, p.module, c.code AS company_code, c.name AS company_name')
+            ->join('companies c', 'c.id = p.company_id')
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('p.module', 'ASC')
+            ->orderBy('p.code', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function rolePermissionGrants(): array
+    {
+        return $this->db->table('role_permissions rp')
+            ->select('c.code AS company_code, r.name AS role_name, p.code AS permission_code, p.name AS permission_name')
+            ->join('companies c', 'c.id = rp.company_id')
+            ->join('roles r', 'r.id = rp.role_id')
+            ->join('permissions p', 'p.id = rp.permission_id')
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('r.name', 'ASC')
+            ->orderBy('p.code', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    public function roleCodeExists(int $companyId, string $code): bool
+    {
+        return $this->db->table('roles')
+            ->where(['company_id' => $companyId, 'code' => $code])
+            ->countAllResults() > 0;
+    }
+
+    public function permissionCodeExists(int $companyId, string $code): bool
+    {
+        return $this->db->table('permissions')
+            ->where(['company_id' => $companyId, 'code' => $code])
+            ->countAllResults() > 0;
+    }
+
+    private function applyVillageSearch(\CodeIgniter\Database\BaseBuilder $builder, string $search): void
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return;
+        }
+
+        $builder->groupStart()
+            ->like('v.name', $search)
+            ->orLike('d.name', $search)
+            ->orLike('r.name', $search)
+            ->orLike('p.name', $search)
+            ->orLike('v.code', $search)
+            ->groupEnd();
     }
 }

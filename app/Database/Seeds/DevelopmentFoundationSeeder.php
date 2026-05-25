@@ -20,7 +20,7 @@ final class DevelopmentFoundationSeeder extends Seeder
             'created_at'     => $now,
         ]);
 
-        $regencyId = $this->findOrCreate('regencies', 'code', '31.73', [
+        $regencyId = $this->findOrCreate('regencies', 'code', '3174', [
             'province_id'    => $provinceId,
             'name'           => 'Kota Jakarta Barat',
             'type'           => 'kota',
@@ -29,7 +29,7 @@ final class DevelopmentFoundationSeeder extends Seeder
             'created_at'     => $now,
         ]);
 
-        $districtId = $this->findOrCreate('districts', 'code', '31.73.01', [
+        $districtId = $this->findOrCreate('districts', 'code', '3174070', [
             'regency_id'     => $regencyId,
             'name'           => 'Cengkareng',
             'source_version' => $version,
@@ -37,7 +37,7 @@ final class DevelopmentFoundationSeeder extends Seeder
             'created_at'     => $now,
         ]);
 
-        $villageId = $this->findOrCreate('villages', 'code', '31.73.01.1001', [
+        $villageId = $this->findOrCreate('villages', 'code', '3174070006', [
             'district_id'    => $districtId,
             'name'           => 'Cengkareng Barat',
             'type'           => 'kelurahan',
@@ -76,6 +76,10 @@ final class DevelopmentFoundationSeeder extends Seeder
                 'status'         => 'active',
                 'created_at'     => $now,
             ]);
+
+            $branchId = (int) $this->db->insertID();
+        } else {
+            $branchId = (int) $existingBranch['id'];
         }
 
         $ownerRoleId = $this->findTenantRecord('roles', $companyId, 'code', 'owner', [
@@ -99,7 +103,7 @@ final class DevelopmentFoundationSeeder extends Seeder
 
         $this->grantPermission($companyId, $ownerRoleId, $viewPermissionId, $now);
         $this->grantPermission($companyId, $ownerRoleId, $managePermissionId, $now);
-        $this->assignDevelopmentAdmin($companyId, $ownerRoleId, $now);
+        $this->assignDevelopmentAdmin($companyId, $branchId, $ownerRoleId, $now);
     }
 
     /**
@@ -156,7 +160,7 @@ final class DevelopmentFoundationSeeder extends Seeder
         }
     }
 
-    private function assignDevelopmentAdmin(int $companyId, int $roleId, string $now): void
+    private function assignDevelopmentAdmin(int $companyId, int $branchId, int $roleId, string $now): void
     {
         $identity = $this->db->table('auth_identities')
             ->select('user_id')
@@ -188,6 +192,17 @@ final class DevelopmentFoundationSeeder extends Seeder
                 'role_id'        => $roleId,
                 'effective_from' => date('Y-m-d'),
                 'created_at'     => $now,
+            ]);
+        }
+
+        if ($this->db->table('user_branch_memberships')->where(['company_id' => $companyId, 'user_id' => $userId, 'branch_id' => $branchId])->countAllResults() === 0) {
+            $this->db->table('user_branch_memberships')->insert([
+                'company_id' => $companyId,
+                'user_id'    => $userId,
+                'branch_id'  => $branchId,
+                'can_switch' => true,
+                'status'     => 'active',
+                'created_at' => $now,
             ]);
         }
     }

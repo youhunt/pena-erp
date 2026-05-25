@@ -4,6 +4,8 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 $routes->get('/', 'Home::index', ['filter' => 'session']);
+$routes->get('workspace', 'Workspace::chooser', ['filter' => 'session']);
+$routes->post('workspace/context', 'Workspace::select', ['filter' => 'session']);
 $routes->get('workspace/(:num)', 'Workspace::index/$1', ['filter' => 'session']);
 
 $routes->group('administration', ['filter' => ['session', 'permission:platform.company.manage']], static function ($routes): void {
@@ -20,6 +22,10 @@ $routes->group('administration', ['filter' => ['session', 'permission:platform.c
     $routes->get('regions', 'Administration::regions');
     $routes->get('access', 'Administration::access');
     $routes->post('access', 'Administration::assignAccess');
+    $routes->get('rbac', 'Administration::rbac');
+    $routes->post('rbac/roles', 'Administration::createRole');
+    $routes->post('rbac/permissions', 'Administration::createPermission');
+    $routes->post('rbac/grants', 'Administration::grantPermission');
 });
 
 // ERP accounts are provisioned by administrators; public registration is disabled.

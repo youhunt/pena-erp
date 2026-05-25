@@ -23,10 +23,6 @@ final class RegionImportService
      */
     public function importDirectory(string $directory, string $sourceVersion): array
     {
-        if ($sourceVersion === '') {
-            throw new RuntimeException('Source version wajib diisi.');
-        }
-
         $resolvedDirectory = realpath($directory);
 
         if ($resolvedDirectory === false && ! str_starts_with($directory, ROOTPATH)) {
@@ -38,12 +34,41 @@ final class RegionImportService
         }
 
         $directory = rtrim($resolvedDirectory, DIRECTORY_SEPARATOR . '/');
-        $counts    = ['provinces' => 0, 'regencies' => 0, 'districts' => 0, 'villages' => 0];
-        $now       = date('Y-m-d H:i:s');
+
+        return $this->importRows(
+            $this->rows($directory . '/provinces.csv', ['code', 'name']),
+            $this->rows($directory . '/regencies.csv', ['code', 'province_code', 'name', 'type']),
+            $this->rows($directory . '/districts.csv', ['code', 'regency_code', 'name']),
+            $this->rows($directory . '/villages.csv', ['code', 'district_code', 'name', 'type', 'postal_code']),
+            $sourceVersion,
+        );
+    }
+
+    /**
+     * @param list<array<string, string>> $provinces
+     * @param list<array<string, string>> $regencies
+     * @param list<array<string, string>> $districts
+     * @param list<array<string, string>> $villages
+     *
+     * @return array{provinces: int, regencies: int, districts: int, villages: int}
+     */
+    public function importRows(
+        array $provinces,
+        array $regencies,
+        array $districts,
+        array $villages,
+        string $sourceVersion,
+    ): array {
+        if ($sourceVersion === '') {
+            throw new RuntimeException('Source version wajib diisi.');
+        }
+
+        $counts = ['provinces' => 0, 'regencies' => 0, 'districts' => 0, 'villages' => 0];
+        $now    = date('Y-m-d H:i:s');
 
         $this->db->transStart();
 
-        foreach ($this->rows($directory . '/provinces.csv', ['code', 'name']) as $row) {
+        foreach ($provinces as $row) {
             $this->upsert('provinces', $row['code'], [
                 'name'           => $row['name'],
                 'source_version' => $sourceVersion,
@@ -52,7 +77,7 @@ final class RegionImportService
             $counts['provinces']++;
         }
 
-        foreach ($this->rows($directory . '/regencies.csv', ['code', 'province_code', 'name', 'type']) as $row) {
+        foreach ($regencies as $row) {
             $this->upsert('regencies', $row['code'], [
                 'province_id'    => $this->idForCode('provinces', $row['province_code']),
                 'name'           => $row['name'],
@@ -63,7 +88,7 @@ final class RegionImportService
             $counts['regencies']++;
         }
 
-        foreach ($this->rows($directory . '/districts.csv', ['code', 'regency_code', 'name']) as $row) {
+        foreach ($districts as $row) {
             $this->upsert('districts', $row['code'], [
                 'regency_id'     => $this->idForCode('regencies', $row['regency_code']),
                 'name'           => $row['name'],
@@ -73,7 +98,7 @@ final class RegionImportService
             $counts['districts']++;
         }
 
-        foreach ($this->rows($directory . '/villages.csv', ['code', 'district_code', 'name', 'type', 'postal_code']) as $row) {
+        foreach ($villages as $row) {
             $this->upsert('villages', $row['code'], [
                 'district_id'    => $this->idForCode('districts', $row['district_code']),
                 'name'           => $row['name'],

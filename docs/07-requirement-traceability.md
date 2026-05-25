@@ -35,10 +35,14 @@ This package is a solution blueprint and starter implementation specification,
 not a completed ERP. Tahap 1 telah memasang CodeIgniter 4.7.3 appstarter dan
 namespace root `Modules\`. Tahap 3 telah memasukkan resource Skote dan asset
 runtime, menghubungkan UI auth ke Shield, serta membuat dashboard shell awal.
-Tahap 4 telah dimulai dengan migration master wilayah global, company/branch,
+Tahap 4 telah dimulai dengan migration master wilayah global, importer CSV dan
+sinkronisasi API wilayah versioned (dataset API development sudah termuat,
+validasi kelengkapan resmi masih tertunda), company/branch,
 database session, membership/RBAC tenant awal, importer CSV versioned,
-company/branch CRUD, assignment role, dan workspace tenant berizin.
-Import dataset nasional resmi lengkap, branch context switching, transaksi,
+company/branch CRUD, assignment role/branch, dan workspace tenant dengan
+context company/branch aktif tersimpan dalam session. UI RBAC awal sekarang
+mendukung pembuatan role/permission dan grant yang divalidasi per-company.
+Import dataset nasional resmi lengkap, edit/revoke RBAC lengkap, transaksi,
 deployment manifests dan provider credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation

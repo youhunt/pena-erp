@@ -16,8 +16,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   auth provider boundary.
 - Tahap 3 selesai untuk shell awal: asset Skote, login/magic-link, dashboard,
   dan navigasi terlindungi telah dihubungkan ke Shield.
-- Tahap 4 berjalan: master wilayah global, company/branch CRUD, membership dan
-  role tenant awal, workspace berizin, importer wilayah versioned, serta layar
+- Tahap 4 berjalan: master wilayah global dengan import CSV/sinkronisasi API,
+  company/branch CRUD, membership dan role/permission tenant awal beserta
+  grant UI, workspace berizin dengan context branch aktif, serta layar
   administrasi superadmin telah dibuat.
 
 ```bash

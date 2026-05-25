@@ -27,7 +27,7 @@ catat keputusan sebagai perubahan yang masih menunggu approval.
 | 1 | Bootstrap CI4 dan environment development | Selesai, 25 Mei 2026 |
 | 2 | Authentication provider dan base security | Selesai, 25 Mei 2026 |
 | 3 | Skote shell dan module foundation | Selesai untuk shell awal, 25 Mei 2026 |
-| 4 | Tenant/company/branch/RBAC migrations | Berjalan: CRUD + RBAC tenant awal, 25 Mei 2026 |
+| 4 | Tenant/company/branch/RBAC migrations | Berjalan: CRUD + context switch + RBAC UI awal, 25 Mei 2026 |
 | 5+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
@@ -146,18 +146,33 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 - `created_by`/`updated_by` mengikuti key Shield `users.id` (`INT UNSIGNED`);
   `company_id` dan master domain tetap menggunakan `BIGINT UNSIGNED`.
 - Seeder development membuat satu jalur alamat bootstrap DKI Jakarta,
-  `PT Pena Inovasi Sistem`, dan `Jakarta Head Office`. Data wilayah ini
-  terbatas untuk pengujian UI, belum import dataset resmi lengkap.
+  `PT Pena Inovasi Sistem`, dan `Jakarta Head Office`. Data wilayah bootstrap
+  ini dipakai sebelum atau ketika sinkronisasi API belum dijalankan.
 - Superadmin dapat membuka menu `Company`, `Branch`, `Master Wilayah`, dan
   `Akses User`; company dan branch sudah dapat ditambah/diedit.
 - Seed memberi administrator development membership `PENA`, role tenant
   `Owner`, serta permission `company.dashboard.view` dan
   `company.master.manage`. Halaman `/workspace/{companyId}` membuktikan akses
   tenant melalui membership dan role; akses tanpa grant ditolak `403`.
+- Membership branch sekarang dapat diberikan dari layar `Akses User`.
+  `/workspace` menyediakan pemilih company/branch aktif dan menyimpan context
+  tervalidasi pada session; navbar dan dashboard menampilkan scope aktif.
+- Layar `Role & Permission` dapat membuat role dan permission dinamis per
+  company serta memberikan grant. Backend menolak grant lintas-company dan
+  pengujian membuktikan permission baru dapat dipakai oleh user yang ditugaskan.
 - Command `php spark regions:import <directory> <source_version>` tersedia
   untuk mengimpor empat CSV versioned (`provinces`, `regencies`, `districts`,
-  `villages`) secara idempotent. Dataset nasional aktual belum dimasukkan
-  hingga berkas resmi Kemendagri yang disetujui tersedia.
+  `villages`) secara idempotent.
+- Command `php spark regions:sync-api <source_version>` mengambil hierarchy
+  yang tersedia dari API wilayah menggunakan `regions.apiBaseUrl` dan
+  `regions.apiToken` di `.env`, lalu mengimpor secara idempotent dengan audit
+  versi sumber yang sama.
+- Sinkronisasi API development pada 25 Mei 2026 menghasilkan 36 provinsi,
+  518 kabupaten/kota, 7.234 kecamatan, dan 80.694 desa/kelurahan. Jumlah ini
+  sudah dapat dipakai untuk pengujian aplikasi, tetapi belum lolos validasi
+  kelengkapan master resmi terbaru.
+- Halaman master wilayah dan field alamat company/branch memakai pencarian
+  terbatas 100 hasil agar dataset nasional tidak dirender seluruhnya ke HTML.
 - Test database memverifikasi hierarchy seed serta sifat idempotent seeder.
 
 ### Verifikasi Tahap 4 Saat Ini
@@ -166,12 +181,15 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 php spark migrate --all
 php spark db:seed App\\Database\\Seeds\\DevelopmentFoundationSeeder
 php spark regions:import <directory-csv-resmi> <versi-sumber>
+php spark regions:sync-api <versi-sumber-api>
 php spark routes
 php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
 ```
 
 Migration foundation telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login
-superadmin. Pekerjaan lanjutan Tahap 4 adalah memuat master wilayah resmi
-lengkap, branch membership/switch context, pengelolaan role/permission yang
-lebih lengkap, dan isolation tests antar-user/company.
+superadmin. Pekerjaan lanjutan Tahap 4 adalah mengganti atau melengkapi dataset
+API hingga sesuai rujukan master resmi, memperluas pengelolaan
+role/permission, dan isolation tests
+antar-user/company sebelum modul transaksi menggunakan tenant context. UI RBAC
+saat ini mencakup create/grant awal; edit, revoke, dan matriks menu masih lanjut.

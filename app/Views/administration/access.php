@@ -34,6 +34,14 @@
                         </select>
                         <div class="form-text">Role harus berasal dari company yang sama.</div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Branch Awal</label>
+                        <select name="branch_id" class="form-select">
+                            <option value="">Tanpa pembatasan branch saat ini</option>
+                            <?php foreach ($branches as $branch) : ?><option value="<?= esc($branch['id']) ?>"><?= esc($branch['company_code'] . ' - ' . $branch['name']) ?></option><?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Branch harus berasal dari company yang sama agar bisa dipilih sebagai konteks.</div>
+                    </div>
                     <button class="btn btn-primary" type="submit">Simpan Akses</button>
                 </form>
             </div>

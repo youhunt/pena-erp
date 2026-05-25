@@ -31,11 +31,11 @@ Mutation requirements:
 | Method / URI | Purpose | Permission |
 | --- | --- | --- |
 | `GET/POST /login`, `GET /logout`, magic-link policy routes | Shield session flows | public/throttled |
-| `GET /me/companies` | Available company/branches | authenticated |
-| `POST /me/context` | Switch active company/branch | membership |
-| `GET/POST /companies` | Tenant administration | `platform.company.manage` |
-| `GET/POST /branches` | Branch CRUD | `company.branch.manage` |
-| `GET/POST /users`, `/roles`, `/permissions` | Tenant RBAC | `roles.manage` |
+| `GET /workspace`, `POST /workspace/context` | Available context and switch active company/branch | membership |
+| `GET/POST /administration/companies` | Tenant administration shell | `platform.company.manage` |
+| `GET/POST /administration/branches` | Branch CRUD shell | `platform.company.manage` |
+| `GET/POST /administration/access` | Assign role and initial branch membership | `platform.company.manage` |
+| `GET /administration/rbac`, `POST /administration/rbac/roles`, `/permissions`, `/grants` | Tenant RBAC create/grant shell | `platform.company.manage` |
 | `GET /audit-logs` | Auditable activity search | `audit.view` |
 
 ### Masters and Inventory

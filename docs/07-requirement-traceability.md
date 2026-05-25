@@ -33,22 +33,27 @@
 
 This package is a solution blueprint and starter implementation specification,
 not a completed ERP. Tahap 1 telah memasang CodeIgniter 4.7.3 appstarter dan
-namespace root `Modules\`; repository belum memiliki licensed Velzon assets
-atau implementasi domain. Tahap berikutnya harus membuat migration untuk tabel
-katalog, frontend assets, automated tests, deployment manifests dan provider
-credentials di bawah gate roadmap.
+namespace root `Modules\`. Tahap 3 telah memasukkan resource Skote dan asset
+runtime, menghubungkan UI auth ke Shield, serta membuat dashboard shell awal.
+Tahap 4 telah dimulai dengan migration master wilayah global, company/branch,
+database session, membership/RBAC tenant awal, importer CSV versioned,
+company/branch CRUD, assignment role, dan workspace tenant berizin.
+Import dataset nasional resmi lengkap, branch context switching, transaksi,
+deployment manifests dan provider credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation
 
 - Authentication decision is complete: CodeIgniter Shield is the selected
   provider; implement ERP access only behind `AuthGatewayInterface`.
-- Acquire licensed Velzon CI4 assets and branding requirements.
+- Validate licensed Skote assets and finalize branding requirements.
 - Confirm accounting policy (GRNI/perpetual stock/tax/fiscal lock), document
   retention and approval authority limits.
 - Select OCR deployment profile (CPU/GPU, languages, page throughput) and AI
   data-processing/privacy policy.
 - Approve tenancy tier: shared schema initially and criteria for dedicated
   tenant database/storage.
+- Approve the versioned source/import process for global Indonesian regional
+  master data (provinsi, kabupaten/kota, kecamatan, desa/kelurahan).
 
 ## Definition of Done for First Production Release
 

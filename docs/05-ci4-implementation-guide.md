@@ -3,7 +3,7 @@
 ## 1. Bootstrap Target
 
 Repository saat ini belum berisi aplikasi CI4. Saat fase foundation dimulai,
-buat aplikasi CI4 versi terkunci, import asset Velzon berlisensi, lalu tempatkan
+buat aplikasi CI4 versi terkunci, import asset Skote berlisensi, lalu tempatkan
 module di luar `app` dengan PSR-4.
 
 Installed dependency baseline:
@@ -68,7 +68,7 @@ app/
 |-- Config/Filters.php
 |-- Filters/TenantContextFilter.php
 |-- Libraries/Tenancy/TenantContext.php
-`-- Views/layouts/                 # Velzon shell
+`-- Views/layouts/                 # Skote shell
 ```
 
 Each module follows:
@@ -648,15 +648,28 @@ target module after workflow approval.
 
 Seeders required:
 
+- Versioned global Indonesian regional reference: provinces, regencies
+  (kabupaten/kota), districts (kecamatan), and villages (desa/kelurahan).
 - Platform admin and demo company/branches.
 - Default roles/permission matrix and menu permission mapping.
 - Base currencies, taxes, UOM, COA, numbering sequences and workflow definitions.
 - Optional anonymized OCR validation fixtures; never seed customer production files.
 
+Import master wilayah dilakukan dengan command:
+
+```bash
+php spark regions:import <directory-csv-resmi> <source_version>
+```
+
+Direktori input memuat `provinces.csv`, `regencies.csv`, `districts.csv`, dan
+`villages.csv`. Import bersifat idempotent berdasarkan kode wilayah dan wajib
+menyimpan identitas versi Kepmendagri/dataset resmi yang telah disetujui.
+
 Minimum automated tests:
 
 | Test Suite | Must Prove |
 | --- | --- |
+| Reference data tests | Regional hierarchy import is idempotent and address FK rejects invalid village references |
 | Tenancy feature tests | Cross-company read/update/file preview always denied |
 | Permission tests | Route and service enforce permission and approval amount |
 | Accounting tests | Every posting balances; locked periods reject writes; reversal works |

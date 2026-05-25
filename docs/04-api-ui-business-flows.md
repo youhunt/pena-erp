@@ -42,6 +42,7 @@ Mutation requirements:
 
 | Method / URI | Purpose | Permission |
 | --- | --- | --- |
+| `GET /reference/provinces`, `/reference/regencies`, `/reference/districts`, `/reference/villages` | Dependent address lookup from global Indonesian regional master | authenticated |
 | `GET/POST /products`, `/warehouses`, `/suppliers`, `/customers` | Master CRUD | corresponding `.manage` |
 | `GET /inventory/balances` | Paginated/filterable balance | `inventory.stock.view` |
 | `GET /inventory/movements` | Ledger drilldown | `inventory.stock.view` |
@@ -93,15 +94,15 @@ Upload response is `202 Accepted` with a document UUID and polling URL. The
 server ignores any client request to set `company_id`, AI confidence or posted
 transaction ID.
 
-## 3. Velzon Presentation Structure
+## 3. Skote Presentation Structure
 
-Velzon provides layout, Bootstrap 5 styling, theme/dark mode, DataTables and
+Skote provides layout, Bootstrap 5 styling, theme/dark mode, DataTables and
 ApexCharts presentation. Application logic remains in CI4 modules.
 
 ```text
 app/Views/
 |-- layouts/
-|   |-- main.php                 # Velzon shell, CSP nonce, theme attributes
+|   |-- main.php                 # Skote shell, CSP nonce, theme attributes
 |   `-- auth.php
 |-- partials/
 |   |-- sidebar.php              # menu from authorized menu service

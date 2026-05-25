@@ -22,7 +22,7 @@ Target production:
 | --- | --- | --- |
 | Runtime | PHP `^8.2`, Composer | Dev bootstrap terverifikasi pada PHP 8.2.12; production menggunakan PHP-FPM |
 | Backend | CodeIgniter 4 `^4.7` | Appstarter/framework telah dikunci pada `4.7.3` pada Tahap 1 |
-| Presentation | Velzon CI4, Bootstrap 5, SCSS, jQuery/AJAX | Layout dan asset hanya pada presentation layer |
+| Presentation | Skote, Bootstrap 5, SCSS, jQuery/AJAX | Resource sumber di `resources/skote`; asset runtime di `public/assets` |
 | Data grid/chart | DataTables, ApexCharts | Endpoint server-side untuk dataset besar |
 | Database | MySQL 8.0 atau MariaDB setara | InnoDB, `utf8mb4`, timezone UTC, decimal finance |
 | Authentication | CodeIgniter Shield `^1.3` via adapter | Shield `v1.3.0` terpasang pada Tahap 2; domain tetap melalui `AuthGatewayInterface` |
@@ -44,7 +44,7 @@ melalui `AuthGatewayInterface`.
 
 ```mermaid
 flowchart LR
-    Browser[Velzon Web / AJAX] --> Web[CI4 Web + REST Controllers]
+    Browser[Skote Web / AJAX] --> Web[CI4 Web + REST Controllers]
     Client[Integration Client] --> API[Versioned REST API]
     Web --> Filters[Tenant + Auth + Permission Filters]
     API --> Filters
@@ -66,7 +66,7 @@ flowchart LR
 | --- | --- | --- |
 | Presentation | Controllers, API resources, views, AJAX validation | Tidak mengandung posting ledger atau SQL |
 | Application | Service, DTO, command handlers, workflow orchestration | Tidak membaca request/session langsung |
-| Domain | Entity/value objects, rules, events | Tidak tahu CI4/Velzon/OCR provider |
+| Domain | Entity/value objects, rules, events | Tidak tahu CI4/Skote/OCR provider |
 | Infrastructure | Repository CI4, Redis, storage, OCR/LLM clients | Tidak menentukan business approval |
 
 ## 4. Module Boundaries
@@ -75,6 +75,7 @@ flowchart LR
 | --- | --- | --- |
 | Auth, Users, Roles | Identity, tenant membership, permission matrix | `UserAuthenticated`, `RoleAssigned` |
 | Company, Branch, Settings | Tenant, branch, fiscal/numbering config | `CompanyActivated` |
+| ReferenceData | Wilayah Indonesia global: provinsi, kabupaten/kota, kecamatan, desa/kelurahan | `RegionalReferenceImported` |
 | Dashboard, Reports | Read models/KPI, export | Consume transaksi/events |
 | Inventory | Product, UOM, warehouse, lot, movement, valuation | `StockReserved`, `StockPosted` |
 | Purchasing | Supplier, requisition, PO, GRN, AP invoice | `PurchaseInvoiceApproved` |
@@ -96,6 +97,9 @@ Fase awal memakai shared database/shared schema dengan `company_id` wajib pada
 semua tenant-owned record. `branch_id` wajib untuk operasional yang berlangsung
 di cabang atau gudang. Global platform tables hanya `tenants/plans`, queue
 operational metadata, dan reference non-sensitive yang jelas ditetapkan.
+Master wilayah Indonesia (`provinces`, `regencies`, `districts`, `villages`)
+termasuk reference global: dipakai bersama oleh seluruh company, versioned
+dari dataset resmi yang disetujui, dan tidak menerima perubahan tenant.
 
 Request lifecycle:
 
@@ -149,7 +153,7 @@ Enforcement:
   memeriksa branch, amount limit, segregation of duty dan document state.
 - Approval tidak boleh dilakukan user yang membuat transaksi untuk rule yang
   menetapkan four-eyes control.
-- Menu Velzon hanya presentational visibility; backend permission tetap wajib.
+- Menu Skote hanya presentational visibility; backend permission tetap wajib.
 
 ## 7. Security and Compliance Controls
 
@@ -183,8 +187,8 @@ Enforcement:
 
 | Phase | Duration Indicative | Deliverables and Exit Criteria |
 | --- | --- | --- |
-| 0. Foundation | 2-3 weeks | CI4 app, CI pipeline, tenancy context, Shield/auth adapter, Velzon shell, coding standard |
-| 1. Core Master + RBAC | 3-4 weeks | company/branch/user/role/menu/audit, products/partners/warehouse, automated isolation tests |
+| 0. Foundation | 2-3 weeks | CI4 app, CI pipeline, tenancy context, Shield/auth adapter, Skote shell, coding standard |
+| 1. Core Master + RBAC | 3-4 weeks | global Indonesian regional reference, company/branch/user/role/menu/audit, products/partners/warehouse, automated isolation tests |
 | 2. Commercial MVP | 6-8 weeks | purchasing, inventory, sales, stock movement, base approval, operational reports |
 | 3. Finance + POS | 5-7 weeks | COA/journal/AP/AR/payment/cash bank, POS shift/sale, reconciled postings |
 | 4. OCR/AI Pilot | 5-7 weeks | secure upload, queue, invoice/PO extraction, draft AP/PO, confidence validation UI |

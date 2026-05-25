@@ -5,7 +5,7 @@ multi-branch, workflow approval, dan AI-assisted document processing.
 
 Repository ini berisi aplikasi dasar CodeIgniter `4.7.3` dan baseline desain
 implementasi. Dokumen menjadi kontrak untuk membuat migration, module,
-integrasi Velzon, worker OCR/AI, dan deployment production.
+integrasi Skote, worker OCR/AI, dan deployment production.
 
 ## Status Implementasi
 
@@ -14,6 +14,11 @@ integrasi Velzon, worker OCR/AI, dan deployment production.
 - Tahap 2 selesai: koneksi MySQL `pena_erp`, CodeIgniter Shield `v1.3.0`,
   migration identity/settings, CSRF session, registrasi publik nonaktif, dan
   auth provider boundary.
+- Tahap 3 selesai untuk shell awal: asset Skote, login/magic-link, dashboard,
+  dan navigasi terlindungi telah dihubungkan ke Shield.
+- Tahap 4 berjalan: master wilayah global, company/branch CRUD, membership dan
+  role tenant awal, workspace berizin, importer wilayah versioned, serta layar
+  administrasi superadmin telah dibuat.
 
 ```bash
 composer install
@@ -44,9 +49,10 @@ driver seperti Xdebug atau PCOV; ini cocok diaktifkan pada pipeline CI nanti.
 Root HMVC tersedia di [Modules/README.md](Modules/README.md); module bisnis
 akan dibuat secara bertahap saat migration dan acceptance criteria-nya dimulai.
 
-Untuk saat ini login tersedia pada `/login`. Belum ada user awal; pembuatan
-platform admin akan dilakukan bersama provisioning company/tenant agar akses
-awal tercatat dan tidak memberi role operasional tanpa scope company.
+Untuk development lokal, login tersedia pada `/login` dan satu akun platform
+admin telah diprovision melalui Shield. Assignment role operasional tenant
+sudah dimulai melalui membership/RBAC per company; permission transaksi akan
+ditambahkan saat modul transaksi dibangun.
 
 ## Dokumen Blueprint
 
@@ -56,7 +62,7 @@ awal tercatat dan tidak memberi role operasional tanpa scope company.
 | [01-enterprise-blueprint.md](docs/01-enterprise-blueprint.md) | Sasaran, keputusan stack, arsitektur, tenancy, RBAC, security, roadmap |
 | [02-ai-document-processing.md](docs/02-ai-document-processing.md) | OCR/AI architecture, queue, mapping, validation, learning loop |
 | [03-data-model-catalog.md](docs/03-data-model-catalog.md) | ERD, standar tabel, katalog data lengkap dan index strategy |
-| [04-api-ui-business-flows.md](docs/04-api-ui-business-flows.md) | API, Velzon UI, inventory/purchasing/accounting/approval flow |
+| [04-api-ui-business-flows.md](docs/04-api-ui-business-flows.md) | API, Skote UI, inventory/purchasing/accounting/approval flow |
 | [05-ci4-implementation-guide.md](docs/05-ci4-implementation-guide.md) | HMVC structure, contoh migration, DTO, repository, service, filter, worker |
 | [06-deployment-saas-operations.md](docs/06-deployment-saas-operations.md) | Ubuntu deployment, OCR service, queue, backup, CI/CD dan SaaS scaling |
 | [07-requirement-traceability.md](docs/07-requirement-traceability.md) | Matriks cakupan 24 keluaran dan definition of ready/done |
@@ -65,7 +71,7 @@ awal tercatat dan tidak memberi role operasional tanpa scope company.
 
 - Basis framework ditargetkan `codeigniter4/framework:^4.7` dan wajib dipin
   melalui `composer.lock` setelah compatibility test.
-- Velzon CI4 digunakan sebagai presentation shell; komponen ERP tetap berada
+- Skote digunakan sebagai presentation shell; komponen ERP tetap berada
   dalam module/domain terpisah.
 - Authentication implementation telah dikunci pada `CodeIgniter Shield v1.3.0`;
   Shield migration telah dijalankan pada database development `pena_erp`.
@@ -82,4 +88,4 @@ Referensi diperiksa pada 25 Mei 2026:
 - CodeIgniter 4 repository/release: <https://github.com/codeigniter4/CodeIgniter4>
 - CodeIgniter user guide: <https://codeigniter.com/user_guide/>
 - CodeIgniter Shield: <https://shield.codeigniter.com/>
-- Velzon CodeIgniter documentation: <https://themesbrand.com/velzon/docs/codeigniter/getting-started.html>
+- Resource Skote lokal: `resources/skote/` dan asset runtime `public/assets/`

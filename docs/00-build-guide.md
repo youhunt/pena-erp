@@ -26,8 +26,8 @@ catat keputusan sebagai perubahan yang masih menunggu approval.
 | --- | --- | --- |
 | 1 | Bootstrap CI4 dan environment development | Selesai, 25 Mei 2026 |
 | 2 | Authentication provider dan base security | Selesai, 25 Mei 2026 |
-| 3 | Velzon shell dan module foundation | Belum dimulai |
-| 4 | Tenant/company/branch/RBAC migrations | Belum dimulai |
+| 3 | Skote shell dan module foundation | Selesai untuk shell awal, 25 Mei 2026 |
+| 4 | Tenant/company/branch/RBAC migrations | Berjalan: CRUD + RBAC tenant awal, 25 Mei 2026 |
 | 5+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
@@ -113,8 +113,65 @@ php spark routes
 Migration Shield dan Settings tercatat pada batch pertama; Spark berhasil
 membaca database `pena_erp` sebagai koneksi default.
 
-## Input Untuk Tahap 3
+## Tahap 3: Skote Application Shell
 
-Tahap berikutnya menyiapkan application shell: landing/dashboard terlindungi,
-login branding sementara atau asset Velzon bila sudah tersedia, dan
-navigation/layout dasar sebelum migration tenant ERP dimulai.
+### Yang Sudah Dibuat
+
+- Resource sumber Skote ditempatkan di `resources/skote/` dan asset runtime
+  tersedia dari `public/assets/`.
+- Halaman login dan magic-link memakai branding Pena/Skote serta kontrak field,
+  route dan error handling CodeIgniter Shield.
+- Route `/` kini menuju dashboard shell Skote dan dilindungi filter session.
+- Dashboard awal hanya menampilkan menu yang sudah memiliki route aktif; menu
+  domain ditambahkan setelah migration dan authorization policy tersedia.
+- Feature test mencakup tampilan login/magic-link dan redirect dashboard bagi
+  pengunjung anonim, dengan migration Settings/Shield pada database test.
+
+### Verifikasi Tahap 3 Saat Ini
+
+```bash
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
+```
+
+## Tahap 4: Foundation Master dan Tenant
+
+### Yang Sudah Dibuat
+
+- Migration aplikasi membuat reference global `provinces`, `regencies`,
+  `districts`, `villages`, serta tabel foundation `companies` dan `branches`.
+- Migration aplikasi membuat session database `ci_sessions`, membership
+  `user_company_memberships`/`user_branch_memberships`, dan tenant RBAC
+  `roles`, `permissions`, `role_permissions`, `user_roles`.
+- `created_by`/`updated_by` mengikuti key Shield `users.id` (`INT UNSIGNED`);
+  `company_id` dan master domain tetap menggunakan `BIGINT UNSIGNED`.
+- Seeder development membuat satu jalur alamat bootstrap DKI Jakarta,
+  `PT Pena Inovasi Sistem`, dan `Jakarta Head Office`. Data wilayah ini
+  terbatas untuk pengujian UI, belum import dataset resmi lengkap.
+- Superadmin dapat membuka menu `Company`, `Branch`, `Master Wilayah`, dan
+  `Akses User`; company dan branch sudah dapat ditambah/diedit.
+- Seed memberi administrator development membership `PENA`, role tenant
+  `Owner`, serta permission `company.dashboard.view` dan
+  `company.master.manage`. Halaman `/workspace/{companyId}` membuktikan akses
+  tenant melalui membership dan role; akses tanpa grant ditolak `403`.
+- Command `php spark regions:import <directory> <source_version>` tersedia
+  untuk mengimpor empat CSV versioned (`provinces`, `regencies`, `districts`,
+  `villages`) secara idempotent. Dataset nasional aktual belum dimasukkan
+  hingga berkas resmi Kemendagri yang disetujui tersedia.
+- Test database memverifikasi hierarchy seed serta sifat idempotent seeder.
+
+### Verifikasi Tahap 4 Saat Ini
+
+```bash
+php spark migrate --all
+php spark db:seed App\\Database\\Seeds\\DevelopmentFoundationSeeder
+php spark regions:import <directory-csv-resmi> <versi-sumber>
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
+```
+
+Migration foundation telah dijalankan pada `pena_erp` dan tampilan
+administrasi dan workspace berizin telah diverifikasi melalui login
+superadmin. Pekerjaan lanjutan Tahap 4 adalah memuat master wilayah resmi
+lengkap, branch membership/switch context, pengelolaan role/permission yang
+lebih lengkap, dan isolation tests antar-user/company.

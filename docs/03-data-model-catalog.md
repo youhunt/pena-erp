@@ -19,11 +19,13 @@ Field ini merupakan bagian dokumentasi setiap tabel bertanda tersebut:
 | `created_at` | `DATETIME NOT NULL` | Waktu create UTC |
 | `updated_at` | `DATETIME NULL` | Waktu perubahan UTC |
 | `deleted_at` | `DATETIME NULL` | Soft delete; filter default `IS NULL` |
-| `created_by` | `BIGINT UNSIGNED NULL FK users.id` | Actor create/system nullable |
-| `updated_by` | `BIGINT UNSIGNED NULL FK users.id` | Actor terakhir |
+| `created_by` | `INT UNSIGNED NULL FK users.id` | Actor create/system nullable; follows Shield user key |
+| `updated_by` | `INT UNSIGNED NULL FK users.id` | Actor terakhir; follows Shield user key |
 
-Tabel platform/auth provider tertentu bertanda `G` bersifat global dan tidak
-memiliki `company_id`; tenant access untuk user disimpan pada membership.
+Tabel platform/auth provider dan reference tertentu bertanda `G` bersifat
+global dan tidak memiliki `company_id`; tenant access untuk user disimpan pada
+membership. Master wilayah `G` hanya dikelola oleh proses platform/import
+versioned, bukan oleh masing-masing tenant.
 Tabel tenant hanya dapat diakses repository dengan `TenantContext`.
 
 ### Reference Field Rules
@@ -41,6 +43,14 @@ Tabel tenant hanya dapat diakses repository dengan `TenantContext`.
 ```mermaid
 erDiagram
     companies ||--o{ branches : owns
+    provinces ||--o{ regencies : contains
+    regencies ||--o{ districts : contains
+    districts ||--o{ villages : contains
+    villages ||--o{ companies : locates
+    villages ||--o{ branches : locates
+    villages ||--o{ warehouses : locates
+    villages ||--o{ suppliers : locates
+    villages ||--o{ customers : locates
     companies ||--o{ user_company_memberships : permits
     users ||--o{ user_company_memberships : joins
     branches ||--o{ warehouses : owns
@@ -67,14 +77,18 @@ erDiagram
     document_ai_mapping ||--o{ extracted_document_items : items
 ```
 
-## 3. Platform, Tenant, Identity and Authorization
+## 3. Platform, Reference, Tenant, Identity and Authorization
 
 Semua tabel pada bagian ini `T+A`, kecuali yang diberi tanda `G`.
 
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
-| `companies` (tenant/legal entity) `G` | `id PK`, `code VARCHAR(30) UQ`, `name VARCHAR(150)`, `tax_no VARCHAR(50)`, `base_currency CHAR(3)`, `timezone VARCHAR(50)`, `branding_json JSON`, `status VARCHAR(20)`, audit fields without tenant | `UQ(code)`, `IDX(status)`; root tenant | `PENA, PT Pena, IDR, active` |
-| `branches` (operating branch) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(150)`, `address TEXT`, `is_head_office BOOLEAN`, `status VARCHAR(20)` | FK company; `UQ(company_id,code)` | `JKT, Jakarta HQ` |
+| `provinces` (provinsi) `G` | `id PK`, `code VARCHAR(10) UQ`, `name VARCHAR(100)`, `source_version VARCHAR(40)`, `is_active BOOLEAN` | Official Indonesia regional reference; `UQ(code)`, name search | `31, DKI Jakarta` |
+| `regencies` (kabupaten/kota) `G` | `id PK`, `province_id FK provinces`, `code VARCHAR(10) UQ`, `name VARCHAR(120)`, `type VARCHAR(20)`, `source_version VARCHAR(40)`, `is_active BOOLEAN` | `IDX(province_id,name)`, `type` in `kabupaten,kota` | `31.73, Kota Jakarta Barat` |
+| `districts` (kecamatan) `G` | `id PK`, `regency_id FK regencies`, `code VARCHAR(15) UQ`, `name VARCHAR(120)`, `source_version VARCHAR(40)`, `is_active BOOLEAN` | `IDX(regency_id,name)` | `31.73.01, Cengkareng` |
+| `villages` (desa/kelurahan) `G` | `id PK`, `district_id FK districts`, `code VARCHAR(20) UQ`, `name VARCHAR(120)`, `type VARCHAR(20)`, `postal_code VARCHAR(10) NULL`, `source_version VARCHAR(40)`, `is_active BOOLEAN` | `IDX(district_id,name)`, `type` in `desa,kelurahan` | `kelurahan Cengkareng Barat` |
+| `companies` (tenant/legal entity) `G` | `id PK`, `code VARCHAR(30) UQ`, `name VARCHAR(150)`, `tax_no VARCHAR(50)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `base_currency CHAR(3)`, `timezone VARCHAR(50)`, `branding_json JSON`, `status VARCHAR(20)`, audit fields without tenant | `UQ(code)`, `IDX(status)`, `IDX(village_id)`; root tenant | `PENA, PT Pena, IDR, active` |
+| `branches` (operating branch) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(150)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `is_head_office BOOLEAN`, `status VARCHAR(20)` | FK company; `UQ(company_id,code)`, `IDX(village_id)` | `JKT, Jakarta HQ` |
 | `company_settings` (typed config) | `id PK`, `setting_key VARCHAR(100)`, `setting_value JSON`, `is_secret BOOLEAN` | `UQ(company_id,setting_key)`; secret value encrypted | `invoice.tolerance={"pct":1}` |
 | `fiscal_periods` (period/lock) | `id PK`, `year SMALLINT`, `period TINYINT`, `starts_on DATE`, `ends_on DATE`, `status VARCHAR(20)`, `locked_at DATETIME` | `UQ(company_id,year,period)`, `IDX(company_id,status)` | `2026/05 open` |
 | `number_sequences` (business numbering) | `id PK`, `document_type VARCHAR(40)`, `prefix VARCHAR(30)`, `current_no BIGINT`, `reset_rule VARCHAR(20)` | `UQ(company_id,branch_id,document_type)`; locked increment | `PO,JKT-PO,103` |
@@ -93,6 +107,8 @@ Semua tabel pada bagian ini `T+A`, kecuali yang diberi tanda `G`.
 ## 4. Master Data and Inventory
 
 Seluruh tabel berikut `T+A`; data gudang/gerakan wajib memiliki `branch_id`.
+Master wilayah global berada pada bagian 3 dan menjadi referensi alamat, bukan
+disalin per company.
 
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
@@ -103,7 +119,7 @@ Seluruh tabel berikut `T+A`; data gudang/gerakan wajib memiliki `branch_id`.
 | `product_categories` (catalog hierarchy) | `id PK`, `parent_id FK same NULL`, `code VARCHAR(30)`, `name VARCHAR(120)` | `UQ(company_id,code)`, `IDX(parent_id)` | `ATK` |
 | `products` (stock/service master) | `id PK`, `category_id FK`, `sku VARCHAR(60)`, `barcode VARCHAR(80) NULL`, `name VARCHAR(180)`, `base_uom_id FK`, `product_type VARCHAR(20)`, `track_lot BOOLEAN`, `standard_cost DECIMAL(19,4)`, `status VARCHAR(20)` | `UQ(company_id,sku)`, `IDX(company_id,barcode)`, search name | `ATK-A4-80` |
 | `product_uom_conversions` (alternate UOM) | `id PK`, `product_id FK`, `from_uom_id FK`, `to_uom_id FK`, `factor DECIMAL(18,6)` | `UQ(company_id,product_id,from_uom_id,to_uom_id)` | `BOX -> PCS x12` |
-| `warehouses` (storage site) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(120)`, `address TEXT`, `is_active BOOLEAN` | `UQ(company_id,branch_id,code)` | `JKT-MAIN` |
+| `warehouses` (storage site) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `is_active BOOLEAN` | `UQ(company_id,branch_id,code)`, `IDX(village_id)` | `JKT-MAIN` |
 | `warehouse_bins` (locations) | `id PK`, `warehouse_id FK`, `code VARCHAR(30)`, `name VARCHAR(80)` | `UQ(company_id,warehouse_id,code)` | `R01-A02` |
 | `stock_lots` (lot/expiry trace) | `id PK`, `product_id FK`, `lot_no VARCHAR(60)`, `expiry_date DATE NULL` | `UQ(company_id,product_id,lot_no)` | `LOT260501` |
 | `stock_balances` (current balance read model) | `id PK`, `warehouse_id FK`, `bin_id FK NULL`, `product_id FK`, `lot_id FK NULL`, `qty_on_hand DECIMAL(18,4)`, `qty_reserved DECIMAL(18,4)`, `avg_cost DECIMAL(19,4)` | `UQ(company_id,warehouse_id,bin_id,product_id,lot_id)` | `A4 qty=40` |
@@ -120,9 +136,9 @@ sequence cabang dipakai.
 
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
-| `suppliers` (vendor master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50)`, `email VARCHAR(120)`, `payment_terms_days INT`, `currency_id FK`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,tax_no)`, name search | `SUP-001 PT Sumber` |
+| `suppliers` (vendor master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50)`, `email VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `payment_terms_days INT`, `currency_id FK`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,tax_no)`, `IDX(village_id)`, name search | `SUP-001 PT Sumber` |
 | `supplier_product_mappings` (vendor SKU mapping) | `id PK`, `supplier_id FK`, `supplier_sku VARCHAR(80)`, `supplier_description VARCHAR(200)`, `product_id FK`, `uom_id FK` | `UQ(company_id,supplier_id,supplier_sku)` | `PAPER-A4 -> ATK-A4-80` |
-| `customers` (customer master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50)`, `credit_limit DECIMAL(19,4)`, `payment_terms_days INT`, `status VARCHAR(20)` | `UQ(company_id,code)`, tax/name indices | `CUS-001 Toko Maju` |
+| `customers` (customer master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `credit_limit DECIMAL(19,4)`, `payment_terms_days INT`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(village_id)`, tax/name indices | `CUS-001 Toko Maju` |
 | `purchase_requisitions` (internal demand) | `id PK`, `requisition_no VARCHAR(50)`, `requested_by FK users`, `required_date DATE`, `status VARCHAR(30)` | `UQ(company_id,requisition_no)`, `IDX(status)` | `PR-0001 approved` |
 | `purchase_requisition_items` (demand lines) | `id PK`, `purchase_requisition_id FK`, `product_id FK`, `qty DECIMAL(18,4)`, `uom_id FK`, `required_date DATE` | `IDX(company_id,purchase_requisition_id)` | `A4 10` |
 | `purchase_orders` (vendor commitment) | `id PK`, `po_no VARCHAR(50)`, `supplier_id FK`, `order_date DATE`, `currency_id FK`, `subtotal DECIMAL(19,4)`, `tax_amount DECIMAL(19,4)`, `total_amount DECIMAL(19,4)`, `status VARCHAR(30)`, `document_upload_id FK NULL` | `UQ(company_id,po_no)`, `IDX(supplier_id,status)` | `PO-JKT-000103` |
@@ -218,6 +234,7 @@ Every migration/repository review must verify:
 
 | Check | Required Outcome |
 | --- | --- |
+| Regional reference | Global regional seed/import is versioned, preserves stable official codes, and validates province-to-village hierarchy |
 | Tenant scope | All `T+A` queries insert/filter `company_id`; branch restrictions tested |
 | Foreign key tenant correctness | Service prevents links across companies; optionally composite FK for high-risk ledgers |
 | Unique keys | Document/stock/business numbering includes tenant scope |

@@ -60,7 +60,7 @@ Nginx responsibilities:
 
 - Serve `/public` only, pass `.php` to PHP-FPM, block hidden/config/upload paths.
 - Redirect HTTP to HTTPS; enable HSTS after TLS verified; security headers
-  including CSP compatible with compiled Velzon assets.
+  including CSP compatible with compiled Skote assets.
 - Configure application upload limit aligned with server-side validation and
   client timeouts only for upload intake, not OCR work.
 - Emit request ID and structured access logs.
@@ -138,7 +138,7 @@ not a new expensive OCR process for each document.
 | Ledger/stock | Transactional posting; retry on deadlock; immutable ledger; read models for dashboard |
 | Redis | Menu/RBAC/config cache keyed by company and version; locks; rate limiting; queue |
 | Reports | Asynchronous large exports; cached aggregates/materialized read tables as volume grows |
-| Frontend | Minified versioned Velzon assets; CDN for static public assets only; lazy dashboard widgets |
+| Frontend | Minified versioned Skote assets; CDN for static public assets only; lazy dashboard widgets |
 | Images | Normalize/thumbnail asynchronously; do not ship full scans in queue grids |
 
 Never CDN-cache protected document previews or tenant-sensitive API responses.

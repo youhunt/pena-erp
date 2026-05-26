@@ -33,6 +33,7 @@ final class Inventory extends BaseController
             'uoms'          => $model->unitsOfMeasure($companyId),
             'categories'    => $model->productCategories($companyId),
             'branches'      => $model->branchOptions($companyId),
+            'departments'   => $model->departmentOptions($companyId),
             'locations'     => $model->locations($companyId),
             'conversions'   => $model->uomConversions($companyId),
             'itemTaxes'     => $model->itemTaxes($companyId),
@@ -166,6 +167,7 @@ final class Inventory extends BaseController
         $data = [
             'company_id'  => $companyId,
             'branch_id'   => (int) $this->request->getPost('branch_id'),
+            'department_id' => (int) $this->request->getPost('department_id'),
             'code'        => strtoupper(trim((string) $this->request->getPost('code'))),
             'name'        => trim((string) $this->request->getPost('name')),
             'address'     => trim((string) $this->request->getPost('address')) ?: null,
@@ -175,6 +177,7 @@ final class Inventory extends BaseController
 
         if (! $this->validateData($data, [
             'branch_id'   => 'required|is_natural_no_zero',
+            'department_id' => 'required|is_natural_no_zero',
             'code'        => 'required|alpha_dash|max_length[30]',
             'name'        => 'required|max_length[120]',
             'postal_code' => 'permit_empty|max_length[10]',
@@ -187,7 +190,7 @@ final class Inventory extends BaseController
         }
 
         if (! (new InventoryWriteModel())->createWarehouse($data, $this->actorId())) {
-            return $this->invalid(['branch_id' => 'Branch tidak valid untuk company aktif.']);
+            return $this->invalid(['department_id' => 'Site atau Department tidak valid untuk company aktif.']);
         }
 
         return $this->completed('Gudang berhasil ditambahkan.');

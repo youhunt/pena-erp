@@ -15,9 +15,15 @@ final class SetupWriteModel extends Model
     /**
      * @param array<string, mixed> $data
      */
-    public function createDepartment(array $data, int $actorId): void
+    public function createDepartment(array $data, int $actorId): bool
     {
+        if (! $this->tenantRecord('branches', (int) $data['branch_id'], (int) $data['company_id'])) {
+            return false;
+        }
+
         $this->create('departments', 'DEPARTMENT_CREATED', 'department', $data, $actorId);
+
+        return true;
     }
 
     /**

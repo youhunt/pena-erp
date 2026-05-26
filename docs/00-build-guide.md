@@ -354,6 +354,13 @@ tranche transaksi berikutnya.
 - Kode master yang telah dibuat tidak diedit melalui UI; perubahan dilakukan
   pada atribut operasional, sedangkan penghapusan diganti status `inactive`
   agar FK dokumen lama dan audit trail tidak terputus.
+- Hirarki operasional diselaraskan menjadi `Company -> Site -> Department ->
+  Warehouse -> Location`: migration alignment menambah `departments.branch_id`
+  dan `warehouses.department_id`, dengan validasi parent tenant/Site pada
+  setiap pembuatan master baru.
+- Kolom alignment dibuat nullable untuk menghindari kegagalan migrasi pada
+  data legacy tanpa parent; seeder/backfill mengisi data demo dan write
+  service tidak menerima Department/Warehouse baru tanpa parent hirarki.
 
 ### Master Berikutnya
 

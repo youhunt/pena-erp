@@ -49,9 +49,11 @@ final class Setup extends BaseController
             return $this->denied();
         }
 
-        $data = $this->codedData((int) $context['company_id'], 'name');
+        $data = $this->codedData((int) $context['company_id'], 'name') + [
+            'branch_id' => (int) $this->request->getPost('branch_id'),
+        ];
 
-        if (! $this->validateData($data, ['code' => 'required|alpha_dash|max_length[30]', 'name' => 'required|max_length[120]'])) {
+        if (! $this->validateData($data, ['branch_id' => 'required|is_natural_no_zero', 'code' => 'required|alpha_dash|max_length[30]', 'name' => 'required|max_length[120]'])) {
             return $this->invalid();
         }
 
@@ -59,7 +61,9 @@ final class Setup extends BaseController
             return $this->invalid(['code' => 'Kode department sudah digunakan.']);
         }
 
-        (new SetupWriteModel())->createDepartment($data + ['status' => 'active'], $this->actorId());
+        if (! (new SetupWriteModel())->createDepartment($data + ['status' => 'active'], $this->actorId())) {
+            return $this->invalid(['branch_id' => 'Site tidak valid untuk company aktif.']);
+        }
 
         return $this->completed('Department berhasil ditambahkan.');
     }

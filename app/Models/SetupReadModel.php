@@ -15,7 +15,15 @@ final class SetupReadModel extends Model
      */
     public function departments(int $companyId): array
     {
-        return $this->tenantRows('departments', $companyId, 'name');
+        return $this->db->table('departments d')
+            ->select('d.*, b.code AS branch_code, b.name AS branch_name')
+            ->join('branches b', 'b.id = d.branch_id AND b.company_id = d.company_id', 'left')
+            ->where('d.company_id', $companyId)
+            ->where('d.deleted_at', null)
+            ->orderBy('b.name', 'ASC')
+            ->orderBy('d.name', 'ASC')
+            ->get()
+            ->getResultArray();
     }
 
     /**

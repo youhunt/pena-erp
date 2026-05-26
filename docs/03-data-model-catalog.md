@@ -53,7 +53,9 @@ erDiagram
     villages ||--o{ customers : locates
     companies ||--o{ user_company_memberships : permits
     users ||--o{ user_company_memberships : joins
-    branches ||--o{ warehouses : owns
+    branches ||--o{ departments : owns
+    departments ||--o{ warehouses : owns
+    warehouses ||--o{ warehouse_bins : contains
     companies ||--o{ products : catalogs
     companies ||--o{ suppliers : works_with
     companies ||--o{ customers : sells_to
@@ -93,7 +95,7 @@ Semua tabel pada bagian ini `T+A`, kecuali yang diberi tanda `G`.
 | `company_settings` (typed config) | `id PK`, `setting_key VARCHAR(100)`, `setting_value JSON`, `is_secret BOOLEAN` | `UQ(company_id,setting_key)`; secret value encrypted | `invoice.tolerance={"pct":1}` |
 | `fiscal_periods` (period/lock) | `id PK`, `year SMALLINT`, `period TINYINT`, `starts_on DATE`, `ends_on DATE`, `status VARCHAR(20)`, `locked_at DATETIME` | `UQ(company_id,year,period)`, `IDX(company_id,status)` | `2026/05 open` |
 | `transaction_codes` (business numbering) | `id PK`, `branch_id FK NULL`, `module VARCHAR(30)`, `code VARCHAR(40)`, `prefix VARCHAR(30)`, `next_number BIGINT`, `number_length TINYINT`, `reset_rule VARCHAR(20)`, `status VARCHAR(20)` | `UQ(company_id,branch_id,code)`; locked increment; UI label Transaction Code | `sales, SO, JKT-SO-, 000103` |
-| `departments` (organization unit) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(120)`, `status VARCHAR(20)` | `UQ(company_id,code)`; digunakan approval/cost center berikutnya | `OPS, Operations` |
+| `departments` (site organization unit) | `id PK`, `branch_id FK branches`, `code VARCHAR(30)`, `name VARCHAR(120)`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,branch_id,status)`; site wajib tenant sama, digunakan approval/cost center berikutnya | `JKT / OPS, Operations` |
 | `addresses` (reusable tenant address master) | `id PK`, `code VARCHAR(40)`, `label VARCHAR(120)`, `address_line1 TEXT`, `country_id FK countries`, `village_id FK villages NULL`, `postal_code VARCHAR(10)`, `status VARCHAR(20)` | `UQ(company_id,code)`, location indexes; partner link pada tranche commercial | `MAIN, Address Utama` |
 | `users` (Shield identity) `G` | Shield-managed columns: `id PK`, `username VARCHAR(30) NULL`, `status VARCHAR(255) NULL`, `active BOOLEAN`, `last_active DATETIME NULL`, audit timestamps; email/password identities reside in `auth_identities` | Owned by Shield/auth adapter; `active = false` wajib meniadakan context/menu/permission tenant | `user 9 active` |
 | `auth_identities` (Shield credentials) `G` | Shield-managed `id PK`, `user_id FK users`, `type VARCHAR(255)`, `secret VARCHAR(255)`, `secret2 VARCHAR(255) NULL`, `force_reset BOOLEAN`, `expires DATETIME NULL`, timestamps | Identity lookup indexes managed by Shield; password sementara admin menandai `force_reset = true` | `email_password` |
@@ -111,6 +113,11 @@ Semua tabel pada bagian ini `T+A`, kecuali yang diberi tanda `G`.
 ## 4. Master Data and Inventory
 
 Seluruh tabel berikut `T+A`; data gudang/gerakan wajib memiliki `branch_id`.
+Hirarki operasional runtime adalah `Company -> Site (branches) -> Department
+-> Warehouse -> Location`; service write menolak relasi yang melompati parent
+atau menggunakan parent dari tenant/Site lain.
+Pada migration alignment, FK parent baru bersifat nullable untuk data legacy
+yang perlu ditinjau; data baru dari aplikasi wajib memiliki parent lengkap.
 Master wilayah global berada pada bagian 3 dan menjadi referensi alamat, bukan
 disalin per company.
 
@@ -130,8 +137,8 @@ Tabel ledger stok tetap menjadi kontrak tranche transaksi berikutnya.
 | `products` (stock/service master) | `id PK`, `category_id FK`, `sku VARCHAR(60)`, `barcode VARCHAR(80) NULL`, `name VARCHAR(180)`, `base_uom_id FK`, `product_type VARCHAR(20)`, `track_lot BOOLEAN`, `standard_cost DECIMAL(19,4)`, `status VARCHAR(20)` | `UQ(company_id,sku)`, `IDX(company_id,barcode)`, search name | `ATK-A4-80` |
 | `product_uom_conversions` (alternate UOM) | `id PK`, `product_id FK`, `from_uom_id FK`, `to_uom_id FK`, `factor DECIMAL(18,6)`, `status VARCHAR(20)` | `UQ(company_id,product_id,from_uom_id,to_uom_id)` | `BOX -> PCS x12` |
 | `product_tax_codes` (Item VAT mapping) | `id PK`, `product_id FK`, `tax_code_id FK`, `usage_type VARCHAR(20)`, `status VARCHAR(20)` | `UQ(company_id,product_id,tax_code_id,usage_type)` | `A4 -> PPN11 sales` |
-| `warehouses` (storage site) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `is_active BOOLEAN` | `UQ(company_id,branch_id,code)`, `IDX(village_id)` | `JKT-MAIN` |
-| `warehouse_bins` (Location Master) | `id PK`, `branch_id FK`, `warehouse_id FK`, `code VARCHAR(30)`, `name VARCHAR(80)`, `status VARCHAR(20)` | `UQ(company_id,warehouse_id,code)`, `IDX(company_id,branch_id,status)` | `R01-A02` |
+| `warehouses` (department storage) | `id PK`, `branch_id FK branches`, `department_id FK departments`, `code VARCHAR(30)`, `name VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `is_active BOOLEAN` | `UQ(company_id,branch_id,code)`, `IDX(company_id,branch_id,department_id)`; department harus pada Site yang sama | `JKT / OPS / MAIN` |
+| `warehouse_bins` (Location Master) | `id PK`, `branch_id FK`, `warehouse_id FK`, `code VARCHAR(30)`, `name VARCHAR(80)`, `status VARCHAR(20)` | `UQ(company_id,warehouse_id,code)`, `IDX(company_id,branch_id,status)`; Department diwarisi melalui warehouse | `MAIN / R01-A02` |
 | `stock_lots` (Batch Master/expiry trace) | `id PK`, `product_id FK`, `lot_no VARCHAR(60)`, `expiry_date DATE NULL`, `status VARCHAR(20)` | `UQ(company_id,product_id,lot_no)` | `LOT260501` |
 | `stock_balances` (current balance read model) | `id PK`, `warehouse_id FK`, `bin_id FK NULL`, `product_id FK`, `lot_id FK NULL`, `qty_on_hand DECIMAL(18,4)`, `qty_reserved DECIMAL(18,4)`, `avg_cost DECIMAL(19,4)` | `UQ(company_id,warehouse_id,bin_id,product_id,lot_id)` | `A4 qty=40` |
 | `stock_movements` (immutable stock ledger) | `id PK`, `warehouse_id FK`, `product_id FK`, `lot_id FK NULL`, `movement_type VARCHAR(30)`, `reference_type VARCHAR(40)`, `reference_id BIGINT`, `qty DECIMAL(18,4)`, `unit_cost DECIMAL(19,4)`, `posted_at DATETIME` | `IDX(company_id,product_id,posted_at)`, `IDX(reference_type,reference_id)`; no destructive delete after posting | `GRN +10` |

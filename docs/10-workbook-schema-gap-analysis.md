@@ -41,9 +41,9 @@ permission, dan nama tabel konsisten.
 | --- | --- | --- | --- |
 | `company_master` | code, name, PIC, tax ID, address, phone | `companies` + wilayah foundation | company profile/tax/contact/address link belum diperluas |
 | `site_master` | company, site, PIC, tax ID, address variants, phones | `branches` | site profile dan multiple address relation belum ada |
-| `department_master` | company, site, department, PIC, delivery/billing/mailing address | `departments` | optional `branch_id`, PIC dan relation address perlu desain lanjutan |
-| `warehouse_master` | company, site, department, warehouse, PIC, address variants | `warehouses` | department ownership, PIC dan address relation belum dinormalisasi |
-| `location_master` | company, site, department, warehouse, location, PIC/address | `warehouse_bins` | location cukup bin-level saat ini; profile alamat hanya bila kebutuhan operasional terbukti |
+| `department_master` | company, site, department, PIC, delivery/billing/mailing address | `departments.branch_id` | Site ownership Built; PIC dan relation address perlu desain lanjutan |
+| `warehouse_master` | company, site, department, warehouse, PIC, address variants | `warehouses.department_id` | Department ownership Built; PIC dan address relation belum dinormalisasi |
+| `location_master` | company, site, department, warehouse, location, PIC/address | `warehouse_bins` melalui parent warehouse | hierarchy Built; profile alamat hanya bila kebutuhan operasional terbukti |
 | `transaction_code` | company, site, department, code, name, module, type, number, GL code | `transaction_codes` | `department_id`, transaction type/description dan default GL mapping belum ada |
 | `currency` | code, name, rounding | `currencies` | tambahkan decimal/rounding policy saat finance dimulai |
 

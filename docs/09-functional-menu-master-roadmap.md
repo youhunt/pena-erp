@@ -163,6 +163,17 @@ Setiap layar master operasional berikutnya mengikuti pola yang sama dengan
 melalui modal atau form detail, dan tombol hapus pada master yang mungkin
 direferensikan transaksi diwujudkan sebagai `Nonaktifkan`.
 
+Ownership organisasi yang berlaku untuk implementasi master adalah:
+
+```text
+Company -> Site -> Department -> Warehouse -> Location
+```
+
+`departments.branch_id` menempatkan department pada Site, sedangkan
+`warehouses.department_id` memastikan gudang berada di bawah department pada
+Site yang sama. Location tetap menyimpan warehouse sebagai parent langsung
+dan mewarisi department dari warehouse.
+
 Seluruh mutation wajib mengambil `company_id` dari tenant context, melewati
 permission manage, dan menghasilkan audit event. Hard delete hanya boleh
 dipertimbangkan untuk draft yang belum pernah dipakai referensi lain.

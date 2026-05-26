@@ -32,8 +32,9 @@ final class InventoryReadModel extends Model
     public function warehouses(int $companyId): array
     {
         return $this->db->table('warehouses w')
-            ->select('w.id, w.branch_id, w.code, w.name, w.address, w.postal_code, w.is_active, b.code AS branch_code, b.name AS branch_name')
+            ->select('w.id, w.branch_id, w.department_id, w.code, w.name, w.address, w.postal_code, w.is_active, b.code AS branch_code, b.name AS branch_name, d.code AS department_code, d.name AS department_name')
             ->join('branches b', 'b.id = w.branch_id AND b.company_id = w.company_id')
+            ->join('departments d', 'd.id = w.department_id AND d.company_id = w.company_id AND d.branch_id = w.branch_id', 'left')
             ->where('w.company_id', $companyId)
             ->where('w.deleted_at', null)
             ->orderBy('b.name', 'ASC')
@@ -86,12 +87,29 @@ final class InventoryReadModel extends Model
     /**
      * @return list<array<string, mixed>>
      */
+    public function departmentOptions(int $companyId): array
+    {
+        return $this->db->table('departments d')
+            ->select('d.id, d.branch_id, d.code, d.name, b.code AS branch_code')
+            ->join('branches b', 'b.id = d.branch_id AND b.company_id = d.company_id')
+            ->where(['d.company_id' => $companyId, 'd.status' => 'active'])
+            ->where('d.deleted_at', null)
+            ->orderBy('b.code', 'ASC')
+            ->orderBy('d.name', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function locations(int $companyId): array
     {
         return $this->db->table('warehouse_bins l')
-            ->select('l.id, l.code, l.name, l.status, w.code AS warehouse_code, b.code AS branch_code')
+            ->select('l.id, l.code, l.name, l.status, w.code AS warehouse_code, b.code AS branch_code, d.code AS department_code')
             ->join('warehouses w', 'w.id = l.warehouse_id AND w.company_id = l.company_id')
             ->join('branches b', 'b.id = l.branch_id AND b.company_id = l.company_id')
+            ->join('departments d', 'd.id = w.department_id AND d.company_id = w.company_id AND d.branch_id = w.branch_id', 'left')
             ->where('l.company_id', $companyId)
             ->where('l.deleted_at', null)
             ->orderBy('b.code', 'ASC')

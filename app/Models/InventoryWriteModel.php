@@ -71,6 +71,21 @@ final class InventoryWriteModel extends Model
             return false;
         }
 
+        $department = $this->db->table('departments')
+            ->where([
+                'id'         => $data['department_id'],
+                'company_id' => $companyId,
+                'branch_id'  => $data['branch_id'],
+                'status'     => 'active',
+            ])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+
+        if ($department === null) {
+            return false;
+        }
+
         $id = $this->insertAudited('warehouses', $data, $actorId);
         $this->audit()->record('WAREHOUSE_CREATED', 'warehouse', $id, $companyId, (int) $data['branch_id'], $actorId, $data);
         $this->completeTransaction();
@@ -89,7 +104,7 @@ final class InventoryWriteModel extends Model
             ->get()
             ->getFirstRow('array');
 
-        if ($warehouse === null || (int) $warehouse['branch_id'] !== (int) $data['branch_id']) {
+        if ($warehouse === null || $warehouse['department_id'] === null || (int) $warehouse['branch_id'] !== (int) $data['branch_id']) {
             return false;
         }
 

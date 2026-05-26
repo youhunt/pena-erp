@@ -338,6 +338,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $penaUomId = (int) $this->db->table('units_of_measure')->where(['company_id' => $penaId, 'code' => 'REAM'])->get()->getFirstRow()->id;
         $nusaCategoryId = (int) $this->db->table('product_categories')->where(['company_id' => $nusaId, 'code' => 'RETAIL'])->get()->getFirstRow()->id;
         $nusaBranchId = (int) $this->db->table('branches')->where(['company_id' => $nusaId, 'code' => 'BDG'])->get()->getFirstRow()->id;
+        $nusaDepartmentId = (int) $this->db->table('departments')->where(['company_id' => $nusaId, 'branch_id' => $nusaBranchId])->get()->getFirstRow()->id;
         $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
         $actorId = $this->demoUserId('owner@demo.pena-erp.test');
         $writer = new InventoryWriteModel();
@@ -356,6 +357,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertFalse($writer->createWarehouse([
             'company_id' => $penaId,
             'branch_id'  => $nusaBranchId,
+            'department_id' => $nusaDepartmentId,
             'code'       => 'INVALID',
             'name'       => 'Invalid foreign branch',
             'is_active'  => true,
@@ -376,6 +378,7 @@ final class FoundationMasterTest extends CIUnitTestCase
 
         $this->seeInDatabase('countries', ['iso2' => 'ID', 'name' => 'Indonesia']);
         $this->seeInDatabase('departments', ['company_id' => $penaId, 'code' => 'OPS']);
+        $this->assertSame(2, $this->db->table('departments')->where('company_id', $penaId)->countAllResults());
         $this->seeInDatabase('tax_codes', ['company_id' => $penaId, 'code' => 'PPN11']);
         $this->assertSame('IDR', $reader->currencies($penaId)[0]['code']);
         $this->assertSame('PPN11', $reader->taxCodes($nusaId)[0]['code']);
@@ -391,6 +394,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
         $actorId = $this->demoUserId('owner@demo.pena-erp.test');
         $nusaBranchId = (int) $this->db->table('branches')->where(['company_id' => $nusaId, 'code' => 'BDG'])->get()->getFirstRow()->id;
+        $penaBranchId = (int) $this->db->table('branches')->where(['company_id' => $penaId, 'code' => 'JKT'])->get()->getFirstRow()->id;
         $nusaProductId = (int) $this->db->table('products')->where(['company_id' => $nusaId, 'sku' => 'RTL-SNACK-01'])->get()->getFirstRow()->id;
         $penaTaxId = (int) $this->db->table('tax_codes')->where(['company_id' => $penaId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
 
@@ -415,12 +419,20 @@ final class FoundationMasterTest extends CIUnitTestCase
 
         (new SetupWriteModel())->createDepartment([
             'company_id' => $penaId,
+            'branch_id'  => $penaBranchId,
             'code'       => 'FIN',
             'name'       => 'Finance',
             'status'     => 'active',
         ], $actorId);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'DEPARTMENT_CREATED']);
         $this->assertSame(0, $this->db->table('transaction_codes')->where(['company_id' => $penaId, 'code' => 'BAD'])->countAllResults());
+        $this->assertFalse((new SetupWriteModel())->createDepartment([
+            'company_id' => $penaId,
+            'branch_id'  => $nusaBranchId,
+            'code'       => 'BAD-DEPT',
+            'name'       => 'Foreign Site Department',
+            'status'     => 'active',
+        ], $actorId));
     }
 
     public function testSetupMasterListActionsUpdateAndDeactivateOnlyWithinActiveTenant(): void
@@ -440,7 +452,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertFalse($writer->updateStatus('department', $penaId, $nusaDepartmentId, 'inactive', $actorId));
 
         $this->seeInDatabase('departments', ['id' => $penaDepartmentId, 'company_id' => $penaId, 'name' => 'Operations Updated', 'status' => 'inactive']);
-        $this->seeInDatabase('departments', ['id' => $nusaDepartmentId, 'company_id' => $nusaId, 'name' => 'Operations', 'status' => 'active']);
+        $this->seeInDatabase('departments', ['id' => $nusaDepartmentId, 'company_id' => $nusaId, 'name' => 'Operations BDG', 'status' => 'active']);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'DEPARTMENT_UPDATED']);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'DEPARTMENT_STATUS_UPDATED']);
     }

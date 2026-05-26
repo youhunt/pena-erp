@@ -77,6 +77,10 @@ Tahap 8 mengimplementasikan prioritas M2.1 hasil workbook melalui
 `customer_profiles` dan `supplier_profiles`: contact/reference, VAT dan
 warehouse default, PIC, policy limit, serta address type `mailing`, dengan
 audit dan penolakan referensi lintas-company.
+Tahap 9 menyelaraskan ownership organisasi sesuai urutan operasional:
+`Company -> Site -> Department -> Warehouse -> Location`, melalui
+`departments.branch_id`, `warehouses.department_id`, backfill migration,
+validasi hierarchy pada write model, dan UI pemilihan parent.
 
 ## Definition of Ready for Implementation
 

@@ -45,12 +45,13 @@
             <h4 class="card-title mb-3">Tambah Gudang</h4>
             <form method="post" action="<?= site_url('inventory/warehouses') ?>" class="row g-2">
                 <?= csrf_field() ?>
-                <div class="col-md-6"><label class="form-label">Branch</label><select class="form-select" name="branch_id" required><?php foreach ($branches as $branch) : ?><option value="<?= esc($branch['id']) ?>"><?= esc($branch['code'] . ' - ' . $branch['name']) ?></option><?php endforeach; ?></select></div>
+                <div class="col-md-6"><label class="form-label">Site</label><select class="form-select" name="branch_id" id="warehouse-site" required><?php foreach ($branches as $branch) : ?><option value="<?= esc($branch['id']) ?>"><?= esc($branch['code'] . ' - ' . $branch['name']) ?></option><?php endforeach; ?></select></div>
+                <div class="col-md-6"><label class="form-label">Department</label><select class="form-select" name="department_id" id="warehouse-department" required><?php foreach ($departments as $department) : ?><option data-site="<?= (int) $department['branch_id'] ?>" value="<?= esc($department['id']) ?>"><?= esc($department['branch_code'] . ' / ' . $department['code'] . ' - ' . $department['name']) ?></option><?php endforeach; ?></select></div>
                 <div class="col-md-6"><label class="form-label">Kode</label><input class="form-control" name="code" placeholder="MAIN" required></div>
                 <div class="col-md-8"><label class="form-label">Nama</label><input class="form-control" name="name" placeholder="Gudang Utama" required></div>
                 <div class="col-md-4"><label class="form-label">Kode Pos</label><input class="form-control" name="postal_code"></div>
                 <div class="col-12"><label class="form-label">Alamat</label><input class="form-control" name="address"></div>
-                <div class="col-12"><button class="btn btn-primary mt-2" type="submit">Simpan Gudang</button></div>
+                <div class="col-12"><button class="btn btn-primary mt-2" type="submit" <?= $departments === [] ? 'disabled' : '' ?>>Simpan Gudang</button><?php if ($departments === []) : ?><div class="form-text">Tambahkan Department per Site dahulu di Setup Master.</div><?php endif; ?></div>
             </form>
         </div></div>
     </div>
@@ -78,7 +79,7 @@
             <h4 class="card-title mb-3">Location</h4>
             <form method="post" action="<?= site_url('inventory/locations') ?>">
                 <?= csrf_field() ?>
-                <div class="mb-2"><label class="form-label">Warehouse</label><select name="warehouse_id" class="form-select" required><?php foreach ($warehouses as $warehouse) : ?><option value="<?= esc($warehouse['id']) ?>"><?= esc($warehouse['branch_code'] . ' / ' . $warehouse['code']) ?></option><?php endforeach; ?></select></div>
+                <div class="mb-2"><label class="form-label">Warehouse</label><select name="warehouse_id" class="form-select" required><?php foreach ($warehouses as $warehouse) : ?><option value="<?= esc($warehouse['id']) ?>"><?= esc($warehouse['branch_code'] . ' / ' . ($warehouse['department_code'] ?? '-') . ' / ' . $warehouse['code']) ?></option><?php endforeach; ?></select></div>
                 <div class="mb-2"><label class="form-label">Code</label><input name="code" class="form-control" placeholder="R01-A01" required></div>
                 <div class="mb-3"><label class="form-label">Name</label><input name="name" class="form-control" required></div>
                 <button class="btn btn-primary" <?= $warehouses === [] ? 'disabled' : '' ?>>Simpan Location</button>
@@ -156,13 +157,13 @@
     </div>
     <div class="col-xl-4">
         <div class="card"><div class="card-body">
-            <h4 class="card-title mb-3">Gudang</h4>
+            <h4 class="card-title mb-3">Warehouse Hierarchy</h4>
             <table class="table align-middle mb-0">
-                <thead><tr><th>Branch / Gudang</th><th>Status</th></tr></thead>
+                <thead><tr><th>Site / Department / Warehouse</th><th>Status</th></tr></thead>
                 <tbody>
                 <?php foreach ($warehouses as $warehouse) : ?>
                     <tr>
-                        <td><strong><?= esc($warehouse['branch_code'] . ' / ' . $warehouse['code']) ?></strong><br><small><?= esc($warehouse['name']) ?></small></td>
+                        <td><strong><?= esc($warehouse['branch_code'] . ' / ' . ($warehouse['department_code'] ?? '-') . ' / ' . $warehouse['code']) ?></strong><br><small><?= esc($warehouse['name']) ?></small></td>
                         <td>
                             <?php if ($canManage) : ?>
                             <form method="post" action="<?= site_url('inventory/warehouses/' . $warehouse['id'] . '/status') ?>" class="d-flex gap-1">
@@ -183,7 +184,7 @@
 <div class="row">
     <div class="col-xl-3"><div class="card"><div class="card-body">
         <h4 class="card-title mb-3">Locations</h4>
-        <table class="table table-sm mb-0"><tbody><?php foreach ($locations as $location) : ?><tr><td><?= esc($location['branch_code'] . '/' . $location['warehouse_code']) ?><br><small><?= esc($location['code'] . ' - ' . $location['name']) ?></small></td></tr><?php endforeach; ?><?php if ($locations === []) : ?><tr><td class="text-muted">Belum ada location.</td></tr><?php endif; ?></tbody></table>
+        <table class="table table-sm mb-0"><tbody><?php foreach ($locations as $location) : ?><tr><td><?= esc($location['branch_code'] . '/' . ($location['department_code'] ?? '-') . '/' . $location['warehouse_code']) ?><br><small><?= esc($location['code'] . ' - ' . $location['name']) ?></small></td></tr><?php endforeach; ?><?php if ($locations === []) : ?><tr><td class="text-muted">Belum ada location.</td></tr><?php endif; ?></tbody></table>
     </div></div></div>
     <div class="col-xl-3"><div class="card"><div class="card-body">
         <h4 class="card-title mb-3">Conversions</h4>
@@ -199,3 +200,30 @@
     </div></div></div>
 </div>
 <?= $this->endSection() ?>
+
+<?php if ($canManage) : ?>
+<?= $this->section('scripts') ?>
+<script>
+(function () {
+    var site = document.getElementById('warehouse-site');
+    var department = document.getElementById('warehouse-department');
+    if (!site || !department) {
+        return;
+    }
+    function filterDepartments() {
+        var selected = '';
+        Array.prototype.forEach.call(department.options, function (option) {
+            option.hidden = option.dataset.site !== site.value;
+            option.disabled = option.hidden;
+            if (!option.hidden && selected === '') {
+                selected = option.value;
+            }
+        });
+        department.value = selected;
+    }
+    site.addEventListener('change', filterDepartments);
+    filterDepartments();
+}());
+</script>
+<?= $this->endSection() ?>
+<?php endif; ?>

@@ -199,12 +199,23 @@ final class MultiCompanyDemoSeeder extends Seeder
     private function provisionSetupMasters(array $tenantIds, array $branchIds, int $countryId, ?int $villageId, string $now): void
     {
         foreach ($tenantIds as $code => $companyId) {
-            $this->inventoryRecord('departments', $companyId, 'code', 'OPS', [
-                'code'       => 'OPS',
-                'name'       => 'Operations',
-                'status'     => 'active',
-                'created_at' => $now,
-            ]);
+            foreach ($branchIds[$code] as $branchCode => $branchId) {
+                $existingAtSite = $this->db->table('departments')
+                    ->where(['company_id' => $companyId, 'branch_id' => $branchId])
+                    ->where('deleted_at', null)
+                    ->get()
+                    ->getFirstRow('array');
+
+                if ($existingAtSite === null) {
+                    $hasOperationsCode = $this->db->table('departments')
+                        ->where(['company_id' => $companyId, 'code' => 'OPS'])
+                        ->where('deleted_at', null)
+                        ->countAllResults() > 0;
+                    $departmentCode = $hasOperationsCode ? 'OPS-' . $branchCode : 'OPS';
+                    $this->department($companyId, $branchId, $departmentCode, 'Operations ' . $branchCode, $now);
+                }
+            }
+
             $this->inventoryRecord('currencies', $companyId, 'code', 'IDR', [
                 'code'       => 'IDR',
                 'name'       => 'Indonesian Rupiah',
@@ -304,6 +315,14 @@ final class MultiCompanyDemoSeeder extends Seeder
             $warehouseId = $this->warehouse(
                 $companyId,
                 $branchIds[$companyCode][$master['warehouse']['branch']],
+                (int) $this->db->table('departments')
+                    ->where([
+                        'company_id' => $companyId,
+                        'branch_id'  => $branchIds[$companyCode][$master['warehouse']['branch']],
+                    ])
+                    ->orderBy('id', 'ASC')
+                    ->get()
+                    ->getFirstRow()->id,
                 $master['warehouse']['code'],
                 $master['warehouse']['name'],
                 $now,
@@ -517,9 +536,9 @@ final class MultiCompanyDemoSeeder extends Seeder
         return (int) $this->db->insertID();
     }
 
-    private function warehouse(int $companyId, int $branchId, string $code, string $name, string $now): int
+    private function department(int $companyId, int $branchId, string $code, string $name, string $now): int
     {
-        $existing = $this->db->table('warehouses')
+        $existing = $this->db->table('departments')
             ->where(['company_id' => $companyId, 'branch_id' => $branchId, 'code' => $code])
             ->get()
             ->getFirstRow('array');
@@ -528,13 +547,44 @@ final class MultiCompanyDemoSeeder extends Seeder
             return (int) $existing['id'];
         }
 
-        $this->db->table('warehouses')->insert([
+        $this->db->table('departments')->insert([
             'company_id' => $companyId,
             'branch_id'  => $branchId,
             'code'       => $code,
             'name'       => $name,
-            'is_active'  => true,
+            'status'     => 'active',
             'created_at' => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function warehouse(int $companyId, int $branchId, int $departmentId, string $code, string $name, string $now): int
+    {
+        $existing = $this->db->table('warehouses')
+            ->where(['company_id' => $companyId, 'branch_id' => $branchId, 'code' => $code])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($existing !== null) {
+            if ((int) ($existing['department_id'] ?? 0) !== $departmentId) {
+                $this->db->table('warehouses')->where('id', $existing['id'])->update([
+                    'department_id' => $departmentId,
+                    'updated_at'    => $now,
+                ]);
+            }
+
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('warehouses')->insert([
+            'company_id'    => $companyId,
+            'branch_id'     => $branchId,
+            'department_id' => $departmentId,
+            'code'          => $code,
+            'name'          => $name,
+            'is_active'     => true,
+            'created_at'    => $now,
         ]);
 
         return (int) $this->db->insertID();

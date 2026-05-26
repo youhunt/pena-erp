@@ -235,7 +235,7 @@ final class AdministrationReadModel extends Model
     public function rolePermissionGrants(): array
     {
         return $this->db->table('role_permissions rp')
-            ->select('c.code AS company_code, r.name AS role_name, p.code AS permission_code, p.name AS permission_name')
+            ->select('rp.id, rp.company_id, c.code AS company_code, r.name AS role_name, p.code AS permission_code, p.name AS permission_name')
             ->join('companies c', 'c.id = rp.company_id')
             ->join('roles r', 'r.id = rp.role_id')
             ->join('permissions p', 'p.id = rp.permission_id')
@@ -244,6 +244,57 @@ final class AdministrationReadModel extends Model
             ->orderBy('p.code', 'ASC')
             ->get()
             ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function auditLogs(?int $companyId = null, string $eventType = '', string $search = '', int $limit = 100): array
+    {
+        $builder = $this->db->table('audit_logs a')
+            ->select('a.id, a.event_type, a.entity_type, a.entity_id, a.after_json, a.occurred_at, c.code AS company_code, b.code AS branch_code, u.username')
+            ->join('companies c', 'c.id = a.company_id', 'left')
+            ->join('branches b', 'b.id = a.branch_id', 'left')
+            ->join('users u', 'u.id = a.user_id', 'left');
+
+        if ($companyId !== null) {
+            $builder->where('a.company_id', $companyId);
+        }
+
+        if ($eventType !== '') {
+            $builder->where('a.event_type', $eventType);
+        }
+
+        if ($search !== '') {
+            $builder->groupStart()
+                ->like('a.entity_type', $search)
+                ->orLike('a.after_json', $search)
+                ->orLike('u.username', $search)
+                ->groupEnd();
+        }
+
+        return $builder
+            ->orderBy('a.occurred_at', 'DESC')
+            ->orderBy('a.id', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function auditEventTypes(): array
+    {
+        return array_column(
+            $this->db->table('audit_logs')
+                ->distinct()
+                ->select('event_type')
+                ->orderBy('event_type', 'ASC')
+                ->get()
+                ->getResultArray(),
+            'event_type',
+        );
     }
 
     public function roleCodeExists(int $companyId, string $code): bool

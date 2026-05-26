@@ -9,6 +9,7 @@ use App\Services\RegionImportService;
 use App\Services\RegionApiSyncService;
 use App\Services\TenantContextService;
 use App\Services\TenantMenuService;
+use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -298,6 +299,34 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertSame(3, $this->db->table('companies')->countAllResults());
         $this->assertSame(1, $this->db->table('auth_identities')->where('secret', 'owner@demo.pena-erp.test')->countAllResults());
         $this->assertSame(1, $this->db->table('menus')->where(['company_id' => $contexts[0]['company_id'], 'code' => 'documents'])->countAllResults());
+    }
+
+    public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $roleId = (int) $this->db->table('roles')->where(['company_id' => $companyId, 'code' => 'purchasing'])->get()->getFirstRow()->id;
+        $permissionId = (int) $this->db->table('permissions')->where(['company_id' => $companyId, 'code' => 'purchasing.po.view'])->get()->getFirstRow()->id;
+        $grantId = (int) $this->db->table('role_permissions')->where([
+            'company_id'    => $companyId,
+            'role_id'       => $roleId,
+            'permission_id' => $permissionId,
+        ])->get()->getFirstRow()->id;
+        $menuService = new TenantMenuService($this->db);
+
+        $this->assertContains('purchasing', array_column($menuService->accessibleMenus($userId, $companyId), 'code'));
+        $this->assertTrue((new AdministrationWriteModel())->revokeRolePermission($companyId, $grantId, $userId));
+        $this->assertNotContains('purchasing', array_column($menuService->accessibleMenus($userId, $companyId), 'code'));
+        $this->seeInDatabase('audit_logs', [
+            'company_id' => $companyId,
+            'event_type' => 'ROLE_PERMISSION_REVOKED',
+            'entity_id'  => $grantId,
+        ]);
+
+        $logs = (new AdministrationReadModel())->auditLogs($companyId, 'ROLE_PERMISSION_REVOKED');
+        $this->assertSame('ROLE_PERMISSION_REVOKED', $logs[0]['event_type']);
     }
 
     private function createTestUser(string $username, string $email): int

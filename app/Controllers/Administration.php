@@ -216,6 +216,24 @@ final class Administration extends BaseController
         ]);
     }
 
+    public function audit(): string
+    {
+        $model = new AdministrationReadModel();
+        $companyValue = (string) $this->request->getGet('company_id');
+        $companyId = $companyValue === '' ? null : (int) $companyValue;
+        $eventType = trim((string) $this->request->getGet('event_type'));
+        $search = trim((string) $this->request->getGet('q'));
+
+        return view('administration/audit', [
+            'logs'       => $model->auditLogs($companyId, $eventType, $search),
+            'companies'  => $model->companies(),
+            'eventTypes' => $model->auditEventTypes(),
+            'companyId'  => $companyId,
+            'eventType'  => $eventType,
+            'search'     => $search,
+        ]);
+    }
+
     public function createRole(): RedirectResponse
     {
         $data = [
@@ -308,6 +326,33 @@ final class Administration extends BaseController
         }
 
         return redirect()->to(site_url('administration/rbac'))->with('message', 'Permission berhasil diberikan ke role.');
+    }
+
+    public function revokePermission(): RedirectResponse
+    {
+        $data = [
+            'company_id' => $this->request->getPost('company_id'),
+            'grant_id'   => $this->request->getPost('grant_id'),
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id' => 'required|is_natural_no_zero',
+            'grant_id'   => 'required|is_natural_no_zero',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        $deleted = (new AdministrationWriteModel())->revokeRolePermission(
+            (int) $data['company_id'],
+            (int) $data['grant_id'],
+            $this->actorId(),
+        );
+
+        if (! $deleted) {
+            return redirect()->back()->with('errors', ['grant_id' => 'Grant permission tidak ditemukan pada company tersebut.']);
+        }
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Permission berhasil dicabut dari role.');
     }
 
     public function assignAccess(): RedirectResponse

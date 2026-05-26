@@ -179,6 +179,9 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
   role matrix, dan menu ERP awal secara idempotent.
 - Mutation company, branch, role, permission, assignment access dan pergantian
   tenant context sekarang menulis event audit append-only.
+- Menu administrasi `Audit Trail` menyediakan pencarian event berdasarkan
+  company, event type dan isi aktivitas. Layar `Role & Permission` kini dapat
+  melakukan revoke grant dengan event audit `ROLE_PERMISSION_REVOKED`.
 - Company nonaktif tidak dapat digunakan sebagai tenant context atau sumber
   permission. Branch nonaktif tidak lagi muncul sebagai context aktif, dan
   ownership company pada branch tidak dapat diubah melalui form edit biasa.
@@ -212,12 +215,13 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login
 superadmin. Regression suite kini mencakup audit mutation/context, pemblokiran
-company atau branch nonaktif, serta perlindungan branch terhadap perpindahan
-lintas-company. Regression suite juga memverifikasi perbedaan menu Purchasing
-dan Finance serta owner demo dapat berpindah antara tiga company. Pekerjaan
+company atau branch nonaktif, perlindungan branch terhadap perpindahan
+lintas-company, serta revoke permission menghilangkan menu role dan tercatat
+di audit. Regression suite juga memverifikasi perbedaan menu Purchasing dan
+Finance serta owner demo dapat berpindah antara tiga company. Pekerjaan
 lanjutan Tahap 4 adalah mengganti atau melengkapi
 dataset API hingga sesuai rujukan master resmi serta memperluas UI RBAC untuk
-edit, revoke, dan matriks menu.
+edit role/user assignment dan matriks menu.
 
 ### Keputusan Tenant pada Tahap 4
 

@@ -47,7 +47,9 @@ Menu tenant simulasi kini dirender dari permission per role dan
 di setiap workstation development. Prosedur sinkronisasi lintas laptop,
 migration/seeder dan perlindungan secret dicatat pada
 `08-multi-laptop-development-guide.md`.
-Import dataset nasional resmi lengkap, edit/revoke RBAC lengkap, transaksi,
+Audit Trail UI dan revoke grant permission tenant telah tersedia dengan event
+append-only. Import dataset nasional resmi lengkap, edit assignment RBAC,
+matriks menu CRUD, transaksi,
 deployment manifests dan provider credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation

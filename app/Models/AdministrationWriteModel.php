@@ -238,6 +238,28 @@ final class AdministrationWriteModel extends Model
         return true;
     }
 
+    public function revokeRolePermission(int $companyId, int $grantId, int $actorId): bool
+    {
+        $grant = $this->db->table('role_permissions')
+            ->where(['id' => $grantId, 'company_id' => $companyId])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($grant === null) {
+            return false;
+        }
+
+        $this->db->transStart();
+        $this->db->table('role_permissions')->where('id', $grantId)->delete();
+        $this->audit()->record('ROLE_PERMISSION_REVOKED', 'role_permission', $grantId, $companyId, null, $actorId, [
+            'role_id'       => (int) $grant['role_id'],
+            'permission_id' => (int) $grant['permission_id'],
+        ], $grant);
+        $this->completeTransaction();
+
+        return true;
+    }
+
     private function audit(): AuditTrailService
     {
         return new AuditTrailService($this->db);

@@ -3,6 +3,7 @@ $tenantContext = $tenantContext ?? (new \App\Services\TenantContextService())->c
 $user = auth()->user();
 $username = $user?->username ?? $user?->email ?? 'User';
 $canManageCompanies = $user?->can('platform.company.manage') ?? false;
+$canViewAudit = $user?->can('platform.audit.view') ?? false;
 $tenantMenus = $tenantContext === null
     ? []
     : (new \App\Services\TenantMenuService())->accessibleMenus((int) auth()->id(), (int) $tenantContext['company_id']);
@@ -111,6 +112,13 @@ $tenantMenus = $tenantContext === null
                             <li>
                                 <a href="<?= site_url('administration/rbac') ?>" class="waves-effect">
                                     <i class="bx bx-lock-open-alt"></i><span>Role & Permission</span>
+                                </a>
+                            </li>
+                        <?php endif; ?>
+                        <?php if ($canViewAudit) : ?>
+                            <li>
+                                <a href="<?= site_url('administration/audit') ?>" class="waves-effect">
+                                    <i class="bx bx-history"></i><span>Audit Trail</span>
                                 </a>
                             </li>
                         <?php endif; ?>

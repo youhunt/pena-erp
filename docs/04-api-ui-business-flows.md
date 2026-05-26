@@ -36,8 +36,8 @@ Mutation requirements:
 | `GET/POST /administration/companies` | Tenant administration shell | `platform.company.manage` |
 | `GET/POST /administration/branches` | Branch CRUD shell | `platform.company.manage` |
 | `GET/POST /administration/access` | Assign role and initial branch membership | `platform.company.manage` |
-| `GET /administration/rbac`, `POST /administration/rbac/roles`, `/permissions`, `/grants` | Tenant RBAC create/grant shell | `platform.company.manage` |
-| `GET /audit-logs` | Auditable activity search | `audit.view` |
+| `GET /administration/rbac`, `POST /administration/rbac/roles`, `/permissions`, `/grants`, `/grants/revoke` | Tenant RBAC create/grant/revoke shell | `platform.company.manage` |
+| `GET /administration/audit` | Auditable activity search | `platform.audit.view` |
 
 ### Masters and Inventory
 

@@ -123,13 +123,21 @@
             <div class="card-body">
                 <h4 class="card-title mb-3">Grant Saat Ini</h4>
                 <table class="table align-middle mb-0">
-                    <thead><tr><th>Company</th><th>Role</th><th>Permission</th></tr></thead>
+                    <thead><tr><th>Company</th><th>Role</th><th>Permission</th><th class="text-end">Aksi</th></tr></thead>
                     <tbody>
                     <?php foreach ($grants as $grant) : ?>
                         <tr>
                             <td><?= esc($grant['company_code']) ?></td>
                             <td><?= esc($grant['role_name']) ?></td>
                             <td><code><?= esc($grant['permission_code']) ?></code></td>
+                            <td class="text-end">
+                                <form method="post" action="<?= site_url('administration/rbac/grants/revoke') ?>" onsubmit="return confirm('Cabut permission ini dari role?')">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="company_id" value="<?= esc($grant['company_id']) ?>">
+                                    <input type="hidden" name="grant_id" value="<?= esc($grant['id']) ?>">
+                                    <button class="btn btn-outline-danger btn-sm" type="submit">Revoke</button>
+                                </form>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

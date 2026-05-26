@@ -273,3 +273,42 @@ sederhana. Satu database per company tidak dijadikan default karena menambah
 biaya provisioning dan reporting lintas perusahaan. Tenant enterprise yang
 memerlukan isolasi fisik atau beban sangat besar dapat memakai dedicated
 database melalui resolver koneksi tenant pada fase scaling.
+
+## Tahap 5: Inventory Master dan Warehouse
+
+### Yang Sudah Dibuat
+
+- Migration `CreateInventoryMasterTables` membuat `units_of_measure`,
+  `product_categories`, `products`, dan `warehouses` dengan audit columns,
+  index tenant, soft delete, serta foreign key company/branch/user.
+- `InventoryReadModel` selalu membaca master berdasarkan `company_id` dari
+  context tenant aktif. `InventoryWriteModel` menolak UOM, kategori, atau
+  branch milik company lain dan menulis event audit untuk create/status.
+- Route `/inventory` menggantikan placeholder menu Inventory. Role dengan
+  `inventory.stock.view` dapat membaca daftar produk/gudang; perubahan master
+  memerlukan `inventory.master.manage`.
+- Halaman Inventory menyediakan form UOM, kategori, produk, dan gudang, serta
+  aktivasi/nonaktivasi produk dan gudang dalam company aktif.
+- `MultiCompanyDemoSeeder` kini membuat satu produk dan satu gudang terisolasi
+  untuk masing-masing `PENA`, `NUSA`, dan `KARYA`. Role `owner`, `manager`,
+  dan `warehouse` dapat mengelola master; role operasional yang hanya mendapat
+  view tidak dapat melakukan mutation.
+- Regression test membuktikan data demo idempotent, pembacaan tidak bocor
+  antar-company, reference lintas-tenant ditolak, dan perubahan status produk
+  tercatat di audit trail.
+
+### Verifikasi Tahap 5
+
+```bash
+php spark migrate --all
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
+```
+
+### Batas Tahap Ini
+
+Tahap ini menyiapkan master yang aman untuk transaksi. `warehouse_bins`,
+`stock_balances`, `stock_movements`, stock opening, transfer, dan adjustment
+belum diposting agar aturan ledger immutable dan approval dapat dibangun serta
+diuji sebagai tranche berikutnya.

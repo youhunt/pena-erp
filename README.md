@@ -29,6 +29,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   mengatur status login/password sementara, serta suspend/activate scope
   company dan branch. Password sementara memicu wajib ganti password,
   sedangkan perubahan credential atau deaktivasi akun mencabut session lama.
+- Tahap 5 dimulai: master Inventory dan Warehouse tenant-scoped telah memiliki
+  tabel UOM, kategori, produk, gudang, halaman kerja `/inventory`, permission
+  view/manage per role, audit perubahan, dan data demo terpisah per company.
 
 ```bash
 composer install
@@ -57,8 +60,9 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 Perintah `composer test` bawaan menjalankan laporan coverage dan memerlukan
 driver seperti Xdebug atau PCOV; ini cocok diaktifkan pada pipeline CI nanti.
 
-Root HMVC tersedia di [Modules/README.md](Modules/README.md); module bisnis
-akan dibuat secara bertahap saat migration dan acceptance criteria-nya dimulai.
+Root HMVC tersedia di [Modules/README.md](Modules/README.md); modul bisnis
+dibangun bertahap dari foundation aplikasi, dimulai dengan Inventory/Warehouse
+setelah tenant context dan permission stabil.
 
 Untuk development lokal, login tersedia pada `/login` dan satu akun platform
 admin telah diprovision melalui Shield. Assignment role operasional tenant
@@ -87,8 +91,8 @@ php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
 ```
 
 Seeder membuat tenant `PENA`, `NUSA`, `KARYA`, beberapa branch, role
-operasional, mapping menu/permission, serta akun uji berikut dengan password
-lokal yang sama: `Demo@Pena2026`.
+operasional, mapping menu/permission, master inventory/gudang contoh, serta
+akun uji berikut dengan password lokal yang sama: `Demo@Pena2026`.
 
 | Email Demo | Simulasi Akses |
 | --- | --- |
@@ -101,6 +105,11 @@ lokal yang sama: `Demo@Pena2026`.
 
 Akun tersebut hanya untuk development/testing dan tidak boleh diprovision ke
 database production.
+
+Setelah login sebagai owner, manager, atau warehouse, menu `Inventory`
+menampilkan produk/gudang untuk company aktif dan menyediakan form UOM,
+kategori, produk, serta gudang. Purchasing dan sales saat ini dapat melihat
+daftar inventory sesuai grant, tetapi tidak mengubah master.
 
 ## Dokumen Blueprint
 

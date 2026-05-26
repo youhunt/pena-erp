@@ -11,6 +11,16 @@ $routes->get('workspace/modules/(:segment)', 'Workspace::module/$1', ['filter' =
 $routes->get('account/security/password', 'AccountSecurity::password', ['filter' => ['session', 'sessionsecurity']]);
 $routes->post('account/security/password', 'AccountSecurity::updatePassword', ['filter' => ['session', 'sessionsecurity']]);
 
+$routes->group('inventory', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'Inventory::index');
+    $routes->post('uoms', 'Inventory::createUnitOfMeasure');
+    $routes->post('categories', 'Inventory::createCategory');
+    $routes->post('products', 'Inventory::createProduct');
+    $routes->post('products/(:num)/status', 'Inventory::updateProductStatus/$1');
+    $routes->post('warehouses', 'Inventory::createWarehouse');
+    $routes->post('warehouses/(:num)/status', 'Inventory::updateWarehouseStatus/$1');
+});
+
 $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {
     $routes->get('companies', 'Administration::companies');
     $routes->get('companies/new', 'Administration::newCompany');

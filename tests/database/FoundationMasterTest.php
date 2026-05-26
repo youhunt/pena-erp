@@ -13,6 +13,8 @@ use App\Services\TenantMenuService;
 use App\Services\UserSessionSecurityService;
 use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
+use App\Models\InventoryReadModel;
+use App\Models\InventoryWriteModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 
@@ -301,6 +303,62 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertSame(3, $this->db->table('companies')->countAllResults());
         $this->assertSame(1, $this->db->table('auth_identities')->where('secret', 'owner@demo.pena-erp.test')->countAllResults());
         $this->assertSame(1, $this->db->table('menus')->where(['company_id' => $contexts[0]['company_id'], 'code' => 'documents'])->countAllResults());
+    }
+
+    public function testDemoSeederBuildsIsolatedInventoryMastersAndWarehousePermission(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $warehouseUserId = $this->demoUserId('warehouse@demo.pena-erp.test');
+        $reader = new InventoryReadModel();
+
+        $this->seeInDatabase('products', ['company_id' => $penaId, 'sku' => 'ATK-A4-80']);
+        $this->seeInDatabase('warehouses', ['company_id' => $penaId, 'code' => 'MAIN']);
+        $this->assertCount(1, $reader->products($penaId));
+        $this->assertCount(1, $reader->products($nusaId));
+        $this->assertSame('ATK-A4-80', $reader->products($penaId)[0]['sku']);
+        $this->assertSame('RTL-SNACK-01', $reader->products($nusaId)[0]['sku']);
+        $this->assertSame(1, $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->countAllResults());
+        $this->assertTrue((new TenantAuthorizationService())->can($warehouseUserId, $penaId, 'inventory.master.manage'));
+    }
+
+    public function testInventoryWritesRejectForeignTenantReferencesAndAuditStatus(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $penaUomId = (int) $this->db->table('units_of_measure')->where(['company_id' => $penaId, 'code' => 'REAM'])->get()->getFirstRow()->id;
+        $nusaCategoryId = (int) $this->db->table('product_categories')->where(['company_id' => $nusaId, 'code' => 'RETAIL'])->get()->getFirstRow()->id;
+        $nusaBranchId = (int) $this->db->table('branches')->where(['company_id' => $nusaId, 'code' => 'BDG'])->get()->getFirstRow()->id;
+        $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $writer = new InventoryWriteModel();
+
+        $this->assertFalse($writer->createProduct([
+            'company_id'    => $penaId,
+            'category_id'   => $nusaCategoryId,
+            'sku'           => 'INVALID-CROSS-TENANT',
+            'name'          => 'Invalid foreign category',
+            'base_uom_id'   => $penaUomId,
+            'product_type'  => 'stock',
+            'track_lot'     => false,
+            'standard_cost' => '1.0000',
+            'status'        => 'active',
+        ], $actorId));
+        $this->assertFalse($writer->createWarehouse([
+            'company_id' => $penaId,
+            'branch_id'  => $nusaBranchId,
+            'code'       => 'INVALID',
+            'name'       => 'Invalid foreign branch',
+            'is_active'  => true,
+        ], $actorId));
+        $this->assertTrue($writer->updateProductStatus($penaId, $productId, 'inactive', $actorId));
+        $this->seeInDatabase('products', ['id' => $productId, 'company_id' => $penaId, 'status' => 'inactive']);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'PRODUCT_STATUS_UPDATED', 'entity_id' => $productId, 'company_id' => $penaId]);
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

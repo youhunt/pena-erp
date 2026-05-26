@@ -54,9 +54,12 @@ menu-permission kini tersedia. Lifecycle user awal (status login dan password
 sementara), status membership company/branch, serta pemutusan akses tenant
 bagi user Shield nonaktif juga sudah diuji. Password sementara dengan wajib
 ganti, endpoint reset pribadi, dan versioned session revocation kini tersedia.
-Import dataset nasional resmi lengkap, notifikasi/recovery credential,
-inventory perangkat/session, transaksi, deployment manifests dan provider
-credentials masih mengikuti gate roadmap.
+Tahap 5 telah memulai domain bisnis dengan tabel serta UI master UOM,
+kategori produk, produk, dan gudang yang tenant-scoped, dilengkapi permission
+manage/view, data demo multi-company, audit, dan pengujian penolakan reference
+lintas-company. Import dataset nasional resmi lengkap, notifikasi/recovery
+credential, inventory perangkat/session, stock ledger/transaksi, deployment
+manifests dan provider credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation
 

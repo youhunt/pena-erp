@@ -40,13 +40,16 @@ Mutation requirements:
 | `GET/POST /administration/access`, `POST /administration/access/revoke`, `/access/company-status`, `/access/branch-status` | Assign/revoke role and administer tenant/branch membership status or switching | `platform.company.manage` |
 | `GET /administration/rbac`, `POST /administration/rbac/roles`, `/roles/{id}`, `/permissions`, `/grants`, `/grants/revoke`, `/menu-mappings`, `/menu-mappings/revoke` | Tenant RBAC role status, grants and sidebar menu-permission mapping | `platform.company.manage` |
 | `GET /administration/audit` | Auditable activity search | `platform.audit.view` |
+| `GET /inventory` | Inventory master/gudang UI tenant aktif | `inventory.stock.view` |
+| `POST /inventory/uoms`, `/categories`, `/products`, `/warehouses` | Create master inventory/gudang dalam tenant aktif | `inventory.master.manage` |
+| `POST /inventory/products/{id}/status`, `/warehouses/{id}/status` | Activate/deactivate master milik tenant aktif | `inventory.master.manage` |
 
 ### Masters and Inventory
 
 | Method / URI | Purpose | Permission |
 | --- | --- | --- |
 | `GET /reference/provinces`, `/reference/regencies`, `/reference/districts`, `/reference/villages` | Dependent address lookup from global Indonesian regional master | authenticated |
-| `GET/POST /products`, `/warehouses`, `/suppliers`, `/customers` | Master CRUD | corresponding `.manage` |
+| `GET/POST /products`, `/warehouses`, `/suppliers`, `/customers` | REST API master CRUD target; web Inventory master sudah tersedia melalui `/inventory/*` | corresponding `.manage` |
 | `GET /inventory/balances` | Paginated/filterable balance | `inventory.stock.view` |
 | `GET /inventory/movements` | Ledger drilldown | `inventory.stock.view` |
 | `POST /inventory/transfers` | Transfer draft | `inventory.transfer.create` |

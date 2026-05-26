@@ -111,6 +111,11 @@ Seluruh tabel berikut `T+A`; data gudang/gerakan wajib memiliki `branch_id`.
 Master wilayah global berada pada bagian 3 dan menjadi referensi alamat, bukan
 disalin per company.
 
+Status implementasi Tahap 5: `units_of_measure`, `product_categories`,
+`products`, dan `warehouses` telah diwujudkan melalui migration aplikasi,
+repository/model tenant-scoped, seed simulasi, serta audit mutation. Tabel
+ledger stok pada bagian ini tetap menjadi kontrak tranche transaksi berikutnya.
+
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
 | `currencies` (enabled currencies) | `id PK`, `code CHAR(3)`, `name VARCHAR(60)`, `is_base BOOLEAN` | `UQ(company_id,code)` | `IDR` |

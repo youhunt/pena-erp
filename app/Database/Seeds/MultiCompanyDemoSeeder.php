@@ -51,6 +51,8 @@ final class MultiCompanyDemoSeeder extends Seeder
             $this->provisionAccessMatrix($tenantIds[$code], $now);
         }
 
+        $this->provisionInventoryMasters($tenantIds, $branchIds, $now);
+
         $users = [
             'owner@demo.pena-erp.test'      => 'demo.owner',
             'purchasing@demo.pena-erp.test' => 'demo.purchasing',
@@ -131,6 +133,7 @@ final class MultiCompanyDemoSeeder extends Seeder
             'company.dashboard.view' => ['Dashboard Workspace', 'company'],
             'company.master.manage'  => ['Kelola Master Company', 'company'],
             'inventory.stock.view'   => ['Lihat Stok', 'inventory'],
+            'inventory.master.manage' => ['Kelola Master Inventory', 'inventory'],
             'purchasing.po.view'     => ['Lihat Purchase Order', 'purchasing'],
             'sales.order.view'       => ['Lihat Sales Order', 'sales'],
             'finance.invoice.view'   => ['Lihat Invoice Finance', 'finance'],
@@ -146,7 +149,7 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $menus = [
             'dashboard'  => ['Dashboard Workspace', 'workspace', 'bx bx-grid-alt', 10, 'company.dashboard.view'],
-            'inventory'  => ['Inventory', 'workspace/modules/inventory', 'bx bx-package', 20, 'inventory.stock.view'],
+            'inventory'  => ['Inventory', 'inventory', 'bx bx-package', 20, 'inventory.stock.view'],
             'purchasing' => ['Purchasing', 'workspace/modules/purchasing', 'bx bx-cart', 30, 'purchasing.po.view'],
             'sales'      => ['Sales', 'workspace/modules/sales', 'bx bx-receipt', 40, 'sales.order.view'],
             'finance'    => ['Accounting & Finance', 'workspace/modules/finance', 'bx bx-calculator', 50, 'finance.invoice.view'],
@@ -162,10 +165,10 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'sales.order.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'sales.order.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
             'finance'    => ['company.dashboard.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
             'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'documents.upload'],
-            'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'documents.upload'],
+            'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
             'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view'],
             'cashier'    => ['company.dashboard.view', 'sales.order.view', 'cashbank.view'],
         ];
@@ -177,6 +180,96 @@ final class MultiCompanyDemoSeeder extends Seeder
                 $this->grant($companyId, $roleId, $permissionIds[$permission], $now);
             }
         }
+    }
+
+    /**
+     * @param array<string, int>              $tenantIds
+     * @param array<string, array<string, int>> $branchIds
+     */
+    private function provisionInventoryMasters(array $tenantIds, array $branchIds, string $now): void
+    {
+        $inventory = [
+            'PENA' => [
+                'uom'       => ['code' => 'REAM', 'name' => 'Rim', 'precision' => 0],
+                'category'  => ['code' => 'ATK', 'name' => 'Alat Tulis Kantor'],
+                'product'   => ['sku' => 'ATK-A4-80', 'name' => 'Kertas A4 80 gsm', 'product_type' => 'stock', 'standard_cost' => '65000.0000'],
+                'warehouse' => ['branch' => 'JKT', 'code' => 'MAIN', 'name' => 'Gudang Utama Jakarta'],
+            ],
+            'NUSA' => [
+                'uom'       => ['code' => 'PCS', 'name' => 'Pieces', 'precision' => 0],
+                'category'  => ['code' => 'RETAIL', 'name' => 'Retail Product'],
+                'product'   => ['sku' => 'RTL-SNACK-01', 'name' => 'Produk Retail Demo', 'product_type' => 'stock', 'standard_cost' => '7500.0000'],
+                'warehouse' => ['branch' => 'BDG', 'code' => 'STORE', 'name' => 'Stock Store Bandung'],
+            ],
+            'KARYA' => [
+                'uom'       => ['code' => 'HOUR', 'name' => 'Jam', 'precision' => 2],
+                'category'  => ['code' => 'SERVICE', 'name' => 'Jasa'],
+                'product'   => ['sku' => 'SRV-CONSULT', 'name' => 'Consulting Hour', 'product_type' => 'service', 'standard_cost' => '0.0000'],
+                'warehouse' => ['branch' => 'DPS', 'code' => 'ASSET', 'name' => 'Penyimpanan Aset Denpasar'],
+            ],
+        ];
+
+        foreach ($inventory as $companyCode => $master) {
+            $companyId = $tenantIds[$companyCode];
+            $uomId = $this->inventoryRecord('units_of_measure', $companyId, 'code', $master['uom']['code'], $master['uom'] + ['status' => 'active', 'created_at' => $now]);
+            $categoryId = $this->inventoryRecord('product_categories', $companyId, 'code', $master['category']['code'], $master['category'] + ['status' => 'active', 'created_at' => $now]);
+            $this->inventoryRecord('products', $companyId, 'sku', $master['product']['sku'], $master['product'] + [
+                'category_id' => $categoryId,
+                'base_uom_id' => $uomId,
+                'track_lot'   => false,
+                'status'      => 'active',
+                'created_at'  => $now,
+            ]);
+            $this->warehouse(
+                $companyId,
+                $branchIds[$companyCode][$master['warehouse']['branch']],
+                $master['warehouse']['code'],
+                $master['warehouse']['name'],
+                $now,
+            );
+        }
+    }
+
+    /**
+     * @param array<string, bool|int|string|null> $data
+     */
+    private function inventoryRecord(string $table, int $companyId, string $key, string $value, array $data): int
+    {
+        $existing = $this->db->table($table)
+            ->where(['company_id' => $companyId, $key => $value])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table($table)->insert(['company_id' => $companyId] + $data);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function warehouse(int $companyId, int $branchId, string $code, string $name, string $now): int
+    {
+        $existing = $this->db->table('warehouses')
+            ->where(['company_id' => $companyId, 'branch_id' => $branchId, 'code' => $code])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('warehouses')->insert([
+            'company_id' => $companyId,
+            'branch_id'  => $branchId,
+            'code'       => $code,
+            'name'       => $name,
+            'is_active'  => true,
+            'created_at' => $now,
+        ]);
+
+        return (int) $this->db->insertID();
     }
 
     private function role(int $companyId, string $code, string $name, string $now): int

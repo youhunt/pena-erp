@@ -34,6 +34,22 @@ $routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordreq
     $routes->post('tax-codes', 'Setup::createTaxCode');
 });
 
+$routes->group('sales/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'CommercialMaster::sales');
+    $routes->post('terms', 'CommercialMaster::createCustomerTerm');
+    $routes->post('partners', 'CommercialMaster::createCustomer');
+    $routes->post('addresses', 'CommercialMaster::linkCustomerAddress');
+    $routes->post('promotions', 'CommercialMaster::createCustomerPromotion');
+});
+
+$routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'CommercialMaster::purchasing');
+    $routes->post('terms', 'CommercialMaster::createSupplierTerm');
+    $routes->post('partners', 'CommercialMaster::createSupplier');
+    $routes->post('addresses', 'CommercialMaster::linkSupplierAddress');
+    $routes->post('promotions', 'CommercialMaster::createSupplierPromotion');
+});
+
 $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {
     $routes->get('companies', 'Administration::companies');
     $routes->get('companies/new', 'Administration::newCompany');

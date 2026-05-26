@@ -43,18 +43,18 @@ masih diselaraskan bertahap.
 
 | Module / Menu | Target Tables / Design | Status |
 | --- | --- | --- |
-| Customer Master | `customers` | Designed |
-| Customer Terms | `customer_terms`, linked default pada customer/order | Designed |
-| Customer Promo | `customer_promotions`, rule/date/item eligibility | Designed |
-| Customer Address | `customer_addresses` linking `addresses` | Designed |
+| Customer Master | `customers` | Built |
+| Customer Terms | `customer_terms`, linked default pada customer/order | Built |
+| Customer Promo | `customer_promotions`, date/customer eligibility awal | Built |
+| Customer Address | `customer_addresses` linking `addresses` | Built |
 | Sales Order | `sales_orders`, `sales_order_items` | Designed |
 | Allocation Order | `sales_allocations`, `sales_allocation_items`, reserves stock | Designed |
 | Delivery Order | `deliveries`, `delivery_items` | Designed |
 | Sales Period Close | `module_period_closes` type `sales` with `fiscal_periods` | Designed |
-| Supplier Master | `suppliers` | Designed |
-| Supplier Terms | `supplier_terms` | Designed |
-| Supplier Promo | `supplier_promotions` / purchase rebate rules | Designed |
-| Supplier Address | `supplier_addresses` linking `addresses` | Designed |
+| Supplier Master | `suppliers` | Built |
+| Supplier Terms | `supplier_terms` | Built |
+| Supplier Promo | `supplier_promotions` / purchase rebate rules awal | Built |
+| Supplier Address | `supplier_addresses` linking `addresses` | Built |
 | Purchase Order | `purchase_orders`, `purchase_order_items` | Designed |
 | Purchase Intransit | `purchase_intransits`, `purchase_intransit_items` | Designed |
 | Inventory Purchase Receipt | `goods_receipts`, `goods_receipt_items` | Designed |
@@ -125,7 +125,7 @@ tidak bisa dipakai transaksi:
 | Tranche | Deliverable |
 | --- | --- |
 | M1 Foundation master | Transaction Code, Department, Country/Address, Currency, VAT, Location, UoM Conversion, Item VAT, Batch Master |
-| M2 Commercial master | Customer/Supplier, terms, address links, promo dasar, POS register |
+| M2 Commercial master | Customer/Supplier, terms, address links, promo dasar (Built); POS register (Designed) |
 | M3 Finance master | COA, GL Book/Column, Cash Bank, Rate, Cost Type/Item Cost, fiscal close authority |
 | M4 Manufacturing master | BOM, Work Center, Routing, Forecast/MPS/MRP setup |
 | T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting |

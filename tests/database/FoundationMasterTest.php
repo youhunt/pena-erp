@@ -13,6 +13,8 @@ use App\Services\TenantMenuService;
 use App\Services\UserSessionSecurityService;
 use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
+use App\Models\CommercialReadModel;
+use App\Models\CommercialWriteModel;
 use App\Models\InventoryReadModel;
 use App\Models\InventoryWriteModel;
 use App\Models\SetupReadModel;
@@ -421,6 +423,75 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertSame(0, $this->db->table('transaction_codes')->where(['company_id' => $penaId, 'code' => 'BAD'])->countAllResults());
     }
 
+    public function testCommercialMasterSeedBuildsIsolatedCustomerSupplierReferencesAndMenus(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $purchasingId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $salesId = $this->demoUserId('sales@demo.pena-erp.test');
+        $reader = new CommercialReadModel();
+        $auth = new TenantAuthorizationService();
+
+        $this->assertCount(1, $reader->customers($penaId));
+        $this->assertCount(1, $reader->suppliers($nusaId));
+        $this->assertSame('CUS-DEMO', $reader->customers($penaId)[0]['code']);
+        $this->assertSame('SUP-DEMO', $reader->suppliers($nusaId)[0]['code']);
+        $this->assertCount(1, $reader->customerAddresses($penaId));
+        $this->assertCount(1, $reader->supplierPromotions($nusaId));
+        $this->assertSame(1, $this->db->table('customer_terms')->where(['company_id' => $penaId, 'code' => 'NET30'])->countAllResults());
+        $this->assertSame(1, $this->db->table('supplier_terms')->where(['company_id' => $nusaId, 'code' => 'NET14'])->countAllResults());
+        $this->assertTrue($auth->can($purchasingId, $penaId, 'purchasing.master.manage'));
+        $this->assertTrue($auth->can($salesId, $nusaId, 'sales.master.manage'));
+    }
+
+    public function testCommercialWritesRejectForeignTenantReferencesAndAuditCreate(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $penaCurrencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+        $nusaTermId = (int) $this->db->table('customer_terms')->where(['company_id' => $nusaId, 'code' => 'NET30'])->get()->getFirstRow()->id;
+        $penaAddressId = (int) $this->db->table('addresses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+        $nusaCustomerId = (int) $this->db->table('customers')->where(['company_id' => $nusaId, 'code' => 'CUS-DEMO'])->get()->getFirstRow()->id;
+        $writer = new CommercialWriteModel();
+
+        $this->assertFalse($writer->createCustomer([
+            'company_id'      => $penaId,
+            'code'            => 'BAD-CUSTOMER',
+            'name'            => 'Foreign Terms Customer',
+            'currency_id'     => $penaCurrencyId,
+            'default_term_id' => $nusaTermId,
+            'credit_limit'    => '0.0000',
+            'status'          => 'active',
+        ], $actorId));
+        $this->assertFalse($writer->linkCustomerAddress([
+            'company_id'   => $penaId,
+            'customer_id'  => $nusaCustomerId,
+            'address_id'   => $penaAddressId,
+            'address_type' => 'billing',
+            'is_default'   => true,
+            'status'       => 'active',
+        ], $actorId));
+
+        $writer->createCustomerTerm([
+            'company_id'    => $penaId,
+            'code'          => 'CASH',
+            'name'          => 'Cash on Delivery',
+            'due_days'      => 0,
+            'discount_days' => 0,
+            'discount_rate' => '0.000000',
+            'status'        => 'active',
+        ], $actorId);
+        $this->seeInDatabase('customer_terms', ['company_id' => $penaId, 'code' => 'CASH']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'CUSTOMER_TERM_CREATED']);
+        $this->assertSame(0, $this->db->table('customers')->where(['company_id' => $penaId, 'code' => 'BAD-CUSTOMER'])->countAllResults());
+    }
+
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void
     {
         $this->seed(MultiCompanyDemoSeeder::class);
@@ -428,7 +499,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
         $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
         $roleId = (int) $this->db->table('roles')->where(['company_id' => $companyId, 'code' => 'purchasing'])->get()->getFirstRow()->id;
-        $permissionId = (int) $this->db->table('permissions')->where(['company_id' => $companyId, 'code' => 'purchasing.po.view'])->get()->getFirstRow()->id;
+        $permissionId = (int) $this->db->table('permissions')->where(['company_id' => $companyId, 'code' => 'purchasing.master.view'])->get()->getFirstRow()->id;
         $grantId = (int) $this->db->table('role_permissions')->where([
             'company_id'    => $companyId,
             'role_id'       => $roleId,

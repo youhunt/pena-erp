@@ -54,6 +54,7 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $this->provisionSetupMasters($tenantIds, $branchIds, $countryId, $villageId, $now);
         $this->provisionInventoryMasters($tenantIds, $branchIds, $now);
+        $this->provisionCommercialMasters($tenantIds, $now);
 
         $users = [
             'owner@demo.pena-erp.test'      => 'demo.owner',
@@ -139,7 +140,11 @@ final class MultiCompanyDemoSeeder extends Seeder
             'inventory.stock.view'   => ['Lihat Stok', 'inventory'],
             'inventory.master.manage' => ['Kelola Master Inventory', 'inventory'],
             'purchasing.po.view'     => ['Lihat Purchase Order', 'purchasing'],
+            'purchasing.master.view' => ['Lihat Purchasing Master', 'purchasing'],
+            'purchasing.master.manage' => ['Kelola Purchasing Master', 'purchasing'],
             'sales.order.view'       => ['Lihat Sales Order', 'sales'],
+            'sales.master.view'      => ['Lihat Sales Master', 'sales'],
+            'sales.master.manage'    => ['Kelola Sales Master', 'sales'],
             'finance.invoice.view'   => ['Lihat Invoice Finance', 'finance'],
             'cashbank.view'          => ['Lihat Cash dan Bank', 'cashbank'],
             'reports.view'           => ['Lihat Reporting', 'reports'],
@@ -155,8 +160,8 @@ final class MultiCompanyDemoSeeder extends Seeder
             'dashboard'  => ['Dashboard Workspace', 'workspace', 'bx bx-grid-alt', 10, 'company.dashboard.view'],
             'setup'      => ['Setup Master', 'setup', 'bx bx-cog', 15, 'setup.master.view'],
             'inventory'  => ['Inventory', 'inventory', 'bx bx-package', 20, 'inventory.stock.view'],
-            'purchasing' => ['Purchasing', 'workspace/modules/purchasing', 'bx bx-cart', 30, 'purchasing.po.view'],
-            'sales'      => ['Sales', 'workspace/modules/sales', 'bx bx-receipt', 40, 'sales.order.view'],
+            'purchasing' => ['Purchasing Master', 'purchasing/master', 'bx bx-cart', 30, 'purchasing.master.view'],
+            'sales'      => ['Sales Master', 'sales/master', 'bx bx-receipt', 40, 'sales.master.view'],
             'finance'    => ['Accounting & Finance', 'workspace/modules/finance', 'bx bx-calculator', 50, 'finance.invoice.view'],
             'cashbank'   => ['Cash & Bank', 'workspace/modules/cashbank', 'bx bx-wallet', 60, 'cashbank.view'],
             'reports'    => ['Reporting', 'workspace/modules/reports', 'bx bx-line-chart', 70, 'reports.view'],
@@ -170,11 +175,11 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'sales.order.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
             'finance'    => ['company.dashboard.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
-            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'documents.upload'],
+            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
             'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
-            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view'],
+            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.master.view', 'sales.master.manage'],
             'cashier'    => ['company.dashboard.view', 'sales.order.view', 'cashbank.view'],
         ];
 
@@ -325,6 +330,89 @@ final class MultiCompanyDemoSeeder extends Seeder
                     'to_uom_id'   => $alternateUomId,
                 ], ['factor' => '1.000000', 'status' => 'active', 'created_at' => $now]);
             }
+        }
+    }
+
+    /**
+     * @param array<string, int> $tenantIds
+     */
+    private function provisionCommercialMasters(array $tenantIds, string $now): void
+    {
+        foreach ($tenantIds as $code => $companyId) {
+            $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $companyId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+            $addressId = (int) $this->db->table('addresses')->where(['company_id' => $companyId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+            $customerTermId = $this->inventoryRecord('customer_terms', $companyId, 'code', 'NET30', [
+                'code'          => 'NET30',
+                'name'          => 'Net 30 Days',
+                'due_days'      => 30,
+                'discount_days' => 0,
+                'discount_rate' => '0.000000',
+                'status'        => 'active',
+                'created_at'    => $now,
+            ]);
+            $supplierTermId = $this->inventoryRecord('supplier_terms', $companyId, 'code', 'NET14', [
+                'code'          => 'NET14',
+                'name'          => 'Net 14 Days',
+                'due_days'      => 14,
+                'discount_days' => 0,
+                'discount_rate' => '0.000000',
+                'status'        => 'active',
+                'created_at'    => $now,
+            ]);
+            $customerId = $this->inventoryRecord('customers', $companyId, 'code', 'CUS-DEMO', [
+                'code'            => 'CUS-DEMO',
+                'name'            => 'Customer Demo ' . $code,
+                'email'           => 'customer.' . strtolower($code) . '@example.test',
+                'currency_id'     => $currencyId,
+                'default_term_id' => $customerTermId,
+                'credit_limit'    => '10000000.0000',
+                'status'          => 'active',
+                'created_at'      => $now,
+            ]);
+            $supplierId = $this->inventoryRecord('suppliers', $companyId, 'code', 'SUP-DEMO', [
+                'code'            => 'SUP-DEMO',
+                'name'            => 'Supplier Demo ' . $code,
+                'email'           => 'supplier.' . strtolower($code) . '@example.test',
+                'currency_id'     => $currencyId,
+                'default_term_id' => $supplierTermId,
+                'status'          => 'active',
+                'created_at'      => $now,
+            ]);
+
+            $this->relationRecord('customer_addresses', [
+                'company_id'   => $companyId,
+                'customer_id'  => $customerId,
+                'address_id'   => $addressId,
+                'address_type' => 'billing',
+            ], ['is_default' => true, 'status' => 'active', 'created_at' => $now]);
+            $this->relationRecord('supplier_addresses', [
+                'company_id'   => $companyId,
+                'supplier_id'  => $supplierId,
+                'address_id'   => $addressId,
+                'address_type' => 'office',
+            ], ['is_default' => true, 'status' => 'active', 'created_at' => $now]);
+            $this->inventoryRecord('customer_promotions', $companyId, 'code', 'WELCOME5', [
+                'customer_id'    => $customerId,
+                'code'           => 'WELCOME5',
+                'name'           => 'Welcome Customer Discount',
+                'discount_type'  => 'percentage',
+                'discount_value' => '5.0000',
+                'starts_on'      => '2026-01-01',
+                'ends_on'        => '2026-12-31',
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $this->inventoryRecord('supplier_promotions', $companyId, 'code', 'REBATE2', [
+                'supplier_id'    => $supplierId,
+                'code'           => 'REBATE2',
+                'name'           => 'Supplier Rebate',
+                'discount_type'  => 'percentage',
+                'discount_value' => '2.0000',
+                'starts_on'      => '2026-01-01',
+                'ends_on'        => '2026-12-31',
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
         }
     }
 

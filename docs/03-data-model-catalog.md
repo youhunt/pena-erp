@@ -145,11 +145,21 @@ Tabel ledger stok tetap menjadi kontrak tranche transaksi berikutnya.
 Seluruh tabel berikut `T+A`; nomor dokumen unique per company dan branch bila
 sequence cabang dipakai.
 
+Status implementasi: Commercial Master (`customers`, `suppliers`, terms,
+promotion, dan link address) sudah memiliki migration dan UI tenant-scoped.
+Tabel transaksi pada bagian ini masih merupakan desain tahap berikutnya.
+
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
-| `suppliers` (vendor master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50)`, `email VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `payment_terms_days INT`, `currency_id FK`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,tax_no)`, `IDX(village_id)`, name search | `SUP-001 PT Sumber` |
+| `supplier_terms` (vendor payment terms) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(100)`, `due_days INT`, `discount_days INT`, `discount_rate DECIMAL(9,6)`, `status VARCHAR(20)` | `UQ(company_id,code)`; default FK dari supplier | `NET14, 14 hari` |
+| `suppliers` (vendor master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50) NULL`, `email VARCHAR(120) NULL`, `phone VARCHAR(40) NULL`, `currency_id FK currencies`, `default_term_id FK supplier_terms NULL`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,tax_no)`, tenant validation untuk currency/terms | `SUP-DEMO PT Sumber` |
+| `supplier_addresses` (vendor reusable address) | `id PK`, `supplier_id FK`, `address_id FK addresses`, `address_type VARCHAR(20)`, `is_default BOOLEAN`, `status VARCHAR(20)` | `UQ(company_id,supplier_id,address_id,address_type)`; kedua FK harus tenant sama | `SUP-DEMO office MAIN` |
+| `supplier_promotions` (rebate dasar) | `id PK`, `supplier_id FK NULL`, `code VARCHAR(40)`, `name VARCHAR(120)`, `discount_type VARCHAR(20)`, `discount_value DECIMAL(19,4)`, `starts_on DATE`, `ends_on DATE`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,supplier_id,status)` | `REBATE2 2%` |
 | `supplier_product_mappings` (vendor SKU mapping) | `id PK`, `supplier_id FK`, `supplier_sku VARCHAR(80)`, `supplier_description VARCHAR(200)`, `product_id FK`, `uom_id FK` | `UQ(company_id,supplier_id,supplier_sku)` | `PAPER-A4 -> ATK-A4-80` |
-| `customers` (customer master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `credit_limit DECIMAL(19,4)`, `payment_terms_days INT`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(village_id)`, tax/name indices | `CUS-001 Toko Maju` |
+| `customer_terms` (customer payment terms) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(100)`, `due_days INT`, `discount_days INT`, `discount_rate DECIMAL(9,6)`, `status VARCHAR(20)` | `UQ(company_id,code)`; default FK dari customer | `NET30, 30 hari` |
+| `customers` (customer master) | `id PK`, `code VARCHAR(40)`, `name VARCHAR(180)`, `tax_no VARCHAR(50) NULL`, `email VARCHAR(120) NULL`, `phone VARCHAR(40) NULL`, `currency_id FK currencies`, `default_term_id FK customer_terms NULL`, `credit_limit DECIMAL(19,4)`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,tax_no)`, tenant validation untuk currency/terms | `CUS-DEMO Toko Maju` |
+| `customer_addresses` (customer reusable address) | `id PK`, `customer_id FK`, `address_id FK addresses`, `address_type VARCHAR(20)`, `is_default BOOLEAN`, `status VARCHAR(20)` | `UQ(company_id,customer_id,address_id,address_type)`; kedua FK harus tenant sama | `CUS-DEMO billing MAIN` |
+| `customer_promotions` (diskon dasar) | `id PK`, `customer_id FK NULL`, `code VARCHAR(40)`, `name VARCHAR(120)`, `discount_type VARCHAR(20)`, `discount_value DECIMAL(19,4)`, `starts_on DATE`, `ends_on DATE`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,customer_id,status)` | `WELCOME5 5%` |
 | `purchase_requisitions` (internal demand) | `id PK`, `requisition_no VARCHAR(50)`, `requested_by FK users`, `required_date DATE`, `status VARCHAR(30)` | `UQ(company_id,requisition_no)`, `IDX(status)` | `PR-0001 approved` |
 | `purchase_requisition_items` (demand lines) | `id PK`, `purchase_requisition_id FK`, `product_id FK`, `qty DECIMAL(18,4)`, `uom_id FK`, `required_date DATE` | `IDX(company_id,purchase_requisition_id)` | `A4 10` |
 | `purchase_orders` (vendor commitment) | `id PK`, `po_no VARCHAR(50)`, `supplier_id FK`, `order_date DATE`, `currency_id FK`, `subtotal DECIMAL(19,4)`, `tax_amount DECIMAL(19,4)`, `total_amount DECIMAL(19,4)`, `status VARCHAR(30)`, `document_upload_id FK NULL` | `UQ(company_id,po_no)`, `IDX(supplier_id,status)` | `PO-JKT-000103` |

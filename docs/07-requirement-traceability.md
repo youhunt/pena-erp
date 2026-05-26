@@ -65,7 +65,10 @@ Functional menu operasional terbaru dikendalikan melalui
 (`transaction_codes`, `departments`, `countries`, `addresses`, `currencies`,
 `tax_codes`) serta perluasan Inventory Master (`warehouse_bins`,
 `product_uom_conversions`, `product_tax_codes`, `stock_lots`) dengan UI,
-permission tenant dan seed demo; commercial/finance/manufacturing master
+permission tenant dan seed demo. Tahap 7 telah memulai Commercial Master:
+`customers`, `suppliers`, masing-masing terms, relasi ke Address Master dan
+promo dasar, dengan UI Sales/Purchasing, permission, audit, seed demo serta
+uji isolasi tenant. POS, transaksi commercial, finance dan manufacturing
 berikutnya tetap dibangun mengikuti dependency roadmap tersebut.
 
 ## Definition of Ready for Implementation

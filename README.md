@@ -36,6 +36,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   resmi. Modul `Setup Master` menyediakan Transaction Code, Department,
   Currency, VAT dan Address Master; Inventory diperluas dengan Location,
   Item UoM Conversion, Item VAT, dan Batch Master.
+- Tahap 7 dimulai: menu `Sales Master` dan `Purchasing Master` menyediakan
+  Customer/Supplier Master, terms, relasi Address Master, serta promo dasar
+  tenant-scoped dengan permission, audit trail dan data demo per company.
 
 ```bash
 composer install
@@ -112,8 +115,10 @@ database production.
 
 Setelah login sebagai owner, manager, atau warehouse, menu `Inventory`
 menampilkan produk/gudang untuk company aktif dan menyediakan form UOM,
-kategori, produk, serta gudang. Purchasing dan sales saat ini dapat melihat
-daftar inventory sesuai grant, tetapi tidak mengubah master.
+kategori, produk, serta gudang. Role Purchasing dapat mengelola
+`Purchasing Master` dan role Sales dapat mengelola `Sales Master` di tenant
+masing-masing; inventory tetap hanya dapat diubah oleh role yang memiliki
+`inventory.master.manage`.
 
 ## Dokumen Blueprint
 

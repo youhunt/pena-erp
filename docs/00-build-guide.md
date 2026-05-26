@@ -34,7 +34,10 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 2 | Authentication provider dan base security | Selesai, 25 Mei 2026 |
 | 3 | Skote shell dan module foundation | Selesai untuk shell awal, 25 Mei 2026 |
 | 4 | Tenant/company/branch/RBAC migrations | Berjalan: CRUD + context switch + RBAC UI awal, 25 Mei 2026 |
-| 5+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
+| 5 | Inventory Master dan Warehouse | Berjalan: master tenant + UI, 26 Mei 2026 |
+| 6 | Functional Menu dan Setup Master | Berjalan: setup/reference master + UI, 26 Mei 2026 |
+| 7 | Commercial Master Customer/Supplier | Berjalan: terms/address/promo dasar + UI, 26 Mei 2026 |
+| 8+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -349,10 +352,44 @@ tranche transaksi berikutnya.
 ### Master Berikutnya
 
 Tranche M2 membangun customer/supplier, terms, address relation, promo dasar,
-dan POS Master. Tranche M3 membangun master Finance/GL, Cash Bank dan Costing;
-M4 membangun BOM, Work Center, Routing serta referensi Planning.
+dan POS Master. Customer/Supplier portion telah dilanjutkan pada Tahap 7;
+POS Master masih berada pada antrean M2 berikutnya. Tranche M3 membangun
+master Finance/GL, Cash Bank dan Costing; M4 membangun BOM, Work Center,
+Routing serta referensi Planning.
 
 ### Verifikasi Tahap 6
+
+```bash
+php spark migrate --all
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
+```
+
+## Tahap 7: Commercial Master Customer dan Supplier
+
+### Yang Sudah Dibuat
+
+- Migration `CreateCommercialMasterTables` membuat `customers`, `suppliers`,
+  `customer_terms`, `supplier_terms`, `customer_addresses`,
+  `supplier_addresses`, `customer_promotions`, dan `supplier_promotions`.
+- Halaman `/sales/master` menangani Customer Master, Terms, Customer Address
+  berbasis Address Master, dan Customer Promo dasar.
+- Halaman `/purchasing/master` menyediakan jalur yang setara untuk supplier.
+- Permission `sales.master.view/manage` dan
+  `purchasing.master.view/manage` mengendalikan menu serta mutation per role.
+- Write model memeriksa bahwa currency, terms, partner, dan address berasal
+  dari company aktif; create dan linking terekam dalam Audit Trail.
+- Seeder demo menyediakan customer/supplier, terms, mapping alamat dan promo
+  terisolasi untuk masing-masing company agar pengujian dua laptop konsisten.
+
+### Batas Tahap Ini
+
+Master promo saat ini menyimpan periode dan nilai diskon dasar. Rule item,
+price list, approval promo, Purchase Order, Sales Order, receipt/delivery,
+posting stok, serta POS System belum diaktifkan sebagai transaksi.
+
+### Verifikasi Tahap 7
 
 ```bash
 php spark migrate --all

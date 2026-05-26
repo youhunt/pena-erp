@@ -49,6 +49,7 @@ final class TenantMenuService
             ->join('roles r', "r.id = rp.role_id AND r.status = 'active'")
             ->join('user_roles ur', 'ur.company_id = m.company_id AND ur.role_id = r.id')
             ->join('user_company_memberships cm', "cm.company_id = m.company_id AND cm.user_id = ur.user_id AND cm.status = 'active'")
+            ->join('users u', 'u.id = ur.user_id AND u.active = 1')
             ->where('m.company_id', $companyId)
             ->where('m.deleted_at', null)
             ->where('m.route IS NOT NULL', null, false)

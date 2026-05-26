@@ -48,4 +48,43 @@ final class ShieldUserProvisioningService
 
         return $userId;
     }
+
+    public function setActive(int $userId, bool $active, int $actorId): bool
+    {
+        /** @var UserModel $users */
+        $users = model(UserModel::class);
+        $user  = $users->findById($userId);
+
+        if ($user === null) {
+            return false;
+        }
+
+        $before = ['active' => (bool) $user->active];
+        $users->update($userId, ['active' => $active]);
+        (new AuditTrailService($this->db))->record('USER_STATUS_UPDATED', 'user', $userId, null, null, $actorId, [
+            'active' => $active,
+        ], $before);
+
+        return true;
+    }
+
+    public function setTemporaryPassword(int $userId, string $password, int $actorId): bool
+    {
+        /** @var UserModel $users */
+        $users = model(UserModel::class);
+        $user  = $users->findById($userId);
+
+        if ($user === null) {
+            return false;
+        }
+
+        $user->password = $password;
+        $users->save($user);
+        (new AuditTrailService($this->db))->record('USER_PASSWORD_REPLACED', 'user', $userId, null, null, $actorId, [
+            'provider' => 'shield',
+            'mode'     => 'temporary_password',
+        ]);
+
+        return true;
+    }
 }

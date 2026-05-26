@@ -50,7 +50,9 @@
                     <div class="mb-3">
                         <label class="form-label">User</label>
                         <select name="user_id" class="form-select" required>
-                            <?php foreach ($users as $user) : ?><option value="<?= esc($user['id']) ?>"><?= esc($user['username'] . ' - ' . $user['email']) ?></option><?php endforeach; ?>
+                            <?php foreach ($users as $user) : ?>
+                                <option value="<?= esc($user['id']) ?>" <?= $user['active'] ? '' : 'disabled' ?>><?= esc($user['username'] . ' - ' . $user['email'] . ($user['active'] ? '' : ' [inactive]')) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -76,19 +78,69 @@
     <div class="col-xl-8">
         <div class="card">
             <div class="card-body">
-                <h4 class="card-title mb-3">Membership Aktif</h4>
+                <h4 class="card-title mb-3">Lifecycle User Shield</h4>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>Company</th><th>User</th><th>Email</th><th>Role</th><th>Branch</th><th>Status</th><th class="text-end">Aksi</th></tr></thead>
+                        <thead><tr><th>User</th><th>Email</th><th>Login</th><th>Password Sementara</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($users as $user) : ?>
+                            <tr>
+                                <td><?= esc($user['username']) ?></td>
+                                <td><?= esc($user['email']) ?></td>
+                                <td>
+                                    <form method="post" action="<?= site_url('administration/users/' . $user['id'] . '/status') ?>" class="d-flex gap-2">
+                                        <?= csrf_field() ?>
+                                        <select name="active" class="form-select form-select-sm">
+                                            <option value="1" <?= $user['active'] ? 'selected' : '' ?>>Active</option>
+                                            <option value="0" <?= $user['active'] ? '' : 'selected' ?>>Inactive</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
+                                    </form>
+                                </td>
+                                <td>
+                                    <form method="post" action="<?= site_url('administration/users/' . $user['id'] . '/password') ?>" class="d-flex gap-2">
+                                        <?= csrf_field() ?>
+                                        <input type="password" name="password" class="form-control form-control-sm" placeholder="Password baru" minlength="12" required>
+                                        <input type="password" name="password_confirm" class="form-control form-control-sm" placeholder="Konfirmasi" minlength="12" required>
+                                        <button type="submit" class="btn btn-outline-warning btn-sm">Set</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="form-text mt-3 mb-0">Menonaktifkan login segera memutus context, menu, dan permission tenant. Password tidak dicatat dalam Audit Trail.</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-3">Membership Company dan Role</h4>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead><tr><th>Company</th><th>User</th><th>Role</th><th>Branch</th><th>Status Company</th><th class="text-end">Aksi Role</th></tr></thead>
                         <tbody>
                         <?php foreach ($assignments as $assignment) : ?>
                             <tr>
                                 <td><?= esc($assignment['company_code'] . ' - ' . $assignment['company_name']) ?></td>
-                                <td><?= esc($assignment['username']) ?></td>
-                                <td><?= esc($assignment['email']) ?></td>
+                                <td>
+                                    <?= esc($assignment['username']) ?>
+                                    <?php if (! $assignment['user_active']) : ?><span class="badge bg-danger ms-1">login inactive</span><?php endif; ?>
+                                </td>
                                 <td><?= esc($assignment['role_name'] ?? '-') ?></td>
                                 <td><?= esc($assignment['branch_codes'] ?? '-') ?></td>
-                                <td><span class="badge bg-success"><?= esc($assignment['status']) ?></span></td>
+                                <td>
+                                    <form method="post" action="<?= site_url('administration/access/company-status') ?>" class="d-flex gap-2">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="company_id" value="<?= esc($assignment['company_id']) ?>">
+                                        <input type="hidden" name="user_id" value="<?= esc($assignment['user_id']) ?>">
+                                        <select name="status" class="form-select form-select-sm">
+                                            <option value="active" <?= $assignment['status'] === 'active' ? 'selected' : '' ?>>Active</option>
+                                            <option value="inactive" <?= $assignment['status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
+                                    </form>
+                                </td>
                                 <td class="text-end">
                                     <?php if ($assignment['assignment_id'] !== null) : ?>
                                         <form method="post" action="<?= site_url('administration/access/revoke') ?>" onsubmit="return confirm('Cabut role user dari company ini?')">
@@ -98,6 +150,41 @@
                                             <button class="btn btn-outline-danger btn-sm" type="submit">Cabut Role</button>
                                         </form>
                                     <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-3">Scope Branch User</h4>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead><tr><th>Company</th><th>User</th><th>Branch</th><th>Status / Switch</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($branchMemberships as $membership) : ?>
+                            <tr>
+                                <td><?= esc($membership['company_code']) ?></td>
+                                <td><?= esc($membership['username']) ?></td>
+                                <td><?= esc($membership['branch_code'] . ' - ' . $membership['branch_name']) ?></td>
+                                <td>
+                                    <form method="post" action="<?= site_url('administration/access/branch-status') ?>" class="d-flex gap-2 align-items-center">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="company_id" value="<?= esc($membership['company_id']) ?>">
+                                        <input type="hidden" name="membership_id" value="<?= esc($membership['id']) ?>">
+                                        <select name="status" class="form-select form-select-sm">
+                                            <option value="active" <?= $membership['status'] === 'active' ? 'selected' : '' ?>>Active</option>
+                                            <option value="inactive" <?= $membership['status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                                        </select>
+                                        <div class="form-check">
+                                            <input type="checkbox" name="can_switch" value="1" class="form-check-input" id="switch-<?= esc($membership['id']) ?>" <?= $membership['can_switch'] ? 'checked' : '' ?>>
+                                            <label class="form-check-label" for="switch-<?= esc($membership['id']) ?>">Switch</label>
+                                        </div>
+                                        <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

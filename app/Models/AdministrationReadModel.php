@@ -158,7 +158,7 @@ final class AdministrationReadModel extends Model
     public function tenantAccessAssignments(): array
     {
         return $this->db->table('user_company_memberships m')
-            ->select('m.company_id, m.user_id, ur.id AS assignment_id, c.code AS company_code, c.name AS company_name, u.username, i.secret AS email, r.name AS role_name, GROUP_CONCAT(DISTINCT b.code) AS branch_codes, m.status')
+            ->select('m.id AS membership_id, m.company_id, m.user_id, ur.id AS assignment_id, c.code AS company_code, c.name AS company_name, u.username, u.active AS user_active, i.secret AS email, r.name AS role_name, GROUP_CONCAT(DISTINCT b.code) AS branch_codes, m.status')
             ->join('companies c', 'c.id = m.company_id')
             ->join('users u', 'u.id = m.user_id')
             ->join('auth_identities i', "i.user_id = u.id AND i.type = 'email_password'", 'left')
@@ -166,7 +166,7 @@ final class AdministrationReadModel extends Model
             ->join('roles r', 'r.id = ur.role_id', 'left')
             ->join('user_branch_memberships bm', "bm.company_id = m.company_id AND bm.user_id = m.user_id AND bm.status = 'active'", 'left')
             ->join('branches b', 'b.id = bm.branch_id', 'left')
-            ->groupBy('m.company_id, m.user_id, ur.id, c.code, c.name, u.username, i.secret, r.name, m.status')
+            ->groupBy('m.id, m.company_id, m.user_id, ur.id, c.code, c.name, u.username, u.active, i.secret, r.name, m.status')
             ->orderBy('c.name', 'ASC')
             ->orderBy('u.username', 'ASC')
             ->get()
@@ -179,10 +179,26 @@ final class AdministrationReadModel extends Model
     public function users(): array
     {
         return $this->db->table('users u')
-            ->select('u.id, u.username, i.secret AS email')
+            ->select('u.id, u.username, u.active, i.secret AS email')
             ->join('auth_identities i', "i.user_id = u.id AND i.type = 'email_password'", 'left')
-            ->where('u.active', true)
             ->orderBy('u.username', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function branchMemberships(): array
+    {
+        return $this->db->table('user_branch_memberships bm')
+            ->select('bm.id, bm.company_id, bm.user_id, bm.branch_id, bm.can_switch, bm.status, c.code AS company_code, u.username, b.code AS branch_code, b.name AS branch_name')
+            ->join('companies c', 'c.id = bm.company_id')
+            ->join('users u', 'u.id = bm.user_id')
+            ->join('branches b', 'b.id = bm.branch_id')
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('u.username', 'ASC')
+            ->orderBy('b.name', 'ASC')
             ->get()
             ->getResultArray();
     }

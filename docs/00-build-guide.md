@@ -196,6 +196,15 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
   Akun baru tidak mendapat privilege platform/tenant otomatis; role company
   diberikan sesudahnya secara eksplisit. Audit `USER_PROVISIONED` hanya
   menyimpan username/email/provider, tidak menyimpan password.
+- Lifecycle user pada layar yang sama mendukung aktif/nonaktif login dan
+  penggantian password sementara. Ketiga jalur akses tenant (context,
+  permission, dan dynamic menu) kini mensyaratkan user Shield masih aktif;
+  event dicatat sebagai `USER_STATUS_UPDATED` dan `USER_PASSWORD_REPLACED`.
+- Membership company dapat di-suspend/aktifkan dan scope branch dapat diatur
+  status serta `can_switch`-nya. Suspend company otomatis menonaktifkan
+  branch user tersebut, sedangkan reaktivasi branch harus eksplisit; event
+  dicatat sebagai `USER_COMPANY_MEMBERSHIP_UPDATED` dan
+  `USER_BRANCH_MEMBERSHIP_UPDATED`.
 - Company nonaktif tidak dapat digunakan sebagai tenant context atau sumber
   permission. Branch nonaktif tidak lagi muncul sebagai context aktif, dan
   ownership company pada branch tidak dapat diubah melalui form edit biasa.
@@ -235,10 +244,12 @@ di audit. Regression suite juga memverifikasi role nonaktif menghentikan menu,
 revoke assignment satu company tidak menghapus akses company lain, perbedaan
 menu Purchasing/Finance, owner demo dapat berpindah antara tiga company,
 provisioning Shield menyimpan password sebagai hash tanpa bocor ke audit, dan
-CRUD mapping menu memengaruhi sidebar sesuai permission.
+CRUD mapping menu memengaruhi sidebar sesuai permission. Test tambahan
+memastikan user Shield nonaktif kehilangan seluruh akses tenant dan suspend
+company tidak membuka kembali branch tanpa tindakan eksplisit.
 Pekerjaan lanjutan Tahap 4 adalah mengganti atau melengkapi
 dataset API hingga sesuai rujukan master resmi serta memperluas administrasi
-untuk status membership granular dan kebijakan lifecycle/reset password user.
+untuk alur force-reset/password mandiri serta kebijakan session revocation.
 
 ### Keputusan Tenant pada Tahap 4
 

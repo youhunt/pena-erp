@@ -50,9 +50,11 @@ migration/seeder dan perlindungan secret dicatat pada
 Audit Trail UI dan revoke grant permission tenant telah tersedia dengan event
 append-only. Status role, revoke assignment user terisolasi per-company,
 provisioning login Shield tanpa privilege tersirat, serta CRUD mapping
-menu-permission kini tersedia. Import dataset nasional resmi lengkap,
-kebijakan lifecycle/reset password user, transaksi, deployment manifests dan
-provider credentials masih mengikuti gate roadmap.
+menu-permission kini tersedia. Lifecycle user awal (status login dan password
+sementara), status membership company/branch, serta pemutusan akses tenant
+bagi user Shield nonaktif juga sudah diuji. Import dataset nasional resmi
+lengkap, force-reset/password mandiri, session revocation, transaksi,
+deployment manifests dan provider credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation
 

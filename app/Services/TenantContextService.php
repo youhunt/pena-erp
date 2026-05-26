@@ -32,6 +32,7 @@ final class TenantContextService
 
         return $this->db->table('user_company_memberships m')
             ->select('c.id AS company_id, c.code AS company_code, c.name AS company_name, b.id AS branch_id, b.code AS branch_code, b.name AS branch_name, m.is_default')
+            ->join('users u', 'u.id = m.user_id AND u.active = 1')
             ->join('companies c', "c.id = m.company_id AND c.deleted_at IS NULL AND c.status = 'active'")
             ->join('user_branch_memberships bm', "bm.company_id = m.company_id AND bm.user_id = m.user_id AND bm.status = 'active' AND bm.can_switch = 1", 'left')
             ->join('branches b', "b.id = bm.branch_id AND b.deleted_at IS NULL AND b.status = 'active'", 'left')

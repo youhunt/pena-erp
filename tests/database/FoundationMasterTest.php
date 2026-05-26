@@ -439,6 +439,68 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('audit_logs', ['event_type' => 'MENU_PERMISSION_REVOKED', 'entity_id' => $mappingId]);
     }
 
+    public function testInactiveShieldUserLosesTenantAccessAndPasswordReplacementIsAuditedSafely(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $auth = new TenantAuthorizationService();
+        $menus = new TenantMenuService($this->db);
+        $context = new TenantContextService($this->db, service('session'));
+        $users = new ShieldUserProvisioningService($this->db);
+
+        $this->assertTrue($auth->can($userId, $companyId, 'purchasing.po.view'));
+        $this->assertTrue($users->setActive($userId, false, $actorId));
+        $this->assertFalse($auth->can($userId, $companyId, 'purchasing.po.view'));
+        $this->assertSame([], $menus->accessibleMenus($userId, $companyId));
+        $this->assertSame([], $context->availableContexts($userId));
+
+        $newPassword = 'ReplacedTemp#2026';
+        $this->assertTrue($users->setTemporaryPassword($userId, $newPassword, $actorId));
+        $identity = $this->db->table('auth_identities')
+            ->where(['user_id' => $userId, 'type' => 'email_password'])
+            ->get()
+            ->getFirstRow('array');
+        $passwordAudit = $this->db->table('audit_logs')
+            ->where(['event_type' => 'USER_PASSWORD_REPLACED', 'entity_id' => $userId])
+            ->get()
+            ->getFirstRow('array');
+
+        $this->assertTrue(password_verify($newPassword, $identity['secret2']));
+        $this->assertStringNotContainsString($newPassword, (string) $passwordAudit['after_json']);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'USER_STATUS_UPDATED', 'entity_id' => $userId]);
+    }
+
+    public function testSuspendedCompanyMembershipRequiresExplicitBranchReactivation(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $branchMembershipId = (int) $this->db->table('user_branch_memberships')
+            ->where(['company_id' => $companyId, 'user_id' => $userId])
+            ->get()
+            ->getFirstRow()
+            ->id;
+        $writer = new AdministrationWriteModel();
+        $context = new TenantContextService($this->db, service('session'));
+
+        $this->assertNotSame([], $context->availableContexts($userId));
+        $this->assertTrue($writer->updateCompanyMembership($companyId, $userId, 'inactive', $actorId));
+        $this->assertSame([], $context->availableContexts($userId));
+        $this->seeInDatabase('user_branch_memberships', ['id' => $branchMembershipId, 'status' => 'inactive', 'can_switch' => 0]);
+
+        $this->assertTrue($writer->updateCompanyMembership($companyId, $userId, 'active', $actorId));
+        $this->assertSame([], $context->availableContexts($userId));
+        $this->assertTrue($writer->updateBranchMembership($companyId, $branchMembershipId, 'active', true, $actorId));
+        $this->assertNotSame([], $context->availableContexts($userId));
+        $this->seeInDatabase('audit_logs', ['event_type' => 'USER_COMPANY_MEMBERSHIP_UPDATED', 'company_id' => $companyId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'USER_BRANCH_MEMBERSHIP_UPDATED', 'company_id' => $companyId]);
+    }
+
     private function createTestUser(string $username, string $email): int
     {
         $this->db->table('users')->insert([

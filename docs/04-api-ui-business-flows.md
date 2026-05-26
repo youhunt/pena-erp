@@ -35,7 +35,8 @@ Mutation requirements:
 | `GET /workspace/modules/{menuCode}` | Placeholder modul dari mapping menu-permission tenant aktif | tenant menu permission |
 | `GET/POST /administration/companies` | Tenant administration shell | `platform.company.manage` |
 | `GET/POST /administration/branches` | Branch CRUD shell | `platform.company.manage` |
-| `POST /administration/users`, `GET/POST /administration/access`, `POST /administration/access/revoke` | Provision Shield identity, then explicitly assign/revoke tenant role and initial branch membership | `platform.company.manage` |
+| `POST /administration/users`, `/users/{id}/status`, `/users/{id}/password` | Provision identity, activate/deactivate login, replace temporary Shield password | `platform.company.manage` |
+| `GET/POST /administration/access`, `POST /administration/access/revoke`, `/access/company-status`, `/access/branch-status` | Assign/revoke role and administer tenant/branch membership status or switching | `platform.company.manage` |
 | `GET /administration/rbac`, `POST /administration/rbac/roles`, `/roles/{id}`, `/permissions`, `/grants`, `/grants/revoke`, `/menu-mappings`, `/menu-mappings/revoke` | Tenant RBAC role status, grants and sidebar menu-permission mapping | `platform.company.manage` |
 | `GET /administration/audit` | Auditable activity search | `platform.audit.view` |
 

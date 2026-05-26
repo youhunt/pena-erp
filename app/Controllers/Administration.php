@@ -203,6 +203,7 @@ final class Administration extends BaseController
             'roles'       => $model->roles(),
             'users'       => $model->users(),
             'branches'    => $model->branchOptions(),
+            'branchMemberships' => $model->branchMemberships(),
         ]);
     }
 
@@ -464,6 +465,52 @@ final class Administration extends BaseController
         return redirect()->to(site_url('administration/access'))->with('message', 'User Shield aktif berhasil dibuat. Silakan berikan role tenant.');
     }
 
+    public function updateUserStatus(int $id): RedirectResponse
+    {
+        $active = (string) $this->request->getPost('active');
+
+        if (! $this->validateData(['active' => $active], ['active' => 'required|in_list[0,1]'])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        if ($id === $this->actorId() && $active === '0') {
+            return redirect()->back()->with('errors', ['active' => 'Anda tidak dapat menonaktifkan akun yang sedang dipakai sendiri.']);
+        }
+
+        if (! (new ShieldUserProvisioningService())->setActive($id, $active === '1', $this->actorId())) {
+            return redirect()->back()->with('errors', ['user_id' => 'User tidak ditemukan.']);
+        }
+
+        return redirect()->to(site_url('administration/access'))->with('message', 'Status login user berhasil diperbarui.');
+    }
+
+    public function replaceUserPassword(int $id): RedirectResponse
+    {
+        $data = [
+            'password'         => (string) $this->request->getPost('password'),
+            'password_confirm' => (string) $this->request->getPost('password_confirm'),
+        ];
+
+        if (! $this->validateData($data, [
+            'password'         => 'required|min_length[12]|max_length[255]',
+            'password_confirm' => 'required|matches[password]',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        try {
+            $updated = (new ShieldUserProvisioningService())->setTemporaryPassword($id, $data['password'], $this->actorId());
+        } catch (Throwable) {
+            return redirect()->back()->with('errors', ['password' => 'Password sementara gagal diperbarui.']);
+        }
+
+        if (! $updated) {
+            return redirect()->back()->with('errors', ['user_id' => 'User tidak ditemukan.']);
+        }
+
+        return redirect()->to(site_url('administration/access'))->with('message', 'Password sementara user berhasil diperbarui.');
+    }
+
     public function assignAccess(): RedirectResponse
     {
         $data = [
@@ -491,7 +538,7 @@ final class Administration extends BaseController
         );
 
         if (! $saved) {
-            return redirect()->back()->withInput()->with('errors', ['role_id' => 'Role atau branch bukan milik company yang dipilih.']);
+            return redirect()->back()->withInput()->with('errors', ['role_id' => 'User harus aktif dan role/branch harus berasal dari company yang dipilih.']);
         }
 
         return redirect()->to(site_url('administration/access'))->with('message', 'Akses user berhasil diberikan.');
@@ -516,6 +563,53 @@ final class Administration extends BaseController
         }
 
         return redirect()->to(site_url('administration/access'))->with('message', 'Assignment role user berhasil dicabut.');
+    }
+
+    public function updateCompanyMembership(): RedirectResponse
+    {
+        $data = [
+            'company_id' => $this->request->getPost('company_id'),
+            'user_id'    => $this->request->getPost('user_id'),
+            'status'     => (string) $this->request->getPost('status'),
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id' => 'required|is_natural_no_zero',
+            'user_id'    => 'required|is_natural_no_zero',
+            'status'     => 'required|in_list[active,inactive]',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        if (! (new AdministrationWriteModel())->updateCompanyMembership((int) $data['company_id'], (int) $data['user_id'], $data['status'], $this->actorId())) {
+            return redirect()->back()->with('errors', ['user_id' => 'Membership company tidak ditemukan.']);
+        }
+
+        return redirect()->to(site_url('administration/access'))->with('message', 'Status membership company berhasil diperbarui.');
+    }
+
+    public function updateBranchMembership(): RedirectResponse
+    {
+        $data = [
+            'company_id'    => $this->request->getPost('company_id'),
+            'membership_id' => $this->request->getPost('membership_id'),
+            'status'        => (string) $this->request->getPost('status'),
+            'can_switch'    => $this->request->getPost('can_switch') === '1',
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id'    => 'required|is_natural_no_zero',
+            'membership_id' => 'required|is_natural_no_zero',
+            'status'        => 'required|in_list[active,inactive]',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        if (! (new AdministrationWriteModel())->updateBranchMembership((int) $data['company_id'], (int) $data['membership_id'], $data['status'], (bool) $data['can_switch'], $this->actorId())) {
+            return redirect()->back()->with('errors', ['membership_id' => 'Aktifkan membership company terlebih dahulu sebelum mengaktifkan branch.']);
+        }
+
+        return redirect()->to(site_url('administration/access'))->with('message', 'Status akses branch berhasil diperbarui.');
     }
 
     /**

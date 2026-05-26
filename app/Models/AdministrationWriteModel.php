@@ -172,11 +172,14 @@ final class AdministrationWriteModel extends Model
 
     public function assignRole(int $companyId, int $userId, int $roleId, ?int $branchId, int $actorId): bool
     {
+        $userExists = $this->db->table('users')
+            ->where(['id' => $userId, 'active' => true])
+            ->countAllResults() === 1;
         $roleExists = $this->db->table('roles')
             ->where(['id' => $roleId, 'company_id' => $companyId, 'status' => 'active'])
             ->countAllResults() === 1;
 
-        if (! $roleExists) {
+        if (! $userExists || ! $roleExists) {
             return false;
         }
 
@@ -378,6 +381,70 @@ final class AdministrationWriteModel extends Model
             'assignment_id'         => $assignmentId,
             'membership_deactivated' => $remainingRoles === 0,
         ], $assignment);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    public function updateCompanyMembership(int $companyId, int $userId, string $status, int $actorId): bool
+    {
+        $membership = $this->db->table('user_company_memberships')
+            ->where(['company_id' => $companyId, 'user_id' => $userId])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($membership === null) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->db->transStart();
+        $this->db->table('user_company_memberships')->where('id', $membership['id'])->update([
+            'status'     => $status,
+            'updated_by' => $actorId,
+            'updated_at' => $now,
+        ]);
+
+        if ($status === 'inactive') {
+            $this->db->table('user_branch_memberships')
+                ->where(['company_id' => $companyId, 'user_id' => $userId])
+                ->update(['status' => 'inactive', 'can_switch' => false, 'updated_by' => $actorId, 'updated_at' => $now]);
+        }
+
+        $this->audit()->record('USER_COMPANY_MEMBERSHIP_UPDATED', 'user', $userId, $companyId, null, $actorId, [
+            'status' => $status,
+        ], $membership);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    public function updateBranchMembership(int $companyId, int $membershipId, string $status, bool $canSwitch, int $actorId): bool
+    {
+        $membership = $this->db->table('user_branch_memberships')
+            ->where(['id' => $membershipId, 'company_id' => $companyId])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($membership === null) {
+            return false;
+        }
+
+        if ($status === 'active' && $this->db->table('user_company_memberships')
+            ->where(['company_id' => $companyId, 'user_id' => $membership['user_id'], 'status' => 'active'])
+            ->countAllResults() !== 1) {
+            return false;
+        }
+
+        $data = [
+            'status'     => $status,
+            'can_switch' => $status === 'active' && $canSwitch,
+            'updated_by' => $actorId,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+        $this->db->transStart();
+        $this->db->table('user_branch_memberships')->where('id', $membershipId)->update($data);
+        $this->audit()->record('USER_BRANCH_MEMBERSHIP_UPDATED', 'user', (int) $membership['user_id'], $companyId, (int) $membership['branch_id'], $actorId, $data, $membership);
         $this->completeTransaction();
 
         return true;

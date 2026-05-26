@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth;
 
 use App\Services\AuditTrailService;
+use App\Services\UserSessionSecurityService;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Shield\Models\UserModel;
 use Config\Database;
@@ -65,10 +66,14 @@ final class ShieldUserProvisioningService
             'active' => $active,
         ], $before);
 
+        if (! $active) {
+            (new UserSessionSecurityService($this->db))->revokeSessions($userId, $actorId, 'login_deactivated');
+        }
+
         return true;
     }
 
-    public function setTemporaryPassword(int $userId, string $password, int $actorId): bool
+    public function setTemporaryPassword(int $userId, string $password, int $actorId, bool $requireReset = true): bool
     {
         /** @var UserModel $users */
         $users = model(UserModel::class);
@@ -80,9 +85,13 @@ final class ShieldUserProvisioningService
 
         $user->password = $password;
         $users->save($user);
+        $security = new UserSessionSecurityService($this->db);
+        $security->setPasswordResetRequired($userId, $requireReset);
+        $security->revokeSessions($userId, $actorId, $requireReset ? 'temporary_password_issued' : 'password_changed');
         (new AuditTrailService($this->db))->record('USER_PASSWORD_REPLACED', 'user', $userId, null, null, $actorId, [
-            'provider' => 'shield',
-            'mode'     => 'temporary_password',
+            'provider'    => 'shield',
+            'mode'        => $requireReset ? 'temporary_password' : 'user_replacement',
+            'force_reset' => $requireReset,
         ]);
 
         return true;

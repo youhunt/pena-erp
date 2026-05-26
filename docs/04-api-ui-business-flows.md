@@ -31,11 +31,12 @@ Mutation requirements:
 | Method / URI | Purpose | Permission |
 | --- | --- | --- |
 | `GET/POST /login`, `GET /logout`, magic-link policy routes | Shield session flows | public/throttled |
+| `GET/POST /account/security/password` | Complete mandatory password replacement; revoke old sessions after save | logged-in valid session |
 | `GET /workspace`, `POST /workspace/context` | Available context and switch active company/branch | membership |
 | `GET /workspace/modules/{menuCode}` | Placeholder modul dari mapping menu-permission tenant aktif | tenant menu permission |
 | `GET/POST /administration/companies` | Tenant administration shell | `platform.company.manage` |
 | `GET/POST /administration/branches` | Branch CRUD shell | `platform.company.manage` |
-| `POST /administration/users`, `/users/{id}/status`, `/users/{id}/password` | Provision identity, activate/deactivate login, replace temporary Shield password | `platform.company.manage` |
+| `POST /administration/users`, `/users/{id}/status`, `/users/{id}/password` | Provision identity, activate/deactivate login, issue force-reset temporary password and revoke old sessions | `platform.company.manage` |
 | `GET/POST /administration/access`, `POST /administration/access/revoke`, `/access/company-status`, `/access/branch-status` | Assign/revoke role and administer tenant/branch membership status or switching | `platform.company.manage` |
 | `GET /administration/rbac`, `POST /administration/rbac/roles`, `/roles/{id}`, `/permissions`, `/grants`, `/grants/revoke`, `/menu-mappings`, `/menu-mappings/revoke` | Tenant RBAC role status, grants and sidebar menu-permission mapping | `platform.company.manage` |
 | `GET /administration/audit` | Auditable activity search | `platform.audit.view` |

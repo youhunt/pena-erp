@@ -179,7 +179,7 @@ final class AdministrationReadModel extends Model
     public function users(): array
     {
         return $this->db->table('users u')
-            ->select('u.id, u.username, u.active, i.secret AS email')
+            ->select('u.id, u.username, u.active, i.secret AS email, i.force_reset')
             ->join('auth_identities i', "i.user_id = u.id AND i.type = 'email_password'", 'left')
             ->orderBy('u.username', 'ASC')
             ->get()

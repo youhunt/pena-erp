@@ -3,13 +3,15 @@
 use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
-$routes->get('/', 'Home::index', ['filter' => 'session']);
-$routes->get('workspace', 'Workspace::chooser', ['filter' => 'session']);
-$routes->post('workspace/context', 'Workspace::select', ['filter' => 'session']);
-$routes->get('workspace/(:num)', 'Workspace::index/$1', ['filter' => 'session']);
-$routes->get('workspace/modules/(:segment)', 'Workspace::module/$1', ['filter' => 'session']);
+$routes->get('/', 'Home::index', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
+$routes->get('workspace', 'Workspace::chooser', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
+$routes->post('workspace/context', 'Workspace::select', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
+$routes->get('workspace/(:num)', 'Workspace::index/$1', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
+$routes->get('workspace/modules/(:segment)', 'Workspace::module/$1', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
+$routes->get('account/security/password', 'AccountSecurity::password', ['filter' => ['session', 'sessionsecurity']]);
+$routes->post('account/security/password', 'AccountSecurity::updatePassword', ['filter' => ['session', 'sessionsecurity']]);
 
-$routes->group('administration', ['filter' => ['session', 'permission:platform.company.manage']], static function ($routes): void {
+$routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {
     $routes->get('companies', 'Administration::companies');
     $routes->get('companies/new', 'Administration::newCompany');
     $routes->post('companies', 'Administration::createCompany');
@@ -38,7 +40,7 @@ $routes->group('administration', ['filter' => ['session', 'permission:platform.c
     $routes->post('rbac/menu-mappings', 'Administration::grantMenuPermission');
     $routes->post('rbac/menu-mappings/revoke', 'Administration::revokeMenuPermission');
 });
-$routes->get('administration/audit', 'Administration::audit', ['filter' => ['session', 'permission:platform.audit.view']]);
+$routes->get('administration/audit', 'Administration::audit', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.audit.view']]);
 
 // ERP accounts are provisioned by administrators; public registration is disabled.
 service('auth')->routes($routes, ['except' => ['register']]);

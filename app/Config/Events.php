@@ -5,6 +5,7 @@ namespace Config;
 use CodeIgniter\Events\Events;
 use CodeIgniter\Exceptions\FrameworkException;
 use CodeIgniter\HotReloader\HotReloader;
+use App\Services\UserSessionSecurityService;
 
 /*
  * --------------------------------------------------------------------
@@ -54,4 +55,8 @@ Events::on('pre_system', static function (): void {
             });
         }
     }
+});
+
+Events::on('login', static function ($user): void {
+    (new UserSessionSecurityService())->stampLogin((int) $user->id);
 });

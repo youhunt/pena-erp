@@ -205,6 +205,14 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
   branch user tersebut, sedangkan reaktivasi branch harus eksplisit; event
   dicatat sebagai `USER_COMPANY_MEMBERSHIP_UPDATED` dan
   `USER_BRANCH_MEMBERSHIP_UPDATED`.
+- Migration `CreateUserSessionSecurity` menyimpan nomor versi revokasi
+  session per user. Event login mencap versi saat ini; filter
+  `sessionsecurity` menolak session lama setelah password diganti atau akun
+  dinonaktifkan dan mencatat `USER_SESSIONS_REVOKED`.
+- Password sementara dari admin ditandai `force_reset`. Filter
+  `passwordrequired` mengarahkan user ke `/account/security/password` sampai
+  ia membuat password final; penyelesaian reset kembali mencabut session agar
+  login berikutnya menggunakan credential baru.
 - Company nonaktif tidak dapat digunakan sebagai tenant context atau sumber
   permission. Branch nonaktif tidak lagi muncul sebagai context aktif, dan
   ownership company pada branch tidak dapat diubah melalui form edit biasa.
@@ -246,10 +254,11 @@ menu Purchasing/Finance, owner demo dapat berpindah antara tiga company,
 provisioning Shield menyimpan password sebagai hash tanpa bocor ke audit, dan
 CRUD mapping menu memengaruhi sidebar sesuai permission. Test tambahan
 memastikan user Shield nonaktif kehilangan seluruh akses tenant dan suspend
-company tidak membuka kembali branch tanpa tindakan eksplisit.
+company tidak membuka kembali branch tanpa tindakan eksplisit. Suite juga
+memverifikasi versioned session revocation dan siklus wajib ganti password.
 Pekerjaan lanjutan Tahap 4 adalah mengganti atau melengkapi
 dataset API hingga sesuai rujukan master resmi serta memperluas administrasi
-untuk alur force-reset/password mandiri serta kebijakan session revocation.
+untuk notifikasi credential, recovery policy, dan inventory perangkat/session.
 
 ### Keputusan Tenant pada Tahap 4
 

@@ -10,6 +10,7 @@ use App\Services\RegionImportService;
 use App\Services\RegionApiSyncService;
 use App\Services\TenantContextService;
 use App\Services\TenantMenuService;
+use App\Services\UserSessionSecurityService;
 use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -469,8 +470,10 @@ final class FoundationMasterTest extends CIUnitTestCase
             ->getFirstRow('array');
 
         $this->assertTrue(password_verify($newPassword, $identity['secret2']));
+        $this->assertSame(1, (int) $identity['force_reset']);
         $this->assertStringNotContainsString($newPassword, (string) $passwordAudit['after_json']);
         $this->seeInDatabase('audit_logs', ['event_type' => 'USER_STATUS_UPDATED', 'entity_id' => $userId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'USER_SESSIONS_REVOKED', 'entity_id' => $userId]);
     }
 
     public function testSuspendedCompanyMembershipRequiresExplicitBranchReactivation(): void
@@ -499,6 +502,29 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertNotSame([], $context->availableContexts($userId));
         $this->seeInDatabase('audit_logs', ['event_type' => 'USER_COMPANY_MEMBERSHIP_UPDATED', 'company_id' => $companyId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'USER_BRANCH_MEMBERSHIP_UPDATED', 'company_id' => $companyId]);
+    }
+
+    public function testSessionSecurityVersionRejectsRevokedSessionAndPasswordCompletionClearsReset(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $session = service('session');
+        $security = new UserSessionSecurityService($this->db, $session);
+        $users = new ShieldUserProvisioningService($this->db);
+
+        $security->stampLogin($userId);
+        $this->assertTrue($security->currentSessionIsValid($userId));
+        $this->assertTrue($users->setTemporaryPassword($userId, 'MustReplace#2026', $actorId));
+        $this->assertFalse($security->currentSessionIsValid($userId));
+        $this->assertTrue($security->requiresPasswordReset($userId));
+
+        $security->stampLogin($userId);
+        $this->assertTrue($security->currentSessionIsValid($userId));
+        $this->assertTrue($users->setTemporaryPassword($userId, 'CompletedNew#2026', $userId, false));
+        $this->assertFalse($security->requiresPasswordReset($userId));
+        $this->assertFalse($security->currentSessionIsValid($userId));
     }
 
     private function createTestUser(string $username, string $email): int

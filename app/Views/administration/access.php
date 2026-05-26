@@ -81,7 +81,7 @@
                 <h4 class="card-title mb-3">Lifecycle User Shield</h4>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>User</th><th>Email</th><th>Login</th><th>Password Sementara</th></tr></thead>
+                        <thead><tr><th>User</th><th>Email</th><th>Login</th><th>Reset</th><th>Password Sementara</th></tr></thead>
                         <tbody>
                         <?php foreach ($users as $user) : ?>
                             <tr>
@@ -98,11 +98,18 @@
                                     </form>
                                 </td>
                                 <td>
+                                    <?php if ($user['force_reset']) : ?>
+                                        <span class="badge bg-warning text-dark">Wajib ganti</span>
+                                    <?php else : ?>
+                                        <span class="badge bg-success">Normal</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <form method="post" action="<?= site_url('administration/users/' . $user['id'] . '/password') ?>" class="d-flex gap-2">
                                         <?= csrf_field() ?>
                                         <input type="password" name="password" class="form-control form-control-sm" placeholder="Password baru" minlength="12" required>
                                         <input type="password" name="password_confirm" class="form-control form-control-sm" placeholder="Konfirmasi" minlength="12" required>
-                                        <button type="submit" class="btn btn-outline-warning btn-sm">Set</button>
+                                        <button type="submit" class="btn btn-outline-warning btn-sm">Set & Wajib Ganti</button>
                                     </form>
                                 </td>
                             </tr>
@@ -110,7 +117,7 @@
                         </tbody>
                     </table>
                 </div>
-                <p class="form-text mt-3 mb-0">Menonaktifkan login segera memutus context, menu, dan permission tenant. Password tidak dicatat dalam Audit Trail.</p>
+                <p class="form-text mt-3 mb-0">Menonaktifkan login atau memberi password sementara mencabut session lama. Password sementara wajib diganti user dan tidak dicatat dalam Audit Trail.</p>
             </div>
         </div>
         <div class="card">

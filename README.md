@@ -27,7 +27,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   pengelolaan mapping menu-permission. Layar akses dapat memprovision user
   login Shield aktif tanpa memberikan izin platform atau tenant otomatis,
   mengatur status login/password sementara, serta suspend/activate scope
-  company dan branch.
+  company dan branch. Password sementara memicu wajib ganti password,
+  sedangkan perubahan credential atau deaktivasi akun mencabut session lama.
 
 ```bash
 composer install
@@ -72,6 +73,9 @@ Status user Shield yang menjadi `inactive` langsung memutus context, sidebar,
 dan permission tenant walaupun assignment role masih tersimpan. Suspend
 membership company juga menonaktifkan branch switching; branch harus
 diaktifkan kembali secara eksplisit sesudah membership company dibuka lagi.
+Admin dapat menerbitkan password sementara dari layar akses; user diarahkan ke
+`/account/security/password` pada login berikutnya dan harus login kembali
+setelah menetapkan password final karena session sebelumnya dicabut.
 
 ### Simulasi Multi-Company dan Role
 

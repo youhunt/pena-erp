@@ -52,9 +52,11 @@ append-only. Status role, revoke assignment user terisolasi per-company,
 provisioning login Shield tanpa privilege tersirat, serta CRUD mapping
 menu-permission kini tersedia. Lifecycle user awal (status login dan password
 sementara), status membership company/branch, serta pemutusan akses tenant
-bagi user Shield nonaktif juga sudah diuji. Import dataset nasional resmi
-lengkap, force-reset/password mandiri, session revocation, transaksi,
-deployment manifests dan provider credentials masih mengikuti gate roadmap.
+bagi user Shield nonaktif juga sudah diuji. Password sementara dengan wajib
+ganti, endpoint reset pribadi, dan versioned session revocation kini tersedia.
+Import dataset nasional resmi lengkap, notifikasi/recovery credential,
+inventory perangkat/session, transaksi, deployment manifests dan provider
+credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation
 

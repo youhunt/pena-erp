@@ -19,6 +19,19 @@ $routes->group('inventory', ['filter' => ['session', 'sessionsecurity', 'passwor
     $routes->post('products/(:num)/status', 'Inventory::updateProductStatus/$1');
     $routes->post('warehouses', 'Inventory::createWarehouse');
     $routes->post('warehouses/(:num)/status', 'Inventory::updateWarehouseStatus/$1');
+    $routes->post('locations', 'Inventory::createLocation');
+    $routes->post('uom-conversions', 'Inventory::createUomConversion');
+    $routes->post('item-taxes', 'Inventory::createItemTax');
+    $routes->post('batches', 'Inventory::createBatch');
+});
+
+$routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'Setup::index');
+    $routes->post('departments', 'Setup::createDepartment');
+    $routes->post('transaction-codes', 'Setup::createTransactionCode');
+    $routes->post('addresses', 'Setup::createAddress');
+    $routes->post('currencies', 'Setup::createCurrency');
+    $routes->post('tax-codes', 'Setup::createTaxCode');
 });
 
 $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {

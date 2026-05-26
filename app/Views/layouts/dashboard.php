@@ -96,7 +96,7 @@ $tenantMenus = $tenantContext === null
                             </li>
                             <li>
                                 <a href="<?= site_url('administration/branches') ?>" class="waves-effect">
-                                    <i class="bx bx-map"></i><span>Branch</span>
+                                    <i class="bx bx-map"></i><span>Site</span>
                                 </a>
                             </li>
                             <li>

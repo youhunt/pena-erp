@@ -308,7 +308,55 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-
 
 ### Batas Tahap Ini
 
-Tahap ini menyiapkan master yang aman untuk transaksi. `warehouse_bins`,
-`stock_balances`, `stock_movements`, stock opening, transfer, dan adjustment
-belum diposting agar aturan ledger immutable dan approval dapat dibangun serta
-diuji sebagai tranche berikutnya.
+Tahap ini menyiapkan master yang aman untuk transaksi. Pada lanjutan Tahap 6,
+`warehouse_bins` diwujudkan sebagai Location Master; `stock_balances`,
+`stock_movements`, stock opening, transfer, dan adjustment belum diposting
+agar aturan ledger immutable dan approval dapat dibangun serta diuji sebagai
+tranche transaksi berikutnya.
+
+## Tahap 6: Functional Menu dan Setup Master
+
+### Keputusan Cakupan
+
+- Daftar menu ERP operasional yang diberikan pengguna telah ditetapkan sebagai
+  kontrak di `09-functional-menu-master-roadmap.md`, lengkap dengan istilah
+  layar, target tabel, status dan urutan pengembangan.
+- Label bisnis diselaraskan: tabel `branches` ditampilkan sebagai **Site**,
+  `products` sebagai **Item Master**, `warehouse_bins` sebagai **Location**,
+  dan numbering transaksi menjadi **Transaction Code**.
+- Implementasi kode tahap ini sengaja fokus pada master referensi yang menjadi
+  prasyarat commercial, inventory transaction, finance dan production.
+
+### Yang Sudah Dibuat
+
+- Migration `CreateSetupAndExtendedInventoryMasterTables` membuat reference
+  global `countries` serta master tenant `departments`, `transaction_codes`,
+  `addresses`, `currencies`, `tax_codes`, `warehouse_bins`,
+  `product_uom_conversions`, `product_tax_codes`, dan `stock_lots`.
+- Menu `/setup` menyediakan form dan daftar Transaction Code, Department,
+  Currency, VAT serta Address Master pada company context aktif.
+- Halaman `/inventory` kini juga menangani Location, Item UoM Conversion,
+  Item VAT dan Batch Master.
+- Permission demo `setup.master.view` dan `setup.master.manage` memisahkan
+  akses baca/kelola, sedangkan mutation inventory tetap menggunakan
+  `inventory.master.manage`.
+- Seeder multi-company membuat master contoh per tenant: Indonesia, IDR,
+  department Operations, PPN11, address utama, transaction code Sales Order,
+  lokasi gudang default dan mapping VAT item.
+- Semua write model memvalidasi ownership referensi tenant dan merekam event
+  audit sebelum master dipakai oleh transaksi.
+
+### Master Berikutnya
+
+Tranche M2 membangun customer/supplier, terms, address relation, promo dasar,
+dan POS Master. Tranche M3 membangun master Finance/GL, Cash Bank dan Costing;
+M4 membangun BOM, Work Center, Routing serta referensi Planning.
+
+### Verifikasi Tahap 6
+
+```bash
+php spark migrate --all
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
+```

@@ -63,12 +63,12 @@
                         <div class="form-text">Role harus berasal dari company yang sama.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Branch Awal</label>
+                        <label class="form-label">Site Awal</label>
                         <select name="branch_id" class="form-select">
-                            <option value="">Tanpa pembatasan branch saat ini</option>
+                            <option value="">Tanpa pembatasan site saat ini</option>
                             <?php foreach ($branches as $branch) : ?><option value="<?= esc($branch['id']) ?>"><?= esc($branch['company_code'] . ' - ' . $branch['name']) ?></option><?php endforeach; ?>
                         </select>
-                        <div class="form-text">Branch harus berasal dari company yang sama agar bisa dipilih sebagai konteks.</div>
+                        <div class="form-text">Site harus berasal dari company yang sama agar bisa dipilih sebagai konteks.</div>
                     </div>
                     <button class="btn btn-primary" type="submit">Simpan Akses</button>
                 </form>
@@ -125,7 +125,7 @@
                 <h4 class="card-title mb-3">Membership Company dan Role</h4>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>Company</th><th>User</th><th>Role</th><th>Branch</th><th>Status Company</th><th class="text-end">Aksi Role</th></tr></thead>
+                        <thead><tr><th>Company</th><th>User</th><th>Role</th><th>Site</th><th>Status Company</th><th class="text-end">Aksi Role</th></tr></thead>
                         <tbody>
                         <?php foreach ($assignments as $assignment) : ?>
                             <tr>
@@ -167,10 +167,10 @@
         </div>
         <div class="card">
             <div class="card-body">
-                <h4 class="card-title mb-3">Scope Branch User</h4>
+                <h4 class="card-title mb-3">Scope Site User</h4>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>Company</th><th>User</th><th>Branch</th><th>Status / Switch</th></tr></thead>
+                        <thead><tr><th>Company</th><th>User</th><th>Site</th><th>Status / Switch</th></tr></thead>
                         <tbody>
                         <?php foreach ($branchMemberships as $membership) : ?>
                             <tr>

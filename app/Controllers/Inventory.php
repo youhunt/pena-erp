@@ -33,6 +33,11 @@ final class Inventory extends BaseController
             'uoms'          => $model->unitsOfMeasure($companyId),
             'categories'    => $model->productCategories($companyId),
             'branches'      => $model->branchOptions($companyId),
+            'locations'     => $model->locations($companyId),
+            'conversions'   => $model->uomConversions($companyId),
+            'itemTaxes'     => $model->itemTaxes($companyId),
+            'batches'       => $model->batches($companyId),
+            'taxCodes'      => $model->taxOptions($companyId),
         ]);
     }
 
@@ -186,6 +191,159 @@ final class Inventory extends BaseController
         }
 
         return $this->completed('Gudang berhasil ditambahkan.');
+    }
+
+    public function createLocation(): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $companyId = (int) $context['company_id'];
+        $warehouseId = (int) $this->request->getPost('warehouse_id');
+        $warehouses = (new InventoryReadModel())->warehouses($companyId);
+        $selected = array_values(array_filter($warehouses, static fn (array $row): bool => (int) $row['id'] === $warehouseId));
+        $data = [
+            'company_id'    => $companyId,
+            'warehouse_id'  => $warehouseId,
+            'branch_id'     => $selected === [] ? 0 : (int) $selected[0]['branch_id'],
+            'code'          => strtoupper(trim((string) $this->request->getPost('code'))),
+            'name'          => trim((string) $this->request->getPost('name')),
+            'status'        => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'warehouse_id' => 'required|is_natural_no_zero',
+            'branch_id'    => 'required|is_natural_no_zero',
+            'code'         => 'required|alpha_dash|max_length[30]',
+            'name'         => 'required|max_length[80]',
+        ])) {
+            return $this->invalid(['warehouse_id' => 'Gudang tidak valid untuk company aktif.']);
+        }
+
+        if ((new InventoryReadModel())->locationCodeExists($companyId, $warehouseId, $data['code'])) {
+            return $this->invalid(['code' => 'Kode location sudah tersedia pada gudang ini.']);
+        }
+
+        if (! (new InventoryWriteModel())->createLocation($data, $this->actorId())) {
+            return $this->invalid(['warehouse_id' => 'Gudang tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Location berhasil ditambahkan.');
+    }
+
+    public function createUomConversion(): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'  => (int) $context['company_id'],
+            'product_id'  => (int) $this->request->getPost('product_id'),
+            'from_uom_id' => (int) $this->request->getPost('from_uom_id'),
+            'to_uom_id'   => (int) $this->request->getPost('to_uom_id'),
+            'factor'      => (string) $this->request->getPost('factor'),
+            'status'      => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'product_id'  => 'required|is_natural_no_zero',
+            'from_uom_id' => 'required|is_natural_no_zero',
+            'to_uom_id'   => 'required|is_natural_no_zero',
+            'factor'      => 'required|decimal|greater_than[0]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if ($data['from_uom_id'] === $data['to_uom_id']) {
+            return $this->invalid(['uom' => 'UOM asal dan tujuan harus berbeda.']);
+        }
+
+        if ((new InventoryReadModel())->uomConversionExists((int) $context['company_id'], $data['product_id'], $data['from_uom_id'], $data['to_uom_id'])) {
+            return $this->invalid(['uom' => 'Conversion untuk item dan pasangan UOM tersebut sudah tersedia.']);
+        }
+
+        if (! (new InventoryWriteModel())->createUomConversion($data, $this->actorId())) {
+            return $this->invalid(['uom' => 'Item atau UOM tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Item UoM Conversion berhasil ditambahkan.');
+    }
+
+    public function createItemTax(): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'  => (int) $context['company_id'],
+            'product_id'  => (int) $this->request->getPost('product_id'),
+            'tax_code_id' => (int) $this->request->getPost('tax_code_id'),
+            'usage_type'  => (string) $this->request->getPost('usage_type'),
+            'status'      => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'product_id'  => 'required|is_natural_no_zero',
+            'tax_code_id' => 'required|is_natural_no_zero',
+            'usage_type'  => 'required|in_list[purchase,sales,both]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if ((new InventoryReadModel())->itemTaxExists((int) $context['company_id'], $data['product_id'], $data['tax_code_id'], $data['usage_type'])) {
+            return $this->invalid(['tax' => 'Item VAT dengan usage tersebut sudah tersedia.']);
+        }
+
+        if (! (new InventoryWriteModel())->createItemTax($data, $this->actorId())) {
+            return $this->invalid(['tax' => 'Item atau VAT tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Item VAT berhasil ditambahkan.');
+    }
+
+    public function createBatch(): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $expiry = trim((string) $this->request->getPost('expiry_date'));
+        $data = [
+            'company_id'  => (int) $context['company_id'],
+            'product_id'  => (int) $this->request->getPost('product_id'),
+            'lot_no'      => strtoupper(trim((string) $this->request->getPost('lot_no'))),
+            'expiry_date' => $expiry === '' ? null : $expiry,
+            'status'      => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'product_id'  => 'required|is_natural_no_zero',
+            'lot_no'      => 'required|alpha_numeric_punct|max_length[60]',
+            'expiry_date' => 'permit_empty|valid_date[Y-m-d]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if ((new InventoryReadModel())->batchExists((int) $context['company_id'], $data['product_id'], $data['lot_no'])) {
+            return $this->invalid(['lot_no' => 'Batch number sudah digunakan untuk item tersebut.']);
+        }
+
+        if (! (new InventoryWriteModel())->createBatch($data, $this->actorId())) {
+            return $this->invalid(['product_id' => 'Item tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Batch Master berhasil ditambahkan.');
     }
 
     public function updateProductStatus(int $id): RedirectResponse

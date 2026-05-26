@@ -1,10 +1,10 @@
 <?= $this->extend('layouts/dashboard') ?>
 
 <?php $isEdit = $branch !== null; ?>
-<?= $this->section('title') ?><?= $isEdit ? 'Edit Branch' : 'Tambah Branch' ?><?= $this->endSection() ?>
+<?= $this->section('title') ?><?= $isEdit ? 'Edit Site' : 'Tambah Site' ?><?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
-<div class="page-title-box"><h4 class="mb-sm-0 font-size-18"><?= $isEdit ? 'Edit Branch' : 'Tambah Branch' ?></h4></div>
+<div class="page-title-box"><h4 class="mb-sm-0 font-size-18"><?= $isEdit ? 'Edit Site' : 'Tambah Site' ?></h4></div>
 <?php if (session('errors') !== null) : ?>
     <div class="alert alert-danger">
         <?php foreach ((array) session('errors') as $error) : ?><div><?= esc($error) ?></div><?php endforeach; ?>
@@ -35,7 +35,7 @@
                                 <?php endif; ?>
                             <?php endforeach; ?>
                         </select>
-                        <div class="form-text">Company branch tidak dapat dipindahkan melalui edit biasa.</div>
+                        <div class="form-text">Company site tidak dapat dipindahkan melalui edit biasa.</div>
                     <?php else : ?>
                         <select name="company_id" class="form-select" required>
                             <?php foreach ($companies as $company) : ?>
@@ -50,7 +50,7 @@
                     <input name="code" class="form-control" value="<?= esc(old('code', $branch['code'] ?? ''), 'attr') ?>" <?= $isEdit ? 'readonly' : 'required' ?>>
                 </div>
                 <div class="col-md-4 mb-3">
-                    <label class="form-label">Nama Branch</label>
+                    <label class="form-label">Nama Site</label>
                     <input name="name" class="form-control" value="<?= esc(old('name', $branch['name'] ?? ''), 'attr') ?>" required>
                 </div>
                 <div class="col-md-8 mb-3">

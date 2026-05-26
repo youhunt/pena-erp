@@ -74,10 +74,10 @@ flowchart LR
 | Module | Ownership Utama | Emits / Consumes |
 | --- | --- | --- |
 | Auth, Users, Roles | Identity, tenant membership, permission matrix | `UserAuthenticated`, `RoleAssigned` |
-| Company, Branch, Settings | Tenant, branch, fiscal/numbering config | `CompanyActivated` |
+| Company, Site, Settings | Tenant, site (`branches`), department, address, fiscal/Transaction Code config | `CompanyActivated` |
 | ReferenceData | Wilayah Indonesia global: provinsi, kabupaten/kota, kecamatan, desa/kelurahan | `RegionalReferenceImported` |
 | Dashboard, Reports | Read models/KPI, export | Consume transaksi/events |
-| Inventory | Product, UOM, warehouse, lot, movement, valuation | `StockReserved`, `StockPosted` |
+| Inventory | Item, UOM/conversion, warehouse/location, batch, Item VAT, movement, valuation | `StockReserved`, `StockPosted` |
 | Purchasing | Supplier, requisition, PO, GRN, AP invoice | `PurchaseInvoiceApproved` |
 | Sales, POS | Customer, order, delivery, invoice, cashier shift | `SalesInvoicePosted` |
 | Accounting, CashBank | COA, journal, AR/AP, payment, bank reconciliation | Consume posting events |
@@ -201,7 +201,7 @@ Enforcement:
 | Phase | Duration Indicative | Deliverables and Exit Criteria |
 | --- | --- | --- |
 | 0. Foundation | 2-3 weeks | CI4 app, CI pipeline, tenancy context, Shield/auth adapter, Skote shell, coding standard |
-| 1. Core Master + RBAC | 3-4 weeks | global Indonesian regional reference, company/branch/user/role/menu/audit, products/partners/warehouse, automated isolation tests |
+| 1. Core Master + RBAC | 3-4 weeks | global Indonesian regional reference, company/site/user/role/menu/audit, Setup Master, item/warehouse/location/batch, partners, automated isolation tests |
 | 2. Commercial MVP | 6-8 weeks | purchasing, inventory, sales, stock movement, base approval, operational reports |
 | 3. Finance + POS | 5-7 weeks | COA/journal/AP/AR/payment/cash bank, POS shift/sale, reconciled postings |
 | 4. OCR/AI Pilot | 5-7 weeks | secure upload, queue, invoice/PO extraction, draft AP/PO, confidence validation UI |
@@ -211,3 +211,6 @@ Enforcement:
 Go-live gate: isolation tests, posting reconciliation, restore drill, upload
 security test, model extraction evaluation dataset, audit review, and signed
 approval matrix.
+
+Functional menu lengkap, istilah UI, target tabel dan urutan pengembangan
+master/transaksi dikendalikan oleh `09-functional-menu-master-roadmap.md`.

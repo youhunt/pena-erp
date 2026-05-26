@@ -15,6 +15,8 @@ use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
 use App\Models\InventoryReadModel;
 use App\Models\InventoryWriteModel;
+use App\Models\SetupReadModel;
+use App\Models\SetupWriteModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 
@@ -359,6 +361,64 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertTrue($writer->updateProductStatus($penaId, $productId, 'inactive', $actorId));
         $this->seeInDatabase('products', ['id' => $productId, 'company_id' => $penaId, 'status' => 'inactive']);
         $this->seeInDatabase('audit_logs', ['event_type' => 'PRODUCT_STATUS_UPDATED', 'entity_id' => $productId, 'company_id' => $penaId]);
+    }
+
+    public function testSetupMasterSeedProvidesOperationalReferencesPerTenant(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $reader = new SetupReadModel();
+
+        $this->seeInDatabase('countries', ['iso2' => 'ID', 'name' => 'Indonesia']);
+        $this->seeInDatabase('departments', ['company_id' => $penaId, 'code' => 'OPS']);
+        $this->seeInDatabase('tax_codes', ['company_id' => $penaId, 'code' => 'PPN11']);
+        $this->assertSame('IDR', $reader->currencies($penaId)[0]['code']);
+        $this->assertSame('PPN11', $reader->taxCodes($nusaId)[0]['code']);
+        $this->assertSame(1, $this->db->table('addresses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->countAllResults());
+        $this->assertSame(2, $this->db->table('transaction_codes')->where(['company_id' => $penaId, 'code' => 'SO'])->countAllResults());
+    }
+
+    public function testSetupAndExtendedInventoryWritesProtectTenantReferences(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $nusaBranchId = (int) $this->db->table('branches')->where(['company_id' => $nusaId, 'code' => 'BDG'])->get()->getFirstRow()->id;
+        $nusaProductId = (int) $this->db->table('products')->where(['company_id' => $nusaId, 'sku' => 'RTL-SNACK-01'])->get()->getFirstRow()->id;
+        $penaTaxId = (int) $this->db->table('tax_codes')->where(['company_id' => $penaId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
+
+        $this->assertFalse((new SetupWriteModel())->createTransactionCode([
+            'company_id'    => $penaId,
+            'branch_id'     => $nusaBranchId,
+            'module'        => 'sales',
+            'code'          => 'BAD',
+            'prefix'        => 'BAD-',
+            'next_number'   => 1,
+            'number_length' => 6,
+            'reset_rule'    => 'never',
+            'status'        => 'active',
+        ], $actorId));
+        $this->assertFalse((new InventoryWriteModel())->createItemTax([
+            'company_id'  => $penaId,
+            'product_id'  => $nusaProductId,
+            'tax_code_id' => $penaTaxId,
+            'usage_type'  => 'sales',
+            'status'      => 'active',
+        ], $actorId));
+
+        (new SetupWriteModel())->createDepartment([
+            'company_id' => $penaId,
+            'code'       => 'FIN',
+            'name'       => 'Finance',
+            'status'     => 'active',
+        ], $actorId);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'DEPARTMENT_CREATED']);
+        $this->assertSame(0, $this->db->table('transaction_codes')->where(['company_id' => $penaId, 'code' => 'BAD'])->countAllResults());
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

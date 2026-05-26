@@ -78,6 +78,83 @@ final class InventoryWriteModel extends Model
         return true;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function createLocation(array $data, int $actorId): bool
+    {
+        $warehouse = $this->db->table('warehouses')
+            ->where(['id' => $data['warehouse_id'], 'company_id' => $data['company_id']])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+
+        if ($warehouse === null || (int) $warehouse['branch_id'] !== (int) $data['branch_id']) {
+            return false;
+        }
+
+        $id = $this->insertAudited('warehouse_bins', $data, $actorId);
+        $this->audit()->record('WAREHOUSE_LOCATION_CREATED', 'warehouse_location', $id, (int) $data['company_id'], (int) $data['branch_id'], $actorId, $data);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function createUomConversion(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+
+        if (! $this->sameTenantRecord('products', (int) $data['product_id'], $companyId)
+            || ! $this->sameTenantRecord('units_of_measure', (int) $data['from_uom_id'], $companyId)
+            || ! $this->sameTenantRecord('units_of_measure', (int) $data['to_uom_id'], $companyId)) {
+            return false;
+        }
+
+        $id = $this->insertAudited('product_uom_conversions', $data, $actorId);
+        $this->audit()->record('PRODUCT_UOM_CONVERSION_CREATED', 'product_uom_conversion', $id, $companyId, null, $actorId, $data);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function createItemTax(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+
+        if (! $this->sameTenantRecord('products', (int) $data['product_id'], $companyId)
+            || ! $this->sameTenantRecord('tax_codes', (int) $data['tax_code_id'], $companyId)) {
+            return false;
+        }
+
+        $id = $this->insertAudited('product_tax_codes', $data, $actorId);
+        $this->audit()->record('PRODUCT_TAX_CODE_CREATED', 'product_tax_code', $id, $companyId, null, $actorId, $data);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function createBatch(array $data, int $actorId): bool
+    {
+        if (! $this->sameTenantRecord('products', (int) $data['product_id'], (int) $data['company_id'])) {
+            return false;
+        }
+
+        $id = $this->insertAudited('stock_lots', $data, $actorId);
+        $this->audit()->record('STOCK_LOT_CREATED', 'stock_lot', $id, (int) $data['company_id'], null, $actorId, $data);
+        $this->completeTransaction();
+
+        return true;
+    }
+
     public function updateProductStatus(int $companyId, int $productId, string $status, int $actorId): bool
     {
         return $this->updateTenantStatus('products', 'product', 'PRODUCT_STATUS_UPDATED', $companyId, $productId, ['status' => $status], null, $actorId);

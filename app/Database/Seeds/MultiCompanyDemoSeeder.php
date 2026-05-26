@@ -22,6 +22,7 @@ final class MultiCompanyDemoSeeder extends Seeder
         $now = date('Y-m-d H:i:s');
         $village = $this->db->table('villages')->where('code', '3174070006')->get()->getFirstRow('array');
         $villageId = $village === null ? null : (int) $village['id'];
+        $countryId = $this->country('ID', 'IDN', 'Indonesia', '+62', $now);
 
         $tenants = [
             'PENA' => [
@@ -51,6 +52,7 @@ final class MultiCompanyDemoSeeder extends Seeder
             $this->provisionAccessMatrix($tenantIds[$code], $now);
         }
 
+        $this->provisionSetupMasters($tenantIds, $branchIds, $countryId, $villageId, $now);
         $this->provisionInventoryMasters($tenantIds, $branchIds, $now);
 
         $users = [
@@ -132,6 +134,8 @@ final class MultiCompanyDemoSeeder extends Seeder
         $permissions = [
             'company.dashboard.view' => ['Dashboard Workspace', 'company'],
             'company.master.manage'  => ['Kelola Master Company', 'company'],
+            'setup.master.view'      => ['Lihat Setup Master', 'setup'],
+            'setup.master.manage'    => ['Kelola Setup Master', 'setup'],
             'inventory.stock.view'   => ['Lihat Stok', 'inventory'],
             'inventory.master.manage' => ['Kelola Master Inventory', 'inventory'],
             'purchasing.po.view'     => ['Lihat Purchase Order', 'purchasing'],
@@ -149,6 +153,7 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $menus = [
             'dashboard'  => ['Dashboard Workspace', 'workspace', 'bx bx-grid-alt', 10, 'company.dashboard.view'],
+            'setup'      => ['Setup Master', 'setup', 'bx bx-cog', 15, 'setup.master.view'],
             'inventory'  => ['Inventory', 'inventory', 'bx bx-package', 20, 'inventory.stock.view'],
             'purchasing' => ['Purchasing', 'workspace/modules/purchasing', 'bx bx-cart', 30, 'purchasing.po.view'],
             'sales'      => ['Sales', 'workspace/modules/sales', 'bx bx-receipt', 40, 'sales.order.view'],
@@ -165,7 +170,7 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'sales.order.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'sales.order.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
             'finance'    => ['company.dashboard.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
             'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'documents.upload'],
             'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
@@ -178,6 +183,70 @@ final class MultiCompanyDemoSeeder extends Seeder
 
             foreach ($grants as $permission) {
                 $this->grant($companyId, $roleId, $permissionIds[$permission], $now);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, int>                $tenantIds
+     * @param array<string, array<string, int>> $branchIds
+     */
+    private function provisionSetupMasters(array $tenantIds, array $branchIds, int $countryId, ?int $villageId, string $now): void
+    {
+        foreach ($tenantIds as $code => $companyId) {
+            $this->inventoryRecord('departments', $companyId, 'code', 'OPS', [
+                'code'       => 'OPS',
+                'name'       => 'Operations',
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
+            $this->inventoryRecord('currencies', $companyId, 'code', 'IDR', [
+                'code'       => 'IDR',
+                'name'       => 'Indonesian Rupiah',
+                'is_base'    => true,
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
+            $this->inventoryRecord('tax_codes', $companyId, 'code', 'PPN11', [
+                'code'       => 'PPN11',
+                'name'       => 'PPN 11%',
+                'tax_type'   => 'both',
+                'rate'       => '0.110000',
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
+            $this->inventoryRecord('addresses', $companyId, 'code', 'MAIN', [
+                'code'          => 'MAIN',
+                'label'         => 'Alamat Utama ' . $code,
+                'address_line1' => 'Alamat simulasi ' . $code,
+                'country_id'    => $countryId,
+                'village_id'    => $villageId,
+                'postal_code'   => '11730',
+                'status'        => 'active',
+                'created_at'    => $now,
+            ]);
+
+            foreach ($branchIds[$code] as $branchCode => $branchId) {
+                $existing = $this->db->table('transaction_codes')->where([
+                    'company_id' => $companyId,
+                    'branch_id'  => $branchId,
+                    'code'       => 'SO',
+                ])->get()->getFirstRow('array');
+
+                if ($existing === null) {
+                    $this->db->table('transaction_codes')->insert([
+                        'company_id'    => $companyId,
+                        'branch_id'     => $branchId,
+                        'module'        => 'sales',
+                        'code'          => 'SO',
+                        'prefix'        => $branchCode . '-SO-',
+                        'next_number'   => 1,
+                        'number_length' => 6,
+                        'reset_rule'    => 'yearly',
+                        'status'        => 'active',
+                        'created_at'    => $now,
+                    ]);
+                }
             }
         }
     }
@@ -212,21 +281,50 @@ final class MultiCompanyDemoSeeder extends Seeder
         foreach ($inventory as $companyCode => $master) {
             $companyId = $tenantIds[$companyCode];
             $uomId = $this->inventoryRecord('units_of_measure', $companyId, 'code', $master['uom']['code'], $master['uom'] + ['status' => 'active', 'created_at' => $now]);
+            $alternateUomId = $this->inventoryRecord('units_of_measure', $companyId, 'code', 'PCS', [
+                'code'       => 'PCS',
+                'name'       => 'Pieces',
+                'precision'  => 0,
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
             $categoryId = $this->inventoryRecord('product_categories', $companyId, 'code', $master['category']['code'], $master['category'] + ['status' => 'active', 'created_at' => $now]);
-            $this->inventoryRecord('products', $companyId, 'sku', $master['product']['sku'], $master['product'] + [
+            $productId = $this->inventoryRecord('products', $companyId, 'sku', $master['product']['sku'], $master['product'] + [
                 'category_id' => $categoryId,
                 'base_uom_id' => $uomId,
                 'track_lot'   => false,
                 'status'      => 'active',
                 'created_at'  => $now,
             ]);
-            $this->warehouse(
+            $warehouseId = $this->warehouse(
                 $companyId,
                 $branchIds[$companyCode][$master['warehouse']['branch']],
                 $master['warehouse']['code'],
                 $master['warehouse']['name'],
                 $now,
             );
+            $taxId = (int) $this->db->table('tax_codes')->where(['company_id' => $companyId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
+            $this->relationRecord('product_tax_codes', [
+                'company_id'  => $companyId,
+                'product_id'  => $productId,
+                'tax_code_id' => $taxId,
+                'usage_type'  => 'sales',
+            ], ['status' => 'active', 'created_at' => $now]);
+            $this->relationRecord('warehouse_bins', [
+                'company_id'   => $companyId,
+                'branch_id'    => $branchIds[$companyCode][$master['warehouse']['branch']],
+                'warehouse_id' => $warehouseId,
+                'code'         => 'DEFAULT',
+            ], ['name' => 'Default Location', 'status' => 'active', 'created_at' => $now]);
+
+            if ($uomId !== $alternateUomId) {
+                $this->relationRecord('product_uom_conversions', [
+                    'company_id'  => $companyId,
+                    'product_id'  => $productId,
+                    'from_uom_id' => $uomId,
+                    'to_uom_id'   => $alternateUomId,
+                ], ['factor' => '1.000000', 'status' => 'active', 'created_at' => $now]);
+            }
         }
     }
 
@@ -245,6 +343,43 @@ final class MultiCompanyDemoSeeder extends Seeder
         }
 
         $this->db->table($table)->insert(['company_id' => $companyId] + $data);
+
+        return (int) $this->db->insertID();
+    }
+
+    /**
+     * @param array<string, int|string>          $keys
+     * @param array<string, bool|int|string|null> $data
+     */
+    private function relationRecord(string $table, array $keys, array $data): int
+    {
+        $existing = $this->db->table($table)->where($keys)->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table($table)->insert($keys + $data);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function country(string $iso2, string $iso3, string $name, string $phoneCode, string $now): int
+    {
+        $existing = $this->db->table('countries')->where('iso2', $iso2)->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('countries')->insert([
+            'iso2'       => $iso2,
+            'iso3'       => $iso3,
+            'name'       => $name,
+            'phone_code' => $phoneCode,
+            'is_active'  => true,
+            'created_at' => $now,
+        ]);
 
         return (int) $this->db->insertID();
     }

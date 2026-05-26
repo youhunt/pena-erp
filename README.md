@@ -32,6 +32,10 @@ integrasi Skote, worker OCR/AI, dan deployment production.
 - Tahap 5 dimulai: master Inventory dan Warehouse tenant-scoped telah memiliki
   tabel UOM, kategori, produk, gudang, halaman kerja `/inventory`, permission
   view/manage per role, audit perubahan, dan data demo terpisah per company.
+- Tahap 6 dimulai: functional menu pengguna telah dicatat sebagai roadmap
+  resmi. Modul `Setup Master` menyediakan Transaction Code, Department,
+  Currency, VAT dan Address Master; Inventory diperluas dengan Location,
+  Item UoM Conversion, Item VAT, dan Batch Master.
 
 ```bash
 composer install
@@ -124,6 +128,7 @@ daftar inventory sesuai grant, tetapi tidak mengubah master.
 | [06-deployment-saas-operations.md](docs/06-deployment-saas-operations.md) | Ubuntu deployment, OCR service, queue, backup, CI/CD dan SaaS scaling |
 | [07-requirement-traceability.md](docs/07-requirement-traceability.md) | Matriks cakupan 24 keluaran dan definition of ready/done |
 | [08-multi-laptop-development-guide.md](docs/08-multi-laptop-development-guide.md) | Setup laptop baru, Git sync, migration/seeder, serta perlindungan secret/data lokal |
+| [09-functional-menu-master-roadmap.md](docs/09-functional-menu-master-roadmap.md) | Pemetaan menu ERP operasional, target tabel, status implementasi dan urutan master/transaksi |
 
 ## Bekerja dari Beberapa Laptop
 

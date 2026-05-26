@@ -110,7 +110,9 @@ Seeder `MultiCompanyDemoSeeder` mengisi data simulasi berikut:
 | Company | `PENA`, `NUSA`, `KARYA` |
 | User demo | Owner, Purchasing, Warehouse, Finance, Sales, Manager |
 | Role/menu | Role per-company dan menu workspace sesuai permission |
-| Pengujian utama | Owner pindah company; Purchasing/Finance melihat menu berbeda |
+| Setup master | Transaction Code, Department, Address, Currency dan VAT per company |
+| Inventory master | Item, Warehouse/Location, UoM Conversion dan Item VAT per company |
+| Pengujian utama | Owner pindah company; Purchasing/Finance melihat menu berbeda; isolasi master tenant |
 
 Password akun demo development tercatat di `README.md`. Seeder ini menolak
 dijalankan pada environment production.

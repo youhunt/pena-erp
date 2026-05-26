@@ -72,6 +72,56 @@
         </form>
     </div>
 </div>
+<div class="row">
+    <div class="col-xl-3">
+        <div class="card"><div class="card-body">
+            <h4 class="card-title mb-3">Location</h4>
+            <form method="post" action="<?= site_url('inventory/locations') ?>">
+                <?= csrf_field() ?>
+                <div class="mb-2"><label class="form-label">Warehouse</label><select name="warehouse_id" class="form-select" required><?php foreach ($warehouses as $warehouse) : ?><option value="<?= esc($warehouse['id']) ?>"><?= esc($warehouse['branch_code'] . ' / ' . $warehouse['code']) ?></option><?php endforeach; ?></select></div>
+                <div class="mb-2"><label class="form-label">Code</label><input name="code" class="form-control" placeholder="R01-A01" required></div>
+                <div class="mb-3"><label class="form-label">Name</label><input name="name" class="form-control" required></div>
+                <button class="btn btn-primary" <?= $warehouses === [] ? 'disabled' : '' ?>>Simpan Location</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-xl-3">
+        <div class="card"><div class="card-body">
+            <h4 class="card-title mb-3">Item UoM Conversion</h4>
+            <form method="post" action="<?= site_url('inventory/uom-conversions') ?>">
+                <?= csrf_field() ?>
+                <div class="mb-2"><label class="form-label">Item</label><select name="product_id" class="form-select" required><?php foreach ($products as $product) : ?><option value="<?= esc($product['id']) ?>"><?= esc($product['sku']) ?></option><?php endforeach; ?></select></div>
+                <div class="row g-2 mb-2"><div class="col-6"><label class="form-label">From</label><select name="from_uom_id" class="form-select" required><?php foreach ($uoms as $uom) : ?><option value="<?= esc($uom['id']) ?>"><?= esc($uom['code']) ?></option><?php endforeach; ?></select></div><div class="col-6"><label class="form-label">To</label><select name="to_uom_id" class="form-select" required><?php foreach ($uoms as $uom) : ?><option value="<?= esc($uom['id']) ?>"><?= esc($uom['code']) ?></option><?php endforeach; ?></select></div></div>
+                <div class="mb-3"><label class="form-label">Factor</label><input type="number" step="0.000001" min="0.000001" name="factor" class="form-control" required></div>
+                <button class="btn btn-primary" <?= $products === [] || count($uoms) < 2 ? 'disabled' : '' ?>>Simpan Conversion</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-xl-3">
+        <div class="card"><div class="card-body">
+            <h4 class="card-title mb-3">Item VAT</h4>
+            <form method="post" action="<?= site_url('inventory/item-taxes') ?>">
+                <?= csrf_field() ?>
+                <div class="mb-2"><label class="form-label">Item</label><select name="product_id" class="form-select" required><?php foreach ($products as $product) : ?><option value="<?= esc($product['id']) ?>"><?= esc($product['sku']) ?></option><?php endforeach; ?></select></div>
+                <div class="mb-2"><label class="form-label">VAT</label><select name="tax_code_id" class="form-select" required><?php foreach ($taxCodes as $tax) : ?><option value="<?= esc($tax['id']) ?>"><?= esc($tax['code']) ?></option><?php endforeach; ?></select></div>
+                <div class="mb-3"><label class="form-label">Usage</label><select name="usage_type" class="form-select"><option value="sales">Sales</option><option value="purchase">Purchase</option><option value="both">Both</option></select></div>
+                <button class="btn btn-primary" <?= $products === [] || $taxCodes === [] ? 'disabled' : '' ?>>Simpan Item VAT</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-xl-3">
+        <div class="card"><div class="card-body">
+            <h4 class="card-title mb-3">Batch Master</h4>
+            <form method="post" action="<?= site_url('inventory/batches') ?>">
+                <?= csrf_field() ?>
+                <div class="mb-2"><label class="form-label">Item</label><select name="product_id" class="form-select" required><?php foreach ($products as $product) : ?><option value="<?= esc($product['id']) ?>"><?= esc($product['sku']) ?></option><?php endforeach; ?></select></div>
+                <div class="mb-2"><label class="form-label">Batch No.</label><input name="lot_no" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label">Expiry Date</label><input type="date" name="expiry_date" class="form-control"></div>
+                <button class="btn btn-primary" <?= $products === [] ? 'disabled' : '' ?>>Simpan Batch</button>
+            </form>
+        </div></div>
+    </div>
+</div>
 <?php endif; ?>
 
 <div class="row">
@@ -129,5 +179,23 @@
             </table>
         </div></div>
     </div>
+</div>
+<div class="row">
+    <div class="col-xl-3"><div class="card"><div class="card-body">
+        <h4 class="card-title mb-3">Locations</h4>
+        <table class="table table-sm mb-0"><tbody><?php foreach ($locations as $location) : ?><tr><td><?= esc($location['branch_code'] . '/' . $location['warehouse_code']) ?><br><small><?= esc($location['code'] . ' - ' . $location['name']) ?></small></td></tr><?php endforeach; ?><?php if ($locations === []) : ?><tr><td class="text-muted">Belum ada location.</td></tr><?php endif; ?></tbody></table>
+    </div></div></div>
+    <div class="col-xl-3"><div class="card"><div class="card-body">
+        <h4 class="card-title mb-3">Conversions</h4>
+        <table class="table table-sm mb-0"><tbody><?php foreach ($conversions as $conversion) : ?><tr><td><?= esc($conversion['sku']) ?><br><small>1 <?= esc($conversion['from_uom']) ?> = <?= esc($conversion['factor'] . ' ' . $conversion['to_uom']) ?></small></td></tr><?php endforeach; ?><?php if ($conversions === []) : ?><tr><td class="text-muted">Belum ada conversion.</td></tr><?php endif; ?></tbody></table>
+    </div></div></div>
+    <div class="col-xl-3"><div class="card"><div class="card-body">
+        <h4 class="card-title mb-3">Item VAT</h4>
+        <table class="table table-sm mb-0"><tbody><?php foreach ($itemTaxes as $tax) : ?><tr><td><?= esc($tax['sku']) ?><br><small><?= esc($tax['tax_code'] . ' / ' . $tax['usage_type']) ?></small></td></tr><?php endforeach; ?><?php if ($itemTaxes === []) : ?><tr><td class="text-muted">Belum ada item VAT.</td></tr><?php endif; ?></tbody></table>
+    </div></div></div>
+    <div class="col-xl-3"><div class="card"><div class="card-body">
+        <h4 class="card-title mb-3">Batches</h4>
+        <table class="table table-sm mb-0"><tbody><?php foreach ($batches as $batch) : ?><tr><td><?= esc($batch['sku']) ?><br><small><?= esc($batch['lot_no']) ?><?= $batch['expiry_date'] ? ' / ' . esc($batch['expiry_date']) : '' ?></small></td></tr><?php endforeach; ?><?php if ($batches === []) : ?><tr><td class="text-muted">Belum ada batch.</td></tr><?php endif; ?></tbody></table>
+    </div></div></div>
 </div>
 <?= $this->endSection() ?>

@@ -43,6 +43,9 @@ Mutation requirements:
 | `GET /inventory` | Inventory master/gudang UI tenant aktif | `inventory.stock.view` |
 | `POST /inventory/uoms`, `/categories`, `/products`, `/warehouses` | Create master inventory/gudang dalam tenant aktif | `inventory.master.manage` |
 | `POST /inventory/products/{id}/status`, `/warehouses/{id}/status` | Activate/deactivate master milik tenant aktif | `inventory.master.manage` |
+| `POST /inventory/locations`, `/uom-conversions`, `/item-taxes`, `/batches` | Location, Item UoM Conversion, Item VAT dan Batch Master | `inventory.master.manage` |
+| `GET /setup` | Setup Master tenant aktif | `setup.master.view` |
+| `POST /setup/departments`, `/transaction-codes`, `/addresses`, `/currencies`, `/tax-codes` | Organization/reference master setup | `setup.master.manage` |
 
 ### Masters and Inventory
 

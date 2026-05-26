@@ -60,6 +60,13 @@ manage/view, data demo multi-company, audit, dan pengujian penolakan reference
 lintas-company. Import dataset nasional resmi lengkap, notifikasi/recovery
 credential, inventory perangkat/session, stock ledger/transaksi, deployment
 manifests dan provider credentials masih mengikuti gate roadmap.
+Functional menu operasional terbaru dikendalikan melalui
+`09-functional-menu-master-roadmap.md`. Tahap 6 menambahkan Setup Master
+(`transaction_codes`, `departments`, `countries`, `addresses`, `currencies`,
+`tax_codes`) serta perluasan Inventory Master (`warehouse_bins`,
+`product_uom_conversions`, `product_tax_codes`, `stock_lots`) dengan UI,
+permission tenant dan seed demo; commercial/finance/manufacturing master
+berikutnya tetap dibangun mengikuti dependency roadmap tersebut.
 
 ## Definition of Ready for Implementation
 

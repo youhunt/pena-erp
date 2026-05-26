@@ -3,6 +3,9 @@ $tenantContext = $tenantContext ?? (new \App\Services\TenantContextService())->c
 $user = auth()->user();
 $username = $user?->username ?? $user?->email ?? 'User';
 $canManageCompanies = $user?->can('platform.company.manage') ?? false;
+$tenantMenus = $tenantContext === null
+    ? []
+    : (new \App\Services\TenantMenuService())->accessibleMenus((int) auth()->id(), (int) $tenantContext['company_id']);
 ?>
 <!doctype html>
 <html lang="id">
@@ -73,6 +76,16 @@ $canManageCompanies = $user?->can('platform.company.manage') ?? false;
                                 <i class="bx bx-briefcase-alt-2"></i><span>Workspace</span>
                             </a>
                         </li>
+                        <?php if ($tenantMenus !== []) : ?>
+                            <li class="menu-title">Modul <?= esc($tenantContext['company_code']) ?></li>
+                            <?php foreach ($tenantMenus as $tenantMenu) : ?>
+                                <li>
+                                    <a href="<?= site_url($tenantMenu['route']) ?>" class="waves-effect">
+                                        <i class="<?= esc($tenantMenu['icon'] ?: 'bx bx-grid-alt') ?>"></i><span><?= esc($tenantMenu['label']) ?></span>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                         <?php if ($canManageCompanies) : ?>
                             <li class="menu-title">Administrasi</li>
                             <li>

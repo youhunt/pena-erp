@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Database\Seeds\DevelopmentFoundationSeeder;
+use App\Database\Seeds\MultiCompanyDemoSeeder;
 use App\Authorization\TenantAuthorizationService;
 use App\Services\RegionImportService;
 use App\Services\RegionApiSyncService;
 use App\Services\TenantContextService;
+use App\Services\TenantMenuService;
 use App\Models\AdministrationWriteModel;
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
@@ -188,6 +190,116 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertTrue((new TenantAuthorizationService())->can($userId, $companyId, 'purchasing.po.view'));
     }
 
+    public function testAdministrativeWritesAndContextSwitchAreAudited(): void
+    {
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $branchId  = (int) $this->db->table('branches')->where(['company_id' => $companyId, 'code' => 'JKT'])->get()->getFirstRow()->id;
+        $userId    = $this->createTestUser('audited-user', 'audited@example.com');
+        $writer    = new AdministrationWriteModel();
+
+        $writer->createRole([
+            'company_id' => $companyId,
+            'code'       => 'audited_role',
+            'name'       => 'Audited Role',
+            'status'     => 'active',
+        ], $userId);
+        $roleId = (int) $this->db->table('roles')->where(['company_id' => $companyId, 'code' => 'audited_role'])->get()->getFirstRow()->id;
+        $this->assertTrue($writer->assignRole($companyId, $userId, $roleId, $branchId, $userId));
+
+        $session = service('session');
+        $session->remove(['tenant_company_id', 'tenant_branch_id']);
+        $this->assertNotNull((new TenantContextService($this->db, $session))->activate($userId, $companyId, $branchId));
+
+        $this->seeInDatabase('audit_logs', ['event_type' => 'ROLE_CREATED', 'company_id' => $companyId, 'user_id' => $userId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'USER_ROLE_ASSIGNED', 'company_id' => $companyId, 'user_id' => $userId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'TENANT_CONTEXT_CHANGED', 'company_id' => $companyId, 'branch_id' => $branchId]);
+    }
+
+    public function testInactiveCompanyRevokesTenantContextAndPermission(): void
+    {
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId    = $this->createTestUser('inactive-company-user', 'admin@belajardisiniaja.com');
+        $this->seed(DevelopmentFoundationSeeder::class);
+
+        $this->assertTrue((new TenantAuthorizationService())->can($userId, $companyId, 'company.dashboard.view'));
+        $this->db->table('companies')->where('id', $companyId)->update(['status' => 'inactive']);
+
+        $session = service('session');
+        $session->remove(['tenant_company_id', 'tenant_branch_id']);
+        $this->assertNull((new TenantContextService($this->db, $session))->current($userId));
+        $this->assertFalse((new TenantAuthorizationService())->can($userId, $companyId, 'company.dashboard.view'));
+    }
+
+    public function testInactiveAssignedBranchIsNotOfferedAsUnscopedContext(): void
+    {
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId    = $this->createTestUser('inactive-branch-user', 'admin@belajardisiniaja.com');
+        $this->seed(DevelopmentFoundationSeeder::class);
+        $this->db->table('branches')->where(['company_id' => $companyId, 'code' => 'JKT'])->update(['status' => 'inactive']);
+
+        $service = new TenantContextService($this->db, service('session'));
+        $this->assertSame([], $service->availableContexts($userId));
+    }
+
+    public function testBranchCannotBeMovedAcrossCompaniesByRegularEdit(): void
+    {
+        $companyId        = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $branchId         = (int) $this->db->table('branches')->where(['company_id' => $companyId, 'code' => 'JKT'])->get()->getFirstRow()->id;
+        $foreignCompanyId = $this->insertForeignCompany();
+        $actorId          = $this->createTestUser('branch-editor', 'branch-editor@example.com');
+
+        (new AdministrationWriteModel())->updateBranch($branchId, [
+            'company_id' => $foreignCompanyId,
+            'name'       => 'Still Pena Branch',
+            'status'     => 'active',
+        ], $actorId);
+
+        $this->seeInDatabase('branches', ['id' => $branchId, 'company_id' => $companyId, 'name' => 'Still Pena Branch']);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'BRANCH_UPDATED', 'entity_id' => $branchId, 'company_id' => $companyId]);
+    }
+
+    public function testDemoSeederBuildsSeveralTenantsAndRoleSpecificMenus(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $this->seeInDatabase('companies', ['code' => 'PENA']);
+        $this->seeInDatabase('companies', ['code' => 'NUSA']);
+        $this->seeInDatabase('companies', ['code' => 'KARYA']);
+        $this->seeInDatabase('branches', ['code' => 'SBY']);
+        $this->seeInDatabase('branches', ['code' => 'MKS']);
+        $this->seeInDatabase('menus', ['code' => 'documents', 'label' => 'AI Document Processing']);
+
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $purchasingId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $financeId = $this->demoUserId('finance@demo.pena-erp.test');
+        $service = new TenantMenuService($this->db);
+
+        $purchasingMenus = array_column($service->accessibleMenus($purchasingId, $companyId), 'code');
+        $financeMenus = array_column($service->accessibleMenus($financeId, $companyId), 'code');
+
+        $this->assertContains('purchasing', $purchasingMenus);
+        $this->assertContains('inventory', $purchasingMenus);
+        $this->assertContains('documents', $purchasingMenus);
+        $this->assertNotContains('finance', $purchasingMenus);
+        $this->assertContains('finance', $financeMenus);
+        $this->assertContains('cashbank', $financeMenus);
+        $this->assertNotContains('purchasing', $financeMenus);
+    }
+
+    public function testDemoOwnerCanSwitchAcrossCompaniesAndSeedingIsIdempotent(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $ownerId = $this->demoUserId('owner@demo.pena-erp.test');
+        $contexts = (new TenantContextService($this->db, service('session')))->availableContexts($ownerId);
+
+        $this->assertCount(3, $contexts);
+        $this->assertSame(3, $this->db->table('companies')->countAllResults());
+        $this->assertSame(1, $this->db->table('auth_identities')->where('secret', 'owner@demo.pena-erp.test')->countAllResults());
+        $this->assertSame(1, $this->db->table('menus')->where(['company_id' => $contexts[0]['company_id'], 'code' => 'documents'])->countAllResults());
+    }
+
     private function createTestUser(string $username, string $email): int
     {
         $this->db->table('users')->insert([
@@ -205,6 +317,15 @@ final class FoundationMasterTest extends CIUnitTestCase
         ]);
 
         return $userId;
+    }
+
+    private function demoUserId(string $email): int
+    {
+        return (int) $this->db->table('auth_identities')
+            ->where(['type' => 'email_password', 'secret' => $email])
+            ->get()
+            ->getFirstRow()
+            ->user_id;
     }
 
     private function insertForeignCompany(): int

@@ -15,10 +15,16 @@ keputusan yang harus diambil sebelum tahap berikutnya.
 | Memproses dokumen/OCR/AI | `02-ai-document-processing.md` |
 | Deploy dan scaling | `06-deployment-saas-operations.md` |
 | Memastikan requirement terpenuhi | `07-requirement-traceability.md` |
+| Setup laptop kedua dan Git sync aman | `08-multi-laptop-development-guide.md` |
 
 Aturan kerja: ketika implementasi berbeda dari blueprint, jangan membiarkan
 keduanya menyimpang. Revisi dokumen dan source code dalam task yang sama atau
 catat keputusan sebagai perubahan yang masih menunggu approval.
+
+Aturan sinkronisasi: GitHub menyimpan code, migration, seeder, dan dokumen.
+Database development, `.env`, API token, encryption key, upload dan dump lokal
+tidak masuk Git; laptop lain mereproduksi fondasi dengan migration/seeder dan
+mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 
 ## Progress Tahap
 
@@ -143,6 +149,11 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 - Migration aplikasi membuat session database `ci_sessions`, membership
   `user_company_memberships`/`user_branch_memberships`, dan tenant RBAC
   `roles`, `permissions`, `role_permissions`, `user_roles`.
+- Migration kompatibilitas menambahkan kolom master yang dibutuhkan UI baru
+  pada database development lama tanpa menghapus akun, company, atau grant
+  yang telah dibuat; dump pra-migration disimpan lokal dan di-ignore Git.
+- Migration audit `CreateAuditLogs` mempertahankan tabel audit yang telah ada
+  atau membuat tabel baru pada instalasi bersih.
 - `created_by`/`updated_by` mengikuti key Shield `users.id` (`INT UNSIGNED`);
   `company_id` dan master domain tetap menggunakan `BIGINT UNSIGNED`.
 - Seeder development membuat satu jalur alamat bootstrap DKI Jakarta,
@@ -160,6 +171,17 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 - Layar `Role & Permission` dapat membuat role dan permission dinamis per
   company serta memberikan grant. Backend menolak grant lintas-company dan
   pengujian membuktikan permission baru dapat dipakai oleh user yang ditugaskan.
+- Tabel `menus` dan `menu_permissions` kini digunakan oleh
+  `TenantMenuService` untuk merender sidebar serta placeholder modul sesuai
+  role/permission pada context company yang sedang aktif.
+- Seeder development `MultiCompanyDemoSeeder` menyediakan simulasi tiga
+  company (`PENA`, `NUSA`, `KARYA`), branch operasional, enam akun uji,
+  role matrix, dan menu ERP awal secara idempotent.
+- Mutation company, branch, role, permission, assignment access dan pergantian
+  tenant context sekarang menulis event audit append-only.
+- Company nonaktif tidak dapat digunakan sebagai tenant context atau sumber
+  permission. Branch nonaktif tidak lagi muncul sebagai context aktif, dan
+  ownership company pada branch tidak dapat diubah melalui form edit biasa.
 - Command `php spark regions:import <directory> <source_version>` tersedia
   untuk mengimpor empat CSV versioned (`provinces`, `regencies`, `districts`,
   `villages`) secara idempotent.
@@ -179,17 +201,34 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 
 ```bash
 php spark migrate --all
-php spark db:seed App\\Database\\Seeds\\DevelopmentFoundationSeeder
+php spark db:seed App\Database\Seeds\DevelopmentFoundationSeeder
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
 php spark regions:import <directory-csv-resmi> <versi-sumber>
 php spark regions:sync-api <versi-sumber-api>
 php spark routes
 php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
 ```
 
-Migration foundation telah dijalankan pada `pena_erp` dan tampilan
+Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login
-superadmin. Pekerjaan lanjutan Tahap 4 adalah mengganti atau melengkapi dataset
-API hingga sesuai rujukan master resmi, memperluas pengelolaan
-role/permission, dan isolation tests
-antar-user/company sebelum modul transaksi menggunakan tenant context. UI RBAC
-saat ini mencakup create/grant awal; edit, revoke, dan matriks menu masih lanjut.
+superadmin. Regression suite kini mencakup audit mutation/context, pemblokiran
+company atau branch nonaktif, serta perlindungan branch terhadap perpindahan
+lintas-company. Regression suite juga memverifikasi perbedaan menu Purchasing
+dan Finance serta owner demo dapat berpindah antara tiga company. Pekerjaan
+lanjutan Tahap 4 adalah mengganti atau melengkapi
+dataset API hingga sesuai rujukan master resmi serta memperluas UI RBAC untuk
+edit, revoke, dan matriks menu.
+
+### Keputusan Tenant pada Tahap 4
+
+Model implementasi awal adalah **satu database, banyak company, banyak
+branch**. Data global seperti wilayah Indonesia digunakan bersama; data tenant
+dan transaksi wajib di-scope dengan `company_id`, sedangkan operasi cabang
+atau gudang juga membawa `branch_id`.
+
+Model ini dipilih karena efisien untuk SaaS dan holding company pada fase awal:
+migration, reporting konsolidasi, deployment, dan operasional backup lebih
+sederhana. Satu database per company tidak dijadikan default karena menambah
+biaya provisioning dan reporting lintas perusahaan. Tenant enterprise yang
+memerlukan isolasi fisik atau beban sangat besar dapat memakai dedicated
+database melalui resolver koneksi tenant pada fase scaling.

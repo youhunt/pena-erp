@@ -107,6 +107,16 @@ final class CreateFoundationMasterTables extends Migration
 
     private function createCompanies(): void
     {
+        if ($this->db->tableExists('companies')) {
+            $this->addMissingColumns('companies', [
+                'address'     => ['type' => 'TEXT', 'null' => true],
+                'village_id'  => ['type' => 'BIGINT', 'unsigned' => true, 'null' => true],
+                'postal_code' => ['type' => 'VARCHAR', 'constraint' => 10, 'null' => true],
+            ]);
+
+            return;
+        }
+
         $this->forge->addField([
             'id'            => ['type' => 'BIGINT', 'unsigned' => true, 'auto_increment' => true],
             'code'          => ['type' => 'VARCHAR', 'constraint' => 30],
@@ -137,6 +147,16 @@ final class CreateFoundationMasterTables extends Migration
 
     private function createBranches(): void
     {
+        if ($this->db->tableExists('branches')) {
+            $this->addMissingColumns('branches', [
+                'address'     => ['type' => 'TEXT', 'null' => true],
+                'village_id'  => ['type' => 'BIGINT', 'unsigned' => true, 'null' => true],
+                'postal_code' => ['type' => 'VARCHAR', 'constraint' => 10, 'null' => true],
+            ]);
+
+            return;
+        }
+
         $this->forge->addField([
             'id'             => ['type' => 'BIGINT', 'unsigned' => true, 'auto_increment' => true],
             'company_id'     => ['type' => 'BIGINT', 'unsigned' => true],
@@ -162,5 +182,19 @@ final class CreateFoundationMasterTables extends Migration
         $this->forge->addForeignKey('created_by', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->addForeignKey('updated_by', 'users', 'id', 'CASCADE', 'SET NULL');
         $this->forge->createTable('branches', true);
+    }
+
+    /**
+     * Supports development databases created by the earlier modular foundation.
+     *
+     * @param array<string, array<string, mixed>> $fields
+     */
+    private function addMissingColumns(string $table, array $fields): void
+    {
+        foreach ($fields as $name => $definition) {
+            if (! $this->db->fieldExists($name, $table)) {
+                $this->forge->addColumn($table, [$name => $definition]);
+            }
+        }
     }
 }

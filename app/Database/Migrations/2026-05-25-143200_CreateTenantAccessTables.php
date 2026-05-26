@@ -76,6 +76,16 @@ final class CreateTenantAccessTables extends Migration
 
     private function createRoles(): void
     {
+        if ($this->db->tableExists('roles')) {
+            if (! $this->db->fieldExists('status', 'roles')) {
+                $this->forge->addColumn('roles', [
+                    'status' => ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'active'],
+                ]);
+            }
+
+            return;
+        }
+
         $this->forge->addField(array_merge([
             'id'         => ['type' => 'BIGINT', 'unsigned' => true, 'auto_increment' => true],
             'company_id' => ['type' => 'BIGINT', 'unsigned' => true],

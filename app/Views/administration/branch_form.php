@@ -26,12 +26,24 @@
             <div class="row">
                 <div class="col-md-5 mb-3">
                     <label class="form-label">Company</label>
-                    <select name="company_id" class="form-select" required>
-                        <?php foreach ($companies as $company) : ?>
-                            <?php $selected = (string) old('company_id', $branch['company_id'] ?? '') === (string) $company['id']; ?>
-                            <option value="<?= esc($company['id']) ?>" <?= $selected ? 'selected' : '' ?>><?= esc($company['code'] . ' - ' . $company['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php if ($isEdit) : ?>
+                        <input type="hidden" name="company_id" value="<?= esc($branch['company_id']) ?>">
+                        <select class="form-select" disabled>
+                            <?php foreach ($companies as $company) : ?>
+                                <?php if ((string) $branch['company_id'] === (string) $company['id']) : ?>
+                                    <option selected><?= esc($company['code'] . ' - ' . $company['name']) ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Company branch tidak dapat dipindahkan melalui edit biasa.</div>
+                    <?php else : ?>
+                        <select name="company_id" class="form-select" required>
+                            <?php foreach ($companies as $company) : ?>
+                                <?php $selected = (string) old('company_id', '') === (string) $company['id']; ?>
+                                <option value="<?= esc($company['id']) ?>" <?= $selected ? 'selected' : '' ?>><?= esc($company['code'] . ' - ' . $company['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Kode</label>

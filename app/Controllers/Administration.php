@@ -173,17 +173,13 @@ final class Administration extends BaseController
         }
 
         $data = $this->branchData(false);
+        $data['company_id'] = (int) $branch['company_id'];
 
         if (! $this->validateData($data, [
-            'company_id' => 'required|is_natural_no_zero',
             'name'       => 'required|max_length[150]',
             'status'     => 'required|in_list[active,inactive]',
         ])) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        if ($model->company((int) $data['company_id']) === null) {
-            return redirect()->back()->withInput()->with('errors', ['company_id' => 'Company tidak ditemukan.']);
         }
 
         if ($model->branchCodeExists((int) $data['company_id'], (string) $branch['code'], $id)) {

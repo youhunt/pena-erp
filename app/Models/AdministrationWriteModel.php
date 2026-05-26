@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Services\AuditTrailService;
 use CodeIgniter\Model;
+use RuntimeException;
 
 final class AdministrationWriteModel extends Model
 {
@@ -15,10 +17,14 @@ final class AdministrationWriteModel extends Model
      */
     public function createCompany(array $data, int $actorId): void
     {
+        $this->db->transStart();
         $this->db->table('companies')->insert($data + [
             'created_by' => $actorId,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+        $id = (int) $this->db->insertID();
+        $this->audit()->record('COMPANY_CREATED', 'company', $id, $id, null, $actorId, $data);
+        $this->completeTransaction();
     }
 
     /**
@@ -26,10 +32,15 @@ final class AdministrationWriteModel extends Model
      */
     public function updateCompany(int $id, array $data, int $actorId): void
     {
+        $before = $this->db->table('companies')->where('id', $id)->get()->getFirstRow('array');
+
+        $this->db->transStart();
         $this->db->table('companies')->where('id', $id)->update($data + [
             'updated_by' => $actorId,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
+        $this->audit()->record('COMPANY_UPDATED', 'company', $id, $id, null, $actorId, $data, $before);
+        $this->completeTransaction();
     }
 
     /**
@@ -37,10 +48,14 @@ final class AdministrationWriteModel extends Model
      */
     public function createBranch(array $data, int $actorId): void
     {
+        $this->db->transStart();
         $this->db->table('branches')->insert($data + [
             'created_by' => $actorId,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+        $id = (int) $this->db->insertID();
+        $this->audit()->record('BRANCH_CREATED', 'branch', $id, (int) $data['company_id'], $id, $actorId, $data);
+        $this->completeTransaction();
     }
 
     /**
@@ -48,10 +63,21 @@ final class AdministrationWriteModel extends Model
      */
     public function updateBranch(int $id, array $data, int $actorId): void
     {
+        $before = $this->db->table('branches')->where('id', $id)->get()->getFirstRow('array');
+
+        if ($before === null) {
+            return;
+        }
+
+        // A branch cannot cross tenant ownership through a regular edit operation.
+        $data['company_id'] = (int) $before['company_id'];
+        $this->db->transStart();
         $this->db->table('branches')->where('id', $id)->update($data + [
             'updated_by' => $actorId,
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
+        $this->audit()->record('BRANCH_UPDATED', 'branch', $id, (int) $before['company_id'], $id, $actorId, $data, $before);
+        $this->completeTransaction();
     }
 
     /**
@@ -59,11 +85,15 @@ final class AdministrationWriteModel extends Model
      */
     public function createRole(array $data, int $actorId): void
     {
+        $this->db->transStart();
         $this->db->table('roles')->insert($data + [
             'is_system'  => false,
             'created_by' => $actorId,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+        $id = (int) $this->db->insertID();
+        $this->audit()->record('ROLE_CREATED', 'role', $id, (int) $data['company_id'], null, $actorId, $data);
+        $this->completeTransaction();
     }
 
     /**
@@ -71,10 +101,14 @@ final class AdministrationWriteModel extends Model
      */
     public function createPermission(array $data, int $actorId): void
     {
+        $this->db->transStart();
         $this->db->table('permissions')->insert($data + [
             'created_by' => $actorId,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
+        $id = (int) $this->db->insertID();
+        $this->audit()->record('PERMISSION_CREATED', 'permission', $id, (int) $data['company_id'], null, $actorId, $data);
+        $this->completeTransaction();
     }
 
     public function grantRolePermission(int $companyId, int $roleId, int $permissionId, int $actorId): bool
@@ -95,6 +129,7 @@ final class AdministrationWriteModel extends Model
             ->countAllResults() > 0;
 
         if (! $grantExists) {
+            $this->db->transStart();
             $this->db->table('role_permissions')->insert([
                 'company_id'    => $companyId,
                 'role_id'       => $roleId,
@@ -102,6 +137,12 @@ final class AdministrationWriteModel extends Model
                 'created_by'    => $actorId,
                 'created_at'    => date('Y-m-d H:i:s'),
             ]);
+            $id = (int) $this->db->insertID();
+            $this->audit()->record('ROLE_PERMISSION_GRANTED', 'role_permission', $id, $companyId, null, $actorId, [
+                'role_id'       => $roleId,
+                'permission_id' => $permissionId,
+            ]);
+            $this->completeTransaction();
         }
 
         return true;
@@ -125,6 +166,7 @@ final class AdministrationWriteModel extends Model
         }
 
         $now = date('Y-m-d H:i:s');
+        $this->db->transStart();
         $membership = $this->db->table('user_company_memberships')
             ->where(['company_id' => $companyId, 'user_id' => $userId])
             ->get()
@@ -187,6 +229,26 @@ final class AdministrationWriteModel extends Model
             }
         }
 
+        $this->audit()->record('USER_ROLE_ASSIGNED', 'user', $userId, $companyId, $branchId, $actorId, [
+            'role_id'   => $roleId,
+            'branch_id' => $branchId,
+        ]);
+        $this->completeTransaction();
+
         return true;
+    }
+
+    private function audit(): AuditTrailService
+    {
+        return new AuditTrailService($this->db);
+    }
+
+    private function completeTransaction(): void
+    {
+        $this->db->transComplete();
+
+        if (! $this->db->transStatus()) {
+            throw new RuntimeException('Perubahan administrasi gagal dan transaksi dibatalkan.');
+        }
     }
 }

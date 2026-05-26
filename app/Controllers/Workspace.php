@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Authorization\TenantAuthorizationService;
 use App\Models\AdministrationReadModel;
+use App\Services\TenantMenuService;
 use App\Services\TenantContextService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\RedirectResponse;
@@ -69,6 +70,37 @@ final class Workspace extends BaseController
         return view('workspace/index', [
             'company' => $company,
             'context' => $context,
+            'menus'   => (new TenantMenuService())->accessibleMenus((int) auth()->id(), $companyId),
+        ]);
+    }
+
+    public function module(string $moduleCode): string
+    {
+        $userId = (int) auth()->id();
+        $context = (new TenantContextService())->current($userId);
+
+        if ($context === null) {
+            $this->response->setStatusCode(403);
+
+            return view('workspace/module_denied', ['moduleCode' => $moduleCode]);
+        }
+
+        $menus = (new TenantMenuService())->accessibleMenus($userId, (int) $context['company_id']);
+        $menu = array_values(array_filter(
+            $menus,
+            static fn (array $item): bool => $item['code'] === $moduleCode,
+        ))[0] ?? null;
+
+        if ($menu === null) {
+            $this->response->setStatusCode(403);
+
+            return view('workspace/module_denied', ['moduleCode' => $moduleCode]);
+        }
+
+        return view('workspace/module', [
+            'context' => $context,
+            'menu'    => $menu,
+            'menus'   => $menus,
         ]);
     }
 }

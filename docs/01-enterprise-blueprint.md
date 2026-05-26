@@ -101,6 +101,19 @@ Master wilayah Indonesia (`provinces`, `regencies`, `districts`, `villages`)
 termasuk reference global: dipakai bersama oleh seluruh company, versioned
 dari dataset resmi yang disetujui, dan tidak menerima perubahan tenant.
 
+Keputusan implementasi untuk baseline:
+
+| Opsi | Penggunaan | Keputusan |
+| --- | --- | --- |
+| Satu database, banyak company dan branch | SaaS awal, distributor multi-usaha, holding, retail | Default implementasi saat ini |
+| Satu database per company, banyak branch | Isolasi fisik khusus tenant atau kebutuhan regulasi | Bukan default; opsi enterprise berikutnya |
+| Database terkelompok/sharded per tenant tier | Skala besar setelah metrik beban tersedia | Jalur scaling jangka menengah |
+
+Shared schema dipilih karena mengurangi kompleksitas provisioning, patch
+database, backup, dan laporan konsolidasi. Risiko kebocoran antar-company
+ditangani melalui membership, tenant context tervalidasi, query scoping,
+permission per company, audit, dan automated isolation test.
+
 Request lifecycle:
 
 1. Session/token diotentikasi melalui auth adapter.

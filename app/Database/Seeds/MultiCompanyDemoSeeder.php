@@ -1,0 +1,353 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Database\Seeds;
+
+use CodeIgniter\Database\Seeder;
+use RuntimeException;
+
+final class MultiCompanyDemoSeeder extends Seeder
+{
+    public const DEMO_PASSWORD = 'Demo@Pena2026';
+
+    public function run(): void
+    {
+        if (ENVIRONMENT === 'production') {
+            throw new RuntimeException('Seeder simulasi tidak boleh dijalankan pada environment production.');
+        }
+
+        $this->call(DevelopmentFoundationSeeder::class);
+
+        $now = date('Y-m-d H:i:s');
+        $village = $this->db->table('villages')->where('code', '3174070006')->get()->getFirstRow('array');
+        $villageId = $village === null ? null : (int) $village['id'];
+
+        $tenants = [
+            'PENA' => [
+                'name'     => 'PT Pena ERP Demo',
+                'branches' => ['JKT' => 'Jakarta Distribution Center', 'SBY' => 'Surabaya Warehouse'],
+            ],
+            'NUSA' => [
+                'name'     => 'PT Nusa Retail Nusantara',
+                'branches' => ['BDG' => 'Bandung Store Office', 'MKS' => 'Makassar Outlet'],
+            ],
+            'KARYA' => [
+                'name'     => 'PT Karya Jasa Digital',
+                'branches' => ['DPS' => 'Denpasar Service Office'],
+            ],
+        ];
+
+        $tenantIds = [];
+        $branchIds = [];
+
+        foreach ($tenants as $code => $tenant) {
+            $tenantIds[$code] = $this->tenant($code, $tenant['name'], $villageId, $now);
+
+            foreach ($tenant['branches'] as $branchCode => $branchName) {
+                $branchIds[$code][$branchCode] = $this->branch($tenantIds[$code], $branchCode, $branchName, $villageId, $now);
+            }
+
+            $this->provisionAccessMatrix($tenantIds[$code], $now);
+        }
+
+        $users = [
+            'owner@demo.pena-erp.test'      => 'demo.owner',
+            'purchasing@demo.pena-erp.test' => 'demo.purchasing',
+            'warehouse@demo.pena-erp.test'  => 'demo.warehouse',
+            'finance@demo.pena-erp.test'    => 'demo.finance',
+            'sales@demo.pena-erp.test'      => 'demo.sales',
+            'manager@demo.pena-erp.test'    => 'demo.manager',
+        ];
+        $userIds = [];
+
+        foreach ($users as $email => $username) {
+            $userIds[$email] = $this->user($username, $email, $now);
+        }
+
+        $this->assign($userIds['owner@demo.pena-erp.test'], $tenantIds['PENA'], 'owner', $branchIds['PENA']['JKT'], true, $now);
+        $this->assign($userIds['owner@demo.pena-erp.test'], $tenantIds['NUSA'], 'owner', $branchIds['NUSA']['BDG'], false, $now);
+        $this->assign($userIds['owner@demo.pena-erp.test'], $tenantIds['KARYA'], 'owner', $branchIds['KARYA']['DPS'], false, $now);
+        $this->assign($userIds['purchasing@demo.pena-erp.test'], $tenantIds['PENA'], 'purchasing', $branchIds['PENA']['JKT'], true, $now);
+        $this->assign($userIds['warehouse@demo.pena-erp.test'], $tenantIds['PENA'], 'warehouse', $branchIds['PENA']['SBY'], true, $now);
+        $this->assign($userIds['finance@demo.pena-erp.test'], $tenantIds['PENA'], 'finance', $branchIds['PENA']['JKT'], true, $now);
+        $this->assign($userIds['finance@demo.pena-erp.test'], $tenantIds['NUSA'], 'finance', $branchIds['NUSA']['BDG'], false, $now);
+        $this->assign($userIds['sales@demo.pena-erp.test'], $tenantIds['NUSA'], 'sales', $branchIds['NUSA']['MKS'], true, $now);
+        $this->assign($userIds['manager@demo.pena-erp.test'], $tenantIds['KARYA'], 'manager', $branchIds['KARYA']['DPS'], true, $now);
+    }
+
+    private function tenant(string $code, string $name, ?int $villageId, string $now): int
+    {
+        $existing = $this->db->table('companies')->where('code', $code)->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('companies')->insert([
+            'code'          => $code,
+            'name'          => $name,
+            'address'       => 'Alamat simulasi ' . $code,
+            'village_id'    => $villageId,
+            'postal_code'   => '11730',
+            'base_currency' => 'IDR',
+            'timezone'      => 'Asia/Jakarta',
+            'status'        => 'active',
+            'created_at'    => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function branch(int $companyId, string $code, string $name, ?int $villageId, string $now): int
+    {
+        $existing = $this->db->table('branches')
+            ->where(['company_id' => $companyId, 'code' => $code])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('branches')->insert([
+            'company_id'     => $companyId,
+            'code'           => $code,
+            'name'           => $name,
+            'address'        => 'Alamat simulasi ' . $code,
+            'village_id'     => $villageId,
+            'postal_code'    => '11730',
+            'is_head_office' => true,
+            'status'         => 'active',
+            'created_at'     => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function provisionAccessMatrix(int $companyId, string $now): void
+    {
+        $permissions = [
+            'company.dashboard.view' => ['Dashboard Workspace', 'company'],
+            'company.master.manage'  => ['Kelola Master Company', 'company'],
+            'inventory.stock.view'   => ['Lihat Stok', 'inventory'],
+            'purchasing.po.view'     => ['Lihat Purchase Order', 'purchasing'],
+            'sales.order.view'       => ['Lihat Sales Order', 'sales'],
+            'finance.invoice.view'   => ['Lihat Invoice Finance', 'finance'],
+            'cashbank.view'          => ['Lihat Cash dan Bank', 'cashbank'],
+            'reports.view'           => ['Lihat Reporting', 'reports'],
+            'documents.upload'       => ['Upload Dokumen AI/OCR', 'documents'],
+        ];
+        $permissionIds = [];
+
+        foreach ($permissions as $code => [$name, $module]) {
+            $permissionIds[$code] = $this->permission($companyId, $code, $name, $module, $now);
+        }
+
+        $menus = [
+            'dashboard'  => ['Dashboard Workspace', 'workspace', 'bx bx-grid-alt', 10, 'company.dashboard.view'],
+            'inventory'  => ['Inventory', 'workspace/modules/inventory', 'bx bx-package', 20, 'inventory.stock.view'],
+            'purchasing' => ['Purchasing', 'workspace/modules/purchasing', 'bx bx-cart', 30, 'purchasing.po.view'],
+            'sales'      => ['Sales', 'workspace/modules/sales', 'bx bx-receipt', 40, 'sales.order.view'],
+            'finance'    => ['Accounting & Finance', 'workspace/modules/finance', 'bx bx-calculator', 50, 'finance.invoice.view'],
+            'cashbank'   => ['Cash & Bank', 'workspace/modules/cashbank', 'bx bx-wallet', 60, 'cashbank.view'],
+            'reports'    => ['Reporting', 'workspace/modules/reports', 'bx bx-line-chart', 70, 'reports.view'],
+            'documents'  => ['AI Document Processing', 'workspace/modules/documents', 'bx bx-scan', 80, 'documents.upload'],
+        ];
+
+        foreach ($menus as $code => [$label, $route, $icon, $sortOrder, $permission]) {
+            $menuId = $this->menu($companyId, $code, $label, $route, $icon, $sortOrder, $now);
+            $this->menuPermission($companyId, $menuId, $permissionIds[$permission], $now);
+        }
+
+        $roleGrants = [
+            'owner'      => array_keys($permissions),
+            'manager'    => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'sales.order.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'finance'    => ['company.dashboard.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'documents.upload'],
+            'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'documents.upload'],
+            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view'],
+            'cashier'    => ['company.dashboard.view', 'sales.order.view', 'cashbank.view'],
+        ];
+
+        foreach ($roleGrants as $roleCode => $grants) {
+            $roleId = $this->role($companyId, $roleCode, ucwords($roleCode), $now);
+
+            foreach ($grants as $permission) {
+                $this->grant($companyId, $roleId, $permissionIds[$permission], $now);
+            }
+        }
+    }
+
+    private function role(int $companyId, string $code, string $name, string $now): int
+    {
+        $existing = $this->db->table('roles')->where(['company_id' => $companyId, 'code' => $code])->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('roles')->insert([
+            'company_id' => $companyId,
+            'code'       => $code,
+            'name'       => $name,
+            'is_system'  => true,
+            'status'     => 'active',
+            'created_at' => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function permission(int $companyId, string $code, string $name, string $module, string $now): int
+    {
+        $existing = $this->db->table('permissions')->where(['company_id' => $companyId, 'code' => $code])->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('permissions')->insert([
+            'company_id' => $companyId,
+            'code'       => $code,
+            'name'       => $name,
+            'module'     => $module,
+            'created_at' => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function menu(int $companyId, string $code, string $label, string $route, string $icon, int $sortOrder, string $now): int
+    {
+        $existing = $this->db->table('menus')->where(['company_id' => $companyId, 'code' => $code])->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            $this->db->table('menus')->where('id', $existing['id'])->update([
+                'label'      => $label,
+                'route'      => $route,
+                'icon'       => $icon,
+                'sort_order' => $sortOrder,
+                'updated_at' => $now,
+            ]);
+
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('menus')->insert([
+            'company_id' => $companyId,
+            'code'       => $code,
+            'label'      => $label,
+            'route'      => $route,
+            'icon'       => $icon,
+            'sort_order' => $sortOrder,
+            'created_at' => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function grant(int $companyId, int $roleId, int $permissionId, string $now): void
+    {
+        if ($this->db->table('role_permissions')->where([
+            'company_id'    => $companyId,
+            'role_id'       => $roleId,
+            'permission_id' => $permissionId,
+        ])->countAllResults() > 0) {
+            return;
+        }
+
+        $this->db->table('role_permissions')->insert([
+            'company_id'    => $companyId,
+            'role_id'       => $roleId,
+            'permission_id' => $permissionId,
+            'created_at'    => $now,
+        ]);
+    }
+
+    private function menuPermission(int $companyId, int $menuId, int $permissionId, string $now): void
+    {
+        if ($this->db->table('menu_permissions')->where([
+            'company_id'    => $companyId,
+            'menu_id'       => $menuId,
+            'permission_id' => $permissionId,
+        ])->countAllResults() > 0) {
+            return;
+        }
+
+        $this->db->table('menu_permissions')->insert([
+            'company_id'    => $companyId,
+            'menu_id'       => $menuId,
+            'permission_id' => $permissionId,
+            'created_at'    => $now,
+        ]);
+    }
+
+    private function user(string $username, string $email, string $now): int
+    {
+        $identity = $this->db->table('auth_identities')->where([
+            'type'   => 'email_password',
+            'secret' => $email,
+        ])->get()->getFirstRow('array');
+
+        if ($identity !== null) {
+            return (int) $identity['user_id'];
+        }
+
+        $this->db->table('users')->insert([
+            'username'   => $username,
+            'active'     => true,
+            'created_at' => $now,
+        ]);
+        $userId = (int) $this->db->insertID();
+        $this->db->table('auth_identities')->insert([
+            'user_id'    => $userId,
+            'type'       => 'email_password',
+            'secret'     => $email,
+            'secret2'    => service('passwords')->hash(self::DEMO_PASSWORD),
+            'created_at' => $now,
+        ]);
+
+        return $userId;
+    }
+
+    private function assign(int $userId, int $companyId, string $roleCode, int $branchId, bool $isDefault, string $now): void
+    {
+        $role = $this->db->table('roles')->where(['company_id' => $companyId, 'code' => $roleCode])->get()->getFirstRow('array');
+
+        if ($role === null) {
+            throw new RuntimeException('Role demo tidak ditemukan: ' . $roleCode);
+        }
+
+        if ($this->db->table('user_company_memberships')->where(['company_id' => $companyId, 'user_id' => $userId])->countAllResults() === 0) {
+            $this->db->table('user_company_memberships')->insert([
+                'company_id' => $companyId,
+                'user_id'    => $userId,
+                'is_default' => $isDefault,
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
+        }
+
+        if ($this->db->table('user_roles')->where(['company_id' => $companyId, 'user_id' => $userId, 'role_id' => $role['id']])->countAllResults() === 0) {
+            $this->db->table('user_roles')->insert([
+                'company_id'     => $companyId,
+                'user_id'        => $userId,
+                'role_id'        => $role['id'],
+                'effective_from' => date('Y-m-d'),
+                'created_at'     => $now,
+            ]);
+        }
+
+        if ($this->db->table('user_branch_memberships')->where(['company_id' => $companyId, 'user_id' => $userId, 'branch_id' => $branchId])->countAllResults() === 0) {
+            $this->db->table('user_branch_memberships')->insert([
+                'company_id' => $companyId,
+                'user_id'    => $userId,
+                'branch_id'  => $branchId,
+                'can_switch' => true,
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
+        }
+    }
+}

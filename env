@@ -67,3 +67,25 @@
 #--------------------------------------------------------------------
 
 # logger.threshold = 4
+
+#--------------------------------------------------------------------
+# PENA ERP LOCAL DEVELOPMENT EXAMPLE
+#--------------------------------------------------------------------
+# Copy this file to .env on each workstation, then enable and adjust
+# only the values required locally. Never commit the resulting .env file.
+#
+# CI_ENVIRONMENT = development
+# app.baseURL = 'http://localhost:8080/'
+#
+# database.default.hostname = localhost
+# database.default.database = pena_erp
+# database.default.username = root
+# database.default.password =
+# database.default.DBDriver = MySQLi
+# database.default.DBPrefix =
+# database.default.port = 3306
+#
+# Generate a local key with: php spark key:generate
+#
+# regions.apiBaseUrl = 'https://api-wilayah.belajardisiniaja.com'
+# regions.apiToken =

@@ -7,6 +7,7 @@ $routes->get('/', 'Home::index', ['filter' => 'session']);
 $routes->get('workspace', 'Workspace::chooser', ['filter' => 'session']);
 $routes->post('workspace/context', 'Workspace::select', ['filter' => 'session']);
 $routes->get('workspace/(:num)', 'Workspace::index/$1', ['filter' => 'session']);
+$routes->get('workspace/modules/(:segment)', 'Workspace::module/$1', ['filter' => 'session']);
 
 $routes->group('administration', ['filter' => ['session', 'permission:platform.company.manage']], static function ($routes): void {
     $routes->get('companies', 'Administration::companies');

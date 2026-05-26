@@ -96,7 +96,7 @@ Semua tabel pada bagian ini `T+A`, kecuali yang diberi tanda `G`.
 | `auth_identities` (Shield credentials) `G` | Shield-managed `id PK`, `user_id FK users`, `type VARCHAR(255)`, `secret VARCHAR(255)`, `secret2 VARCHAR(255) NULL`, `expires DATETIME NULL`, timestamps | Identity lookup indexes managed by Shield; no tenant permission in credentials | `email_password` |
 | `user_company_memberships` (tenant access) | `id PK`, `user_id FK users`, `is_default BOOLEAN`, `status VARCHAR(20)` | `UQ(company_id,user_id)`, `IDX(user_id,status)` | `user 9 -> company 1` |
 | `user_branch_memberships` (branch access) | `id PK`, `user_id FK users`, `branch_id FK branches`, `can_switch BOOLEAN` | `UQ(company_id,user_id,branch_id)` | `user 9 -> JKT` |
-| `roles` (dynamic tenant role) | `id PK`, `code VARCHAR(50)`, `name VARCHAR(100)`, `is_system BOOLEAN` | `UQ(company_id,code)` | `purchasing` |
+| `roles` (dynamic tenant role) | `id PK`, `code VARCHAR(50)`, `name VARCHAR(100)`, `is_system BOOLEAN`, `status VARCHAR(20)` | `UQ(company_id,code)`; hanya role `active` memberi permission | `purchasing` |
 | `permissions` (permission registry) | `id PK`, `code VARCHAR(100)`, `name VARCHAR(120)`, `module VARCHAR(40)` | `UQ(company_id,code)`; seed per tenant | `purchasing.po.approve` |
 | `role_permissions` (grant) | `id PK`, `role_id FK roles`, `permission_id FK permissions` | `UQ(company_id,role_id,permission_id)` | `purchasing -> po.view` |
 | `user_roles` (assignment) | `id PK`, `user_id FK users`, `role_id FK roles`, `effective_from DATE`, `effective_to DATE` | `IDX(company_id,user_id)`, unique active enforced service | `user 9 purchasing` |

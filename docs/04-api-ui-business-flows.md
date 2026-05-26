@@ -32,6 +32,7 @@ Mutation requirements:
 | --- | --- | --- |
 | `GET/POST /login`, `GET /logout`, magic-link policy routes | Shield session flows | public/throttled |
 | `GET /workspace`, `POST /workspace/context` | Available context and switch active company/branch | membership |
+| `GET /workspace/modules/{menuCode}` | Placeholder modul dari mapping menu-permission tenant aktif | tenant menu permission |
 | `GET/POST /administration/companies` | Tenant administration shell | `platform.company.manage` |
 | `GET/POST /administration/branches` | Branch CRUD shell | `platform.company.manage` |
 | `GET/POST /administration/access` | Assign role and initial branch membership | `platform.company.manage` |

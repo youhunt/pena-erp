@@ -19,15 +19,18 @@ integrasi Skote, worker OCR/AI, dan deployment production.
 - Tahap 4 berjalan: master wilayah global dengan import CSV/sinkronisasi API,
   company/branch CRUD, membership dan role/permission tenant awal beserta
   grant UI, workspace berizin dengan context branch aktif, serta layar
-  administrasi superadmin telah dibuat.
+  administrasi superadmin telah dibuat. Audit mutation/context dan pemblokiran
+  context nonaktif sudah ditambahkan. Seeder simulasi multi-company dan menu
+  workspace dinamis per role telah tersedia.
 
 ```bash
 composer install
 php spark serve
 ```
 
-Buka `http://localhost:8080/`. File `.env` bersifat lokal/ignored; sebelum
-migration nanti isi konfigurasi MySQL/MariaDB pada file tersebut.
+Buka `http://localhost:8080/`. File `.env` bersifat lokal/ignored dan menyimpan
+konfigurasi database serta credential API development yang tidak boleh
+dikomit.
 
 Testing bawaan CI4 menggunakan SQLite. Pada instalasi XAMPP lokal ini,
 aktifkan `extension=sqlite3` di `php.ini` (saat ini `pdo_sqlite` sudah aktif).
@@ -55,6 +58,31 @@ admin telah diprovision melalui Shield. Assignment role operasional tenant
 sudah dimulai melalui membership/RBAC per company; permission transaksi akan
 ditambahkan saat modul transaksi dibangun.
 
+### Simulasi Multi-Company dan Role
+
+Untuk mengisi data demo yang idempotent pada environment development:
+
+```bash
+php spark migrate --all
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
+```
+
+Seeder membuat tenant `PENA`, `NUSA`, `KARYA`, beberapa branch, role
+operasional, mapping menu/permission, serta akun uji berikut dengan password
+lokal yang sama: `Demo@Pena2026`.
+
+| Email Demo | Simulasi Akses |
+| --- | --- |
+| `owner@demo.pena-erp.test` | Owner di tiga company, dapat mencoba company switching |
+| `purchasing@demo.pena-erp.test` | Purchasing PENA |
+| `warehouse@demo.pena-erp.test` | Warehouse PENA |
+| `finance@demo.pena-erp.test` | Finance PENA dan NUSA |
+| `sales@demo.pena-erp.test` | Sales NUSA |
+| `manager@demo.pena-erp.test` | Manager KARYA |
+
+Akun tersebut hanya untuk development/testing dan tidak boleh diprovision ke
+database production.
+
 ## Dokumen Blueprint
 
 | Dokumen | Isi |
@@ -67,6 +95,17 @@ ditambahkan saat modul transaksi dibangun.
 | [05-ci4-implementation-guide.md](docs/05-ci4-implementation-guide.md) | HMVC structure, contoh migration, DTO, repository, service, filter, worker |
 | [06-deployment-saas-operations.md](docs/06-deployment-saas-operations.md) | Ubuntu deployment, OCR service, queue, backup, CI/CD dan SaaS scaling |
 | [07-requirement-traceability.md](docs/07-requirement-traceability.md) | Matriks cakupan 24 keluaran dan definition of ready/done |
+| [08-multi-laptop-development-guide.md](docs/08-multi-laptop-development-guide.md) | Setup laptop baru, Git sync, migration/seeder, serta perlindungan secret/data lokal |
+
+## Bekerja dari Beberapa Laptop
+
+GitHub menyimpan source, migration, seeder, asset, dan dokumentasi. GitHub
+tidak menyimpan `.env`, token API, encryption key, database lokal, upload, log,
+atau dump backup. Laptop kedua harus menjalankan migration dan seeder setelah
+pull agar schema serta simulasi akses sama dengan laptop pertama.
+
+Checklist lengkap tersedia di
+[docs/08-multi-laptop-development-guide.md](docs/08-multi-laptop-development-guide.md).
 
 ## Keputusan Penting
 

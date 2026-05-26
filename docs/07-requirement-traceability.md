@@ -42,6 +42,11 @@ database session, membership/RBAC tenant awal, importer CSV versioned,
 company/branch CRUD, assignment role/branch, dan workspace tenant dengan
 context company/branch aktif tersimpan dalam session. UI RBAC awal sekarang
 mendukung pembuatan role/permission dan grant yang divalidasi per-company.
+Menu tenant simulasi kini dirender dari permission per role dan
+`MultiCompanyDemoSeeder` dapat membangun tiga company serta akun uji yang sama
+di setiap workstation development. Prosedur sinkronisasi lintas laptop,
+migration/seeder dan perlindungan secret dicatat pada
+`08-multi-laptop-development-guide.md`.
 Import dataset nasional resmi lengkap, edit/revoke RBAC lengkap, transaksi,
 deployment manifests dan provider credentials masih mengikuti gate roadmap.
 

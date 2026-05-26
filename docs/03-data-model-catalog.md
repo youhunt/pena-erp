@@ -101,8 +101,8 @@ Semua tabel pada bagian ini `T+A`, kecuali yang diberi tanda `G`.
 | `role_permissions` (grant) | `id PK`, `role_id FK roles`, `permission_id FK permissions` | `UQ(company_id,role_id,permission_id)` | `purchasing -> po.view` |
 | `user_roles` (assignment) | `id PK`, `user_id FK users`, `role_id FK roles`, `effective_from DATE`, `effective_to DATE` | `IDX(company_id,user_id)`, unique active enforced service | `user 9 purchasing` |
 | `menus` (dynamic sidebar) | `id PK`, `parent_id FK menus NULL`, `code VARCHAR(60)`, `label VARCHAR(100)`, `route VARCHAR(150)`, `icon VARCHAR(50)`, `sort_order INT` | `UQ(company_id,code)`, `IDX(parent_id,sort_order)` | `purchases /purchasing/po` |
-| `menu_permissions` (visibility) | `id PK`, `menu_id FK menus`, `permission_id FK permissions` | `UQ(company_id,menu_id,permission_id)` | `menu PO -> po.view` |
-| `audit_logs` (immutable action trail) | `id PK`, `user_id FK users NULL`, `event_type VARCHAR(80)`, `entity_type VARCHAR(80)`, `entity_id BIGINT NULL`, `request_id CHAR(36)`, `ip_address VARCHAR(45)`, `before_hash CHAR(64)`, `after_json JSON`, `occurred_at DATETIME` | Append-only; `IDX(company_id,occurred_at)`, `IDX(entity_type,entity_id)`; no update/delete | `PO_APPROVED, PO 103` |
+| `menu_permissions` (visibility) | `id PK`, `menu_id FK menus`, `permission_id FK permissions` | `UQ(company_id,menu_id,permission_id)`; UI grant/revoke wajib memvalidasi ownership company sama | `menu PO -> po.view` |
+| `audit_logs` (immutable action trail) | `id PK`, `user_id FK users NULL`, `event_type VARCHAR(80)`, `entity_type VARCHAR(80)`, `entity_id BIGINT NULL`, `request_id CHAR(36)`, `ip_address VARCHAR(45)`, `before_hash CHAR(64)`, `after_json JSON`, `occurred_at DATETIME` | Append-only; `IDX(company_id,occurred_at)`, `IDX(entity_type,entity_id)`; no update/delete; payload `USER_PROVISIONED` tidak memuat password | `USER_PROVISIONED`, `MENU_PERMISSION_GRANTED`, `PO_APPROVED` |
 
 ## 4. Master Data and Inventory
 

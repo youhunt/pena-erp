@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Database\Seeds\DevelopmentFoundationSeeder;
 use App\Database\Seeds\MultiCompanyDemoSeeder;
+use App\Auth\ShieldUserProvisioningService;
 use App\Authorization\TenantAuthorizationService;
 use App\Services\RegionImportService;
 use App\Services\RegionApiSyncService;
@@ -383,6 +384,59 @@ final class FoundationMasterTest extends CIUnitTestCase
 
         $this->assertNotSame([], $documents);
         $this->assertSame('AI Document Processing', $documents[0]['menu_label']);
+    }
+
+    public function testShieldProvisioningCreatesActiveUserWithoutWritingPasswordToAudit(): void
+    {
+        $actorId = $this->createTestUser('platform-owner', 'platform-owner@example.com');
+        $password = 'StrongTemp#2026';
+
+        $userId = (new ShieldUserProvisioningService($this->db))->provision([
+            'username' => 'new-staff',
+            'email'    => 'new-staff@example.com',
+            'password' => $password,
+        ], $actorId);
+
+        $this->seeInDatabase('users', ['id' => $userId, 'username' => 'new-staff', 'active' => 1]);
+        $identity = $this->db->table('auth_identities')
+            ->where(['user_id' => $userId, 'type' => 'email_password'])
+            ->get()
+            ->getFirstRow('array');
+        $audit = $this->db->table('audit_logs')
+            ->where(['event_type' => 'USER_PROVISIONED', 'entity_id' => $userId])
+            ->get()
+            ->getFirstRow('array');
+
+        $this->assertNotNull($identity);
+        $this->assertTrue(password_verify($password, $identity['secret2']));
+        $this->assertNotNull($audit);
+        $this->assertStringNotContainsString($password, (string) $audit['after_json']);
+    }
+
+    public function testMenuPermissionMappingAddsAndRemovesRoleVisibleMenu(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $menuId = (int) $this->db->table('menus')->where(['company_id' => $companyId, 'code' => 'finance'])->get()->getFirstRow()->id;
+        $permissionId = (int) $this->db->table('permissions')->where(['company_id' => $companyId, 'code' => 'purchasing.po.view'])->get()->getFirstRow()->id;
+        $service = new TenantMenuService($this->db);
+        $writer = new AdministrationWriteModel();
+
+        $this->assertNotContains('finance', array_column($service->accessibleMenus($userId, $companyId), 'code'));
+        $this->assertTrue($writer->grantMenuPermission($companyId, $menuId, $permissionId, $userId));
+        $this->assertContains('finance', array_column($service->accessibleMenus($userId, $companyId), 'code'));
+
+        $mappingId = (int) $this->db->table('menu_permissions')->where([
+            'company_id'    => $companyId,
+            'menu_id'       => $menuId,
+            'permission_id' => $permissionId,
+        ])->get()->getFirstRow()->id;
+        $this->assertTrue($writer->revokeMenuPermission($companyId, $mappingId, $userId));
+        $this->assertNotContains('finance', array_column($service->accessibleMenus($userId, $companyId), 'code'));
+        $this->seeInDatabase('audit_logs', ['event_type' => 'MENU_PERMISSION_GRANTED', 'entity_id' => $mappingId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'MENU_PERMISSION_REVOKED', 'entity_id' => $mappingId]);
     }
 
     private function createTestUser(string $username, string $email): int

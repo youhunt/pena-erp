@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\ShieldUserProvisioningService;
 use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\Exceptions\PageNotFoundException;
+use Throwable;
 
 final class Administration extends BaseController
 {
@@ -214,6 +216,7 @@ final class Administration extends BaseController
             'permissions' => $model->permissions(),
             'grants'      => $model->rolePermissionGrants(),
             'menuMatrix'  => $model->menuPermissionMatrix(),
+            'menus'       => $model->menus(),
         ]);
     }
 
@@ -375,6 +378,90 @@ final class Administration extends BaseController
         }
 
         return redirect()->to(site_url('administration/rbac'))->with('message', 'Permission berhasil dicabut dari role.');
+    }
+
+    public function grantMenuPermission(): RedirectResponse
+    {
+        $data = [
+            'company_id'    => $this->request->getPost('company_id'),
+            'menu_id'       => $this->request->getPost('menu_id'),
+            'permission_id' => $this->request->getPost('permission_id'),
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id'    => 'required|is_natural_no_zero',
+            'menu_id'       => 'required|is_natural_no_zero',
+            'permission_id' => 'required|is_natural_no_zero',
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        if (! (new AdministrationWriteModel())->grantMenuPermission((int) $data['company_id'], (int) $data['menu_id'], (int) $data['permission_id'], $this->actorId())) {
+            return redirect()->back()->withInput()->with('errors', ['menu_id' => 'Menu dan permission harus berasal dari company yang sama.']);
+        }
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Mapping menu dan permission berhasil ditambahkan.');
+    }
+
+    public function revokeMenuPermission(): RedirectResponse
+    {
+        $data = [
+            'company_id' => $this->request->getPost('company_id'),
+            'mapping_id' => $this->request->getPost('mapping_id'),
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id' => 'required|is_natural_no_zero',
+            'mapping_id' => 'required|is_natural_no_zero',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        if (! (new AdministrationWriteModel())->revokeMenuPermission((int) $data['company_id'], (int) $data['mapping_id'], $this->actorId())) {
+            return redirect()->back()->with('errors', ['mapping_id' => 'Mapping menu tidak ditemukan pada company tersebut.']);
+        }
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Mapping menu dan permission berhasil dicabut.');
+    }
+
+    public function createUser(): RedirectResponse
+    {
+        $data = [
+            'username'         => trim((string) $this->request->getPost('username')),
+            'email'            => strtolower(trim((string) $this->request->getPost('email'))),
+            'password'         => (string) $this->request->getPost('password'),
+            'password_confirm' => (string) $this->request->getPost('password_confirm'),
+        ];
+        $model = new AdministrationReadModel();
+
+        if (! $this->validateData($data, [
+            'username'         => 'required|alpha_numeric_punct|min_length[3]|max_length[50]',
+            'email'            => 'required|valid_email|max_length[254]',
+            'password'         => 'required|min_length[12]|max_length[255]',
+            'password_confirm' => 'required|matches[password]',
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        if ($model->usernameExists($data['username'])) {
+            return redirect()->back()->withInput()->with('errors', ['username' => 'Username sudah digunakan.']);
+        }
+
+        if ($model->userEmailExists($data['email'])) {
+            return redirect()->back()->withInput()->with('errors', ['email' => 'Email sudah digunakan.']);
+        }
+
+        try {
+            (new ShieldUserProvisioningService())->provision([
+                'username' => $data['username'],
+                'email'    => $data['email'],
+                'password' => $data['password'],
+            ], $this->actorId());
+        } catch (Throwable) {
+            return redirect()->back()->withInput()->with('errors', ['email' => 'Provisioning user gagal. Periksa data dan coba kembali.']);
+        }
+
+        return redirect()->to(site_url('administration/access'))->with('message', 'User Shield aktif berhasil dibuat. Silakan berikan role tenant.');
     }
 
     public function assignAccess(): RedirectResponse

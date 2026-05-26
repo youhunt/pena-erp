@@ -189,8 +189,13 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
   pada company dicabut, membership company/branch tersebut dinonaktifkan,
   tanpa mengganggu membership user pada company lain; event dicatat sebagai
   `USER_ROLE_REVOKED`.
-- Layar RBAC menampilkan matriks read-only menu-to-permission untuk
-  memudahkan verifikasi sidebar tenant sebelum CRUD mapping menu dibangun.
+- Layar RBAC dapat menambah dan mencabut mapping menu-to-permission. Menu
+  sidebar berubah berdasarkan mapping dan role tenant aktif; operasi mapping
+  dicatat sebagai `MENU_PERMISSION_GRANTED`/`MENU_PERMISSION_REVOKED`.
+- Layar `Akses User` dapat memprovision identitas login aktif melalui Shield.
+  Akun baru tidak mendapat privilege platform/tenant otomatis; role company
+  diberikan sesudahnya secara eksplisit. Audit `USER_PROVISIONED` hanya
+  menyimpan username/email/provider, tidak menyimpan password.
 - Company nonaktif tidak dapat digunakan sebagai tenant context atau sumber
   permission. Branch nonaktif tidak lagi muncul sebagai context aktif, dan
   ownership company pada branch tidak dapat diubah melalui form edit biasa.
@@ -228,10 +233,12 @@ company atau branch nonaktif, perlindungan branch terhadap perpindahan
 lintas-company, serta revoke permission menghilangkan menu role dan tercatat
 di audit. Regression suite juga memverifikasi role nonaktif menghentikan menu,
 revoke assignment satu company tidak menghapus akses company lain, perbedaan
-menu Purchasing/Finance, dan owner demo dapat berpindah antara tiga company.
+menu Purchasing/Finance, owner demo dapat berpindah antara tiga company,
+provisioning Shield menyimpan password sebagai hash tanpa bocor ke audit, dan
+CRUD mapping menu memengaruhi sidebar sesuai permission.
 Pekerjaan lanjutan Tahap 4 adalah mengganti atau melengkapi
-dataset API hingga sesuai rujukan master resmi serta memperluas UI RBAC untuk
-CRUD mapping menu, status membership granular, dan provisioning user resmi.
+dataset API hingga sesuai rujukan master resmi serta memperluas administrasi
+untuk status membership granular dan kebijakan lifecycle/reset password user.
 
 ### Keputusan Tenant pada Tahap 4
 

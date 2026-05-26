@@ -249,13 +249,28 @@ final class AdministrationReadModel extends Model
             ->getResultArray();
     }
 
+    public function usernameExists(string $username): bool
+    {
+        return $this->db->table('users')
+            ->where('username', $username)
+            ->where('deleted_at', null)
+            ->countAllResults() > 0;
+    }
+
+    public function userEmailExists(string $email): bool
+    {
+        return $this->db->table('auth_identities')
+            ->where(['type' => 'email_password', 'secret' => $email])
+            ->countAllResults() > 0;
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
     public function menuPermissionMatrix(): array
     {
         return $this->db->table('menu_permissions mp')
-            ->select('c.code AS company_code, m.label AS menu_label, m.route, p.code AS permission_code')
+            ->select('mp.id, mp.company_id, c.code AS company_code, m.label AS menu_label, m.route, p.code AS permission_code')
             ->join('companies c', 'c.id = mp.company_id')
             ->join('menus m', 'm.id = mp.menu_id')
             ->join('permissions p', 'p.id = mp.permission_id')
@@ -263,6 +278,23 @@ final class AdministrationReadModel extends Model
             ->orderBy('c.name', 'ASC')
             ->orderBy('m.sort_order', 'ASC')
             ->orderBy('p.code', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function menus(): array
+    {
+        return $this->db->table('menus m')
+            ->select('m.id, m.company_id, m.code, m.label, m.route, c.code AS company_code')
+            ->join('companies c', 'c.id = m.company_id')
+            ->where('m.deleted_at', null)
+            ->where('m.route IS NOT NULL', null, false)
+            ->where('m.route !=', '')
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('m.sort_order', 'ASC')
             ->get()
             ->getResultArray();
     }

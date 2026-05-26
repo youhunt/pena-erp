@@ -282,6 +282,68 @@ final class AdministrationWriteModel extends Model
         return true;
     }
 
+    public function grantMenuPermission(int $companyId, int $menuId, int $permissionId, int $actorId): bool
+    {
+        $menuExists = $this->db->table('menus')
+            ->where(['id' => $menuId, 'company_id' => $companyId])
+            ->where('deleted_at', null)
+            ->countAllResults() === 1;
+        $permissionExists = $this->db->table('permissions')
+            ->where(['id' => $permissionId, 'company_id' => $companyId])
+            ->countAllResults() === 1;
+
+        if (! $menuExists || ! $permissionExists) {
+            return false;
+        }
+
+        $exists = $this->db->table('menu_permissions')
+            ->where(['company_id' => $companyId, 'menu_id' => $menuId, 'permission_id' => $permissionId])
+            ->countAllResults() > 0;
+
+        if ($exists) {
+            return true;
+        }
+
+        $this->db->transStart();
+        $this->db->table('menu_permissions')->insert([
+            'company_id'    => $companyId,
+            'menu_id'       => $menuId,
+            'permission_id' => $permissionId,
+            'created_by'    => $actorId,
+            'created_at'    => date('Y-m-d H:i:s'),
+        ]);
+        $mappingId = (int) $this->db->insertID();
+        $this->audit()->record('MENU_PERMISSION_GRANTED', 'menu_permission', $mappingId, $companyId, null, $actorId, [
+            'menu_id'       => $menuId,
+            'permission_id' => $permissionId,
+        ]);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    public function revokeMenuPermission(int $companyId, int $mappingId, int $actorId): bool
+    {
+        $mapping = $this->db->table('menu_permissions')
+            ->where(['id' => $mappingId, 'company_id' => $companyId])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($mapping === null) {
+            return false;
+        }
+
+        $this->db->transStart();
+        $this->db->table('menu_permissions')->where('id', $mappingId)->delete();
+        $this->audit()->record('MENU_PERMISSION_REVOKED', 'menu_permission', $mappingId, $companyId, null, $actorId, [
+            'menu_id'       => (int) $mapping['menu_id'],
+            'permission_id' => (int) $mapping['permission_id'],
+        ], $mapping);
+        $this->completeTransaction();
+
+        return true;
+    }
+
     public function revokeUserRole(int $companyId, int $assignmentId, int $actorId): bool
     {
         $assignment = $this->db->table('user_roles')

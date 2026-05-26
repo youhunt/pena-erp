@@ -48,10 +48,11 @@ di setiap workstation development. Prosedur sinkronisasi lintas laptop,
 migration/seeder dan perlindungan secret dicatat pada
 `08-multi-laptop-development-guide.md`.
 Audit Trail UI dan revoke grant permission tenant telah tersedia dengan event
-append-only. Status role, revoke assignment user terisolasi per-company, dan
-matriks read-only menu-permission kini tersedia. Import dataset nasional resmi
-lengkap, CRUD mapping menu, provisioning user production, transaksi,
-deployment manifests dan provider credentials masih mengikuti gate roadmap.
+append-only. Status role, revoke assignment user terisolasi per-company,
+provisioning login Shield tanpa privilege tersirat, serta CRUD mapping
+menu-permission kini tersedia. Import dataset nasional resmi lengkap,
+kebijakan lifecycle/reset password user, transaksi, deployment manifests dan
+provider credentials masih mengikuti gate roadmap.
 
 ## Definition of Ready for Implementation
 

@@ -99,6 +99,40 @@
     </div>
 </div>
 <div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-3">Mapping Menu Permission</h4>
+                <form method="post" action="<?= site_url('administration/rbac/menu-mappings') ?>" class="row g-3 align-items-end">
+                    <?= csrf_field() ?>
+                    <div class="col-xl-3">
+                        <label class="form-label">Company</label>
+                        <select name="company_id" class="form-select" required>
+                            <?php foreach ($companies as $company) : ?><option value="<?= esc($company['id']) ?>"><?= esc($company['code'] . ' - ' . $company['name']) ?></option><?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-xl-3">
+                        <label class="form-label">Menu</label>
+                        <select name="menu_id" class="form-select" required>
+                            <?php foreach ($menus as $menu) : ?><option value="<?= esc($menu['id']) ?>"><?= esc($menu['company_code'] . ' - ' . $menu['label']) ?></option><?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-xl-3">
+                        <label class="form-label">Permission</label>
+                        <select name="permission_id" class="form-select" required>
+                            <?php foreach ($permissions as $permission) : ?><option value="<?= esc($permission['id']) ?>"><?= esc($permission['company_code'] . ' - ' . $permission['code']) ?></option><?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-xl-3">
+                        <button class="btn btn-primary" type="submit">Tambahkan Mapping</button>
+                        <div class="form-text">Company, menu, dan permission harus sama.</div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
     <div class="col-xl-5">
         <div class="card">
             <div class="card-body">
@@ -161,10 +195,10 @@
         <div class="card">
             <div class="card-body">
                 <h4 class="card-title mb-3">Matriks Menu dan Permission</h4>
-                <p class="text-muted">Menu sidebar tenant akan terlihat jika role user memiliki permission yang dipetakan berikut.</p>
+                <p class="text-muted">Menu sidebar tenant akan terlihat jika role user memiliki salah satu permission yang dipetakan berikut.</p>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>Company</th><th>Menu</th><th>Route</th><th>Permission</th></tr></thead>
+                        <thead><tr><th>Company</th><th>Menu</th><th>Route</th><th>Permission</th><th class="text-end">Aksi</th></tr></thead>
                         <tbody>
                         <?php foreach ($menuMatrix as $mapping) : ?>
                             <tr>
@@ -172,6 +206,14 @@
                                 <td><?= esc($mapping['menu_label']) ?></td>
                                 <td><small><?= esc($mapping['route'] ?? '-') ?></small></td>
                                 <td><code><?= esc($mapping['permission_code']) ?></code></td>
+                                <td class="text-end">
+                                    <form method="post" action="<?= site_url('administration/rbac/menu-mappings/revoke') ?>" onsubmit="return confirm('Cabut mapping menu-permission ini?')">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="company_id" value="<?= esc($mapping['company_id']) ?>">
+                                        <input type="hidden" name="mapping_id" value="<?= esc($mapping['id']) ?>">
+                                        <button class="btn btn-outline-danger btn-sm" type="submit">Revoke</button>
+                                    </form>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

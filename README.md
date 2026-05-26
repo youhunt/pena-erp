@@ -24,7 +24,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   workspace dinamis per role telah tersedia. Halaman Audit Trail serta revoke
   permission grant kini dapat digunakan oleh superadmin. Administrasi RBAC
   juga mendukung perubahan status role, pencabutan assignment user, dan
-  matriks menu-permission.
+  pengelolaan mapping menu-permission. Layar akses dapat memprovision user
+  login Shield aktif tanpa memberikan izin platform atau tenant otomatis.
 
 ```bash
 composer install
@@ -60,6 +61,11 @@ Untuk development lokal, login tersedia pada `/login` dan satu akun platform
 admin telah diprovision melalui Shield. Assignment role operasional tenant
 sudah dimulai melalui membership/RBAC per company; permission transaksi akan
 ditambahkan saat modul transaksi dibangun.
+
+Pada menu `Administration > Akses User`, superadmin dapat membuat identitas
+login aktif baru melalui Shield. Akun baru sengaja belum memiliki izin
+platform maupun tenant sampai role company diberikan secara eksplisit; event
+provisioning tersimpan di Audit Trail tanpa menyimpan password.
 
 ### Simulasi Multi-Company dan Role
 

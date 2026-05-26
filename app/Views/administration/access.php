@@ -12,6 +12,32 @@
     <div class="col-xl-4">
         <div class="card">
             <div class="card-body">
+                <h4 class="card-title mb-3">Provision User Shield</h4>
+                <form method="post" action="<?= site_url('administration/users') ?>">
+                    <?= csrf_field() ?>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" value="<?= esc(old('username')) ?>" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email Login</label>
+                        <input type="email" name="email" class="form-control" value="<?= esc(old('email')) ?>" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password Sementara</label>
+                        <input type="password" name="password" class="form-control" minlength="12" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ulangi Password</label>
+                        <input type="password" name="password_confirm" class="form-control" minlength="12" required>
+                    </div>
+                    <p class="form-text">Minimal 12 karakter. Berikan password kepada user melalui kanal aman.</p>
+                    <button class="btn btn-primary" type="submit">Buat User Aktif</button>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
                 <h4 class="card-title mb-3">Berikan Role</h4>
                 <form method="post" action="<?= site_url('administration/access') ?>">
                     <?= csrf_field() ?>

@@ -46,6 +46,8 @@ Mutation requirements:
 | `POST /inventory/locations`, `/uom-conversions`, `/item-taxes`, `/batches` | Location, Item UoM Conversion, Item VAT dan Batch Master | `inventory.master.manage` |
 | `GET /setup` | Setup Master tenant aktif | `setup.master.view` |
 | `POST /setup/departments`, `/transaction-codes`, `/addresses`, `/currencies`, `/tax-codes` | Organization/reference master setup | `setup.master.manage` |
+| `POST /setup/departments/{id}`, `/transaction-codes/{id}`, `/addresses/{id}`, `/currencies/{id}`, `/tax-codes/{id}` | Edit atribut master tanpa mengganti identity code | `setup.master.manage` |
+| `POST /setup/status/{master}/{id}` | Activate/deactivate Setup Master sebagai safe delete | `setup.master.manage` |
 | `GET /sales/master`, `GET /purchasing/master` | Customer/Supplier Commercial Master tenant aktif | `sales.master.view` / `purchasing.master.view` |
 | `POST /sales/master/terms`, `/partners`, `/addresses`, `/promotions` | Create customer terms, customer, address link dan promo dasar | `sales.master.manage` |
 | `POST /purchasing/master/terms`, `/partners`, `/addresses`, `/promotions` | Create supplier terms, supplier, address link dan promo dasar | `purchasing.master.manage` |

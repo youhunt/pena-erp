@@ -64,6 +64,26 @@ final class Setup extends BaseController
         return $this->completed('Department berhasil ditambahkan.');
     }
 
+    public function updateDepartment(int $id): RedirectResponse
+    {
+        $context = $this->manageableContext();
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = ['name' => trim((string) $this->request->getPost('name'))];
+
+        if (! $this->validateData($data, ['name' => 'required|max_length[120]'])) {
+            return $this->invalid();
+        }
+
+        return $this->updated(
+            (new SetupWriteModel())->updateDepartment((int) $context['company_id'], $id, $data, $this->actorId()),
+            'Department berhasil diperbarui.'
+        );
+    }
+
     public function createCurrency(): RedirectResponse
     {
         $context = $this->manageableContext();
@@ -91,6 +111,29 @@ final class Setup extends BaseController
         (new SetupWriteModel())->createCurrency($data, $this->actorId());
 
         return $this->completed('Currency berhasil ditambahkan.');
+    }
+
+    public function updateCurrency(int $id): RedirectResponse
+    {
+        $context = $this->manageableContext();
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'name'    => trim((string) $this->request->getPost('name')),
+            'is_base' => $this->request->getPost('is_base') === '1',
+        ];
+
+        if (! $this->validateData($data, ['name' => 'required|max_length[60]'])) {
+            return $this->invalid();
+        }
+
+        return $this->updated(
+            (new SetupWriteModel())->updateCurrency((int) $context['company_id'], $id, $data, $this->actorId()),
+            'Currency berhasil diperbarui.'
+        );
     }
 
     public function createTaxCode(): RedirectResponse
@@ -126,6 +169,34 @@ final class Setup extends BaseController
         (new SetupWriteModel())->createTaxCode($data, $this->actorId());
 
         return $this->completed('VAT berhasil ditambahkan.');
+    }
+
+    public function updateTaxCode(int $id): RedirectResponse
+    {
+        $context = $this->manageableContext();
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'name'     => trim((string) $this->request->getPost('name')),
+            'tax_type' => (string) $this->request->getPost('tax_type'),
+            'rate'     => (string) $this->request->getPost('rate'),
+        ];
+
+        if (! $this->validateData($data, [
+            'name'     => 'required|max_length[80]',
+            'tax_type' => 'required|in_list[input,output,both]',
+            'rate'     => 'required|decimal',
+        ])) {
+            return $this->invalid();
+        }
+
+        return $this->updated(
+            (new SetupWriteModel())->updateTaxCode((int) $context['company_id'], $id, $data, $this->actorId()),
+            'VAT berhasil diperbarui.'
+        );
     }
 
     public function createTransactionCode(): RedirectResponse
@@ -170,6 +241,36 @@ final class Setup extends BaseController
         return $this->completed('Transaction Code berhasil ditambahkan.');
     }
 
+    public function updateTransactionCode(int $id): RedirectResponse
+    {
+        $context = $this->manageableContext();
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'module'        => strtolower(trim((string) $this->request->getPost('module'))),
+            'prefix'        => strtoupper(trim((string) $this->request->getPost('prefix'))),
+            'number_length' => (int) $this->request->getPost('number_length'),
+            'reset_rule'    => (string) $this->request->getPost('reset_rule'),
+        ];
+
+        if (! $this->validateData($data, [
+            'module'        => 'required|alpha_dash|max_length[30]',
+            'prefix'        => 'required|alpha_numeric_punct|max_length[30]',
+            'number_length' => 'required|integer|greater_than_equal_to[3]|less_than_equal_to[12]',
+            'reset_rule'    => 'required|in_list[never,yearly,monthly,daily]',
+        ])) {
+            return $this->invalid();
+        }
+
+        return $this->updated(
+            (new SetupWriteModel())->updateTransactionCode((int) $context['company_id'], $id, $data, $this->actorId()),
+            'Transaction Code berhasil diperbarui.'
+        );
+    }
+
     public function createAddress(): RedirectResponse
     {
         $context = $this->manageableContext();
@@ -209,6 +310,59 @@ final class Setup extends BaseController
         }
 
         return $this->completed('Address Master berhasil ditambahkan.');
+    }
+
+    public function updateAddress(int $id): RedirectResponse
+    {
+        $context = $this->manageableContext();
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $villageId = (int) $this->request->getPost('village_id');
+        $data = [
+            'label'         => trim((string) $this->request->getPost('label')),
+            'address_line1' => trim((string) $this->request->getPost('address_line1')),
+            'country_id'    => (int) $this->request->getPost('country_id'),
+            'village_id'    => $villageId > 0 ? $villageId : null,
+            'postal_code'   => trim((string) $this->request->getPost('postal_code')) ?: null,
+        ];
+
+        if (! $this->validateData($data, [
+            'label'         => 'required|max_length[120]',
+            'address_line1' => 'required',
+            'country_id'    => 'required|is_natural_no_zero',
+            'postal_code'   => 'permit_empty|max_length[10]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new SetupWriteModel())->updateAddress((int) $context['company_id'], $id, $data, $this->actorId())) {
+            return $this->invalid(['location' => 'Alamat atau wilayah tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Address Master berhasil diperbarui.');
+    }
+
+    public function updateStatus(string $master, int $id): RedirectResponse
+    {
+        $context = $this->manageableContext();
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $status = (string) $this->request->getPost('status');
+
+        if (! in_array($status, ['active', 'inactive'], true)) {
+            return $this->invalid(['status' => 'Status master data tidak valid.']);
+        }
+
+        return $this->updated(
+            (new SetupWriteModel())->updateStatus($master, (int) $context['company_id'], $id, $status, $this->actorId()),
+            'Status master data berhasil diperbarui.'
+        );
     }
 
     /**
@@ -271,5 +425,14 @@ final class Setup extends BaseController
     private function completed(string $message): RedirectResponse
     {
         return redirect()->to(site_url('setup'))->with('message', $message);
+    }
+
+    private function updated(bool $updated, string $message): RedirectResponse
+    {
+        if (! $updated) {
+            return $this->invalid(['record' => 'Master data tidak ditemukan pada company aktif.']);
+        }
+
+        return $this->completed($message);
     }
 }

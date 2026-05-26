@@ -28,10 +28,16 @@ $routes->group('inventory', ['filter' => ['session', 'sessionsecurity', 'passwor
 $routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'Setup::index');
     $routes->post('departments', 'Setup::createDepartment');
+    $routes->post('departments/(:num)', 'Setup::updateDepartment/$1');
     $routes->post('transaction-codes', 'Setup::createTransactionCode');
+    $routes->post('transaction-codes/(:num)', 'Setup::updateTransactionCode/$1');
     $routes->post('addresses', 'Setup::createAddress');
+    $routes->post('addresses/(:num)', 'Setup::updateAddress/$1');
     $routes->post('currencies', 'Setup::createCurrency');
+    $routes->post('currencies/(:num)', 'Setup::updateCurrency/$1');
     $routes->post('tax-codes', 'Setup::createTaxCode');
+    $routes->post('tax-codes/(:num)', 'Setup::updateTaxCode/$1');
+    $routes->post('status/(:segment)/(:num)', 'Setup::updateStatus/$1/$2');
 });
 
 $routes->group('sales/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {

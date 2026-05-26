@@ -39,6 +39,11 @@ masih diselaraskan bertahap.
 | Address Master | `addresses`, reusable tenant address reference | Built |
 | POS Master | `pos_registers`, payment/device/register mapping | Designed |
 
+UI Setup Master menggunakan pola grid/list utama dengan modal tambah dan
+edit. Transaction Code, Department, Currency, VAT, dan Address Master
+mendukung aksi status `active`/`inactive`; bukan hard delete, karena kode
+tersebut dapat sudah direferensikan dokumen dan audit log.
+
 ## 3. Sales and Purchase
 
 | Module / Menu | Target Tables / Design | Status |
@@ -150,3 +155,14 @@ relation/FK tenant pada arsitektur Pena ERP.
 M2.1 telah mengimplementasikan `customer_profiles`, `supplier_profiles`,
 VAT/default warehouse terverifikasi tenant, PIC/limit policy, dan address
 type `mailing`. Partner bank account tetap menunggu desain security khusus.
+
+## 8. Master UI Convention
+
+Setiap layar master operasional berikutnya mengikuti pola yang sama dengan
+`/setup`: index menampilkan grid/filter dan tombol Tambah, edit dilakukan
+melalui modal atau form detail, dan tombol hapus pada master yang mungkin
+direferensikan transaksi diwujudkan sebagai `Nonaktifkan`.
+
+Seluruh mutation wajib mengambil `company_id` dari tenant context, melewati
+permission manage, dan menghasilkan audit event. Hard delete hanya boleh
+dipertimbangkan untuk draft yang belum pernah dipakai referensi lain.

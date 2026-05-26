@@ -338,8 +338,9 @@ tranche transaksi berikutnya.
   global `countries` serta master tenant `departments`, `transaction_codes`,
   `addresses`, `currencies`, `tax_codes`, `warehouse_bins`,
   `product_uom_conversions`, `product_tax_codes`, dan `stock_lots`.
-- Menu `/setup` menyediakan form dan daftar Transaction Code, Department,
-  Currency, VAT serta Address Master pada company context aktif.
+- Menu `/setup` memakai pola list-first: tabel bertab untuk Transaction Code,
+  Department, Currency, VAT serta Address Master pada company context aktif,
+  dengan modal tambah/edit dan aksi aktif/nonaktif.
 - Halaman `/inventory` kini juga menangani Location, Item UoM Conversion,
   Item VAT dan Batch Master.
 - Permission demo `setup.master.view` dan `setup.master.manage` memisahkan
@@ -350,6 +351,9 @@ tranche transaksi berikutnya.
   lokasi gudang default dan mapping VAT item.
 - Semua write model memvalidasi ownership referensi tenant dan merekam event
   audit sebelum master dipakai oleh transaksi.
+- Kode master yang telah dibuat tidak diedit melalui UI; perubahan dilakukan
+  pada atribut operasional, sedangkan penghapusan diganti status `inactive`
+  agar FK dokumen lama dan audit trail tidak terputus.
 
 ### Master Berikutnya
 

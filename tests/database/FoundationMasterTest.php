@@ -423,6 +423,28 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertSame(0, $this->db->table('transaction_codes')->where(['company_id' => $penaId, 'code' => 'BAD'])->countAllResults());
     }
 
+    public function testSetupMasterListActionsUpdateAndDeactivateOnlyWithinActiveTenant(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $penaDepartmentId = (int) $this->db->table('departments')->where(['company_id' => $penaId, 'code' => 'OPS'])->get()->getFirstRow()->id;
+        $nusaDepartmentId = (int) $this->db->table('departments')->where(['company_id' => $nusaId, 'code' => 'OPS'])->get()->getFirstRow()->id;
+        $writer = new SetupWriteModel();
+
+        $this->assertFalse($writer->updateDepartment($penaId, $nusaDepartmentId, ['name' => 'Cross tenant attempt'], $actorId));
+        $this->assertTrue($writer->updateDepartment($penaId, $penaDepartmentId, ['name' => 'Operations Updated'], $actorId));
+        $this->assertTrue($writer->updateStatus('department', $penaId, $penaDepartmentId, 'inactive', $actorId));
+        $this->assertFalse($writer->updateStatus('department', $penaId, $nusaDepartmentId, 'inactive', $actorId));
+
+        $this->seeInDatabase('departments', ['id' => $penaDepartmentId, 'company_id' => $penaId, 'name' => 'Operations Updated', 'status' => 'inactive']);
+        $this->seeInDatabase('departments', ['id' => $nusaDepartmentId, 'company_id' => $nusaId, 'name' => 'Operations', 'status' => 'active']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'DEPARTMENT_UPDATED']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'DEPARTMENT_STATUS_UPDATED']);
+    }
+
     public function testCommercialMasterSeedBuildsIsolatedCustomerSupplierReferencesAndMenus(): void
     {
         $this->seed(MultiCompanyDemoSeeder::class);

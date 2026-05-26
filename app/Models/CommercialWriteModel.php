@@ -61,6 +61,18 @@ final class CommercialWriteModel extends Model
     }
 
     /** @param array<string, mixed> $data */
+    public function saveCustomerProfile(array $data, int $actorId): bool
+    {
+        return $this->saveProfile('customer_profiles', 'customer_id', 'customers', 'CUSTOMER_PROFILE', 'customer_profile', $data, $actorId);
+    }
+
+    /** @param array<string, mixed> $data */
+    public function saveSupplierProfile(array $data, int $actorId): bool
+    {
+        return $this->saveProfile('supplier_profiles', 'supplier_id', 'suppliers', 'SUPPLIER_PROFILE', 'supplier_profile', $data, $actorId);
+    }
+
+    /** @param array<string, mixed> $data */
     private function createPartner(string $table, string $termsTable, string $event, string $entity, array $data, int $actorId): bool
     {
         $companyId = (int) $data['company_id'];
@@ -98,6 +110,46 @@ final class CommercialWriteModel extends Model
         }
 
         $this->create($table, $event, $entity, $data, $actorId);
+
+        return true;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function saveProfile(string $table, string $partnerId, string $partnerTable, string $eventPrefix, string $entity, array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+
+        if (! $this->tenantRecord($partnerTable, (int) $data[$partnerId], $companyId)
+            || (($data['default_tax_code_id'] ?? null) !== null && ! $this->tenantRecord('tax_codes', (int) $data['default_tax_code_id'], $companyId))
+            || (($data['default_warehouse_id'] ?? null) !== null && ! $this->tenantRecord('warehouses', (int) $data['default_warehouse_id'], $companyId))) {
+            return false;
+        }
+
+        $before = $this->db->table($table)
+            ->where(['company_id' => $companyId, $partnerId => (int) $data[$partnerId]])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+
+        $this->db->transStart();
+
+        if ($before === null) {
+            $this->db->table($table)->insert($data + ['created_by' => $actorId, 'created_at' => date('Y-m-d H:i:s')]);
+            $id = (int) $this->db->insertID();
+            (new AuditTrailService($this->db))->record($eventPrefix . '_CREATED', $entity, $id, $companyId, null, $actorId, $data);
+        } else {
+            $id = (int) $before['id'];
+            $update = $data + ['updated_by' => $actorId, 'updated_at' => date('Y-m-d H:i:s')];
+            unset($update['company_id'], $update[$partnerId]);
+            $this->db->table($table)->where('id', $id)->update($update);
+            (new AuditTrailService($this->db))->record($eventPrefix . '_UPDATED', $entity, $id, $companyId, null, $actorId, $data, $before);
+        }
+
+        $this->db->transComplete();
+
+        if (! $this->db->transStatus()) {
+            throw new RuntimeException('Perubahan profile commercial gagal dan transaksi dibatalkan.');
+        }
 
         return true;
     }

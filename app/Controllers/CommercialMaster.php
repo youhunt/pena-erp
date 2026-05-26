@@ -78,6 +78,16 @@ final class CommercialMaster extends BaseController
         return $this->createPartner('purchasing');
     }
 
+    public function saveCustomerProfile(): RedirectResponse
+    {
+        return $this->saveProfile('sales');
+    }
+
+    public function saveSupplierProfile(): RedirectResponse
+    {
+        return $this->saveProfile('purchasing');
+    }
+
     public function linkCustomerAddress(): RedirectResponse
     {
         return $this->linkAddress('sales');
@@ -122,8 +132,11 @@ final class CommercialMaster extends BaseController
             'terms'         => $sales ? $model->customerTerms($companyId) : $model->supplierTerms($companyId),
             'promotions'    => $sales ? $model->customerPromotions($companyId) : $model->supplierPromotions($companyId),
             'partnerAddresses' => $sales ? $model->customerAddresses($companyId) : $model->supplierAddresses($companyId),
+            'profiles'      => $sales ? $model->customerProfiles($companyId) : $model->supplierProfiles($companyId),
             'currencies'    => $model->currencies($companyId),
             'addresses'     => $model->addresses($companyId),
+            'taxCodes'      => $model->taxCodes($companyId),
+            'warehouses'    => $model->warehouses($companyId),
         ]);
     }
 
@@ -185,6 +198,70 @@ final class CommercialMaster extends BaseController
         return $this->completed($side, ($side === 'sales' ? 'Customer' : 'Supplier') . ' berhasil ditambahkan.');
     }
 
+    private function saveProfile(string $side): RedirectResponse
+    {
+        $context = $this->manageableContext($side);
+
+        if ($context === null) {
+            return $this->denied($side);
+        }
+
+        $partnerField = $side === 'sales' ? 'customer_id' : 'supplier_id';
+        $taxId = (int) $this->request->getPost('default_tax_code_id');
+        $warehouseId = (int) $this->request->getPost('default_warehouse_id');
+        $quantityLimit = trim((string) $this->request->getPost('quantity_limit'));
+        $limitDays = trim((string) $this->request->getPost('limit_days'));
+        $data = [
+            'company_id'           => (int) $context['company_id'],
+            $partnerField          => (int) $this->request->getPost($partnerField),
+            'reference_name'       => trim((string) $this->request->getPost('reference_name')) ?: null,
+            'contact_name'         => trim((string) $this->request->getPost('contact_name')) ?: null,
+            'description'          => trim((string) $this->request->getPost('description')) ?: null,
+            'default_tax_code_id'  => $taxId > 0 ? $taxId : null,
+            'default_warehouse_id' => $warehouseId > 0 ? $warehouseId : null,
+            'quantity_limit'       => $quantityLimit === '' ? null : $quantityLimit,
+            'limit_days'           => $limitDays === '' ? null : (int) $limitDays,
+            'status'               => 'active',
+        ];
+
+        if ($side === 'sales') {
+            $data['account_manager_name'] = trim((string) $this->request->getPost('account_manager_name')) ?: null;
+        } else {
+            $amountLimit = trim((string) $this->request->getPost('amount_limit'));
+            $data['buyer_name'] = trim((string) $this->request->getPost('buyer_name')) ?: null;
+            $data['amount_limit'] = $amountLimit === '' ? null : $amountLimit;
+        }
+
+        $rules = [
+            $partnerField          => 'required|is_natural_no_zero',
+            'reference_name'       => 'permit_empty|max_length[180]',
+            'contact_name'         => 'permit_empty|max_length[120]',
+            'description'          => 'permit_empty|max_length[255]',
+            'default_tax_code_id'  => 'permit_empty|is_natural_no_zero',
+            'default_warehouse_id' => 'permit_empty|is_natural_no_zero',
+            'quantity_limit'       => 'permit_empty|decimal|greater_than_equal_to[0]',
+            'limit_days'           => 'permit_empty|integer|greater_than_equal_to[0]',
+        ];
+        $rules[$side === 'sales' ? 'account_manager_name' : 'buyer_name'] = 'permit_empty|max_length[120]';
+
+        if ($side === 'purchasing') {
+            $rules['amount_limit'] = 'permit_empty|decimal|greater_than_equal_to[0]';
+        }
+
+        if (! $this->validateData($data, $rules)) {
+            return $this->invalid($side);
+        }
+
+        $writer = new CommercialWriteModel();
+        $saved = $side === 'sales' ? $writer->saveCustomerProfile($data, $this->actorId()) : $writer->saveSupplierProfile($data, $this->actorId());
+
+        if (! $saved) {
+            return $this->invalid($side, ['profile' => 'Partner, VAT, atau warehouse tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed($side, 'Profil dan policy ' . strtolower($side === 'sales' ? 'customer' : 'supplier') . ' berhasil disimpan.');
+    }
+
     private function linkAddress(string $side): RedirectResponse
     {
         $context = $this->manageableContext($side);
@@ -207,7 +284,7 @@ final class CommercialMaster extends BaseController
         if (! $this->validateData($data, [
             $partnerField  => 'required|is_natural_no_zero',
             'address_id'   => 'required|is_natural_no_zero',
-            'address_type' => 'required|in_list[billing,shipping,office,pickup]',
+            'address_type' => 'required|in_list[billing,shipping,mailing,office,pickup]',
         ])) {
             return $this->invalid($side);
         }

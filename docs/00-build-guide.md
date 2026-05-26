@@ -38,7 +38,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 5 | Inventory Master dan Warehouse | Berjalan: master tenant + UI, 26 Mei 2026 |
 | 6 | Functional Menu dan Setup Master | Berjalan: setup/reference master + UI, 26 Mei 2026 |
 | 7 | Commercial Master Customer/Supplier | Berjalan: terms/address/promo dasar + UI, 26 Mei 2026 |
-| 8+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
+| 8 | Commercial Enrichment dari Workbook | Berjalan: profile/VAT/warehouse/PIC/limit + mailing address, 26 Mei 2026 |
+| 9+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -411,3 +412,34 @@ Alamat berulang customer/supplier/site tetap dinormalisasi melalui Address
 Master dan relation table; code text seperti currency, VAT, terms dan
 warehouse tetap dipetakan ke foreign key tenant. Implementasi lanjutan
 diprioritaskan pada commercial enrichment, item enrichment, lalu POS Master.
+
+## Tahap 8: Commercial Enrichment dari Workbook
+
+### Yang Sudah Dibuat
+
+- Migration `CreateCommercialPartnerProfileTables` menambahkan tabel ekstensi
+  satu-record-per-partner: `customer_profiles` dan `supplier_profiles`.
+- Profile menyimpan reference/contact name, description, default VAT,
+  default warehouse, PIC operasional, serta policy limit dasar. Supplier
+  mendapat `amount_limit`; customer memakai `credit_limit` pada master inti.
+- Form `Profile & Policy` pada `/sales/master` dan `/purchasing/master`
+  melakukan create/update profil dengan audit event dan validasi FK tenant.
+- Address mapping menerima tipe `mailing` sehingga office, billing, shipping,
+  mailing dan pickup tidak perlu menjadi kolom berulang pada partner.
+- Seeder demo mengisi profile dan mailing address per company. Regression
+  test memastikan VAT lintas-company ditolak dan update profile tercatat.
+
+### Batas Tahap Ini
+
+Partner bank account dari workbook belum diimplementasikan karena membutuhkan
+masking, permission khusus dan kebijakan data sensitif. Item enrichment serta
+POS Master menjadi kelanjutan sebelum transaksi Purchase/Sales Order.
+
+### Verifikasi Tahap 8
+
+```bash
+php spark migrate --all
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
+```

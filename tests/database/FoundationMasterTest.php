@@ -439,8 +439,13 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertCount(1, $reader->suppliers($nusaId));
         $this->assertSame('CUS-DEMO', $reader->customers($penaId)[0]['code']);
         $this->assertSame('SUP-DEMO', $reader->suppliers($nusaId)[0]['code']);
-        $this->assertCount(1, $reader->customerAddresses($penaId));
+        $this->assertCount(2, $reader->customerAddresses($penaId));
         $this->assertCount(1, $reader->supplierPromotions($nusaId));
+        $this->assertCount(1, $reader->customerProfiles($penaId));
+        $this->assertCount(1, $reader->supplierProfiles($nusaId));
+        $this->assertSame('PPN11', $reader->customerProfiles($penaId)[0]['tax_code']);
+        $this->assertSame('STORE', $reader->supplierProfiles($nusaId)[0]['warehouse_code']);
+        $this->seeInDatabase('customer_addresses', ['company_id' => $penaId, 'address_type' => 'mailing']);
         $this->assertSame(1, $this->db->table('customer_terms')->where(['company_id' => $penaId, 'code' => 'NET30'])->countAllResults());
         $this->assertSame(1, $this->db->table('supplier_terms')->where(['company_id' => $nusaId, 'code' => 'NET14'])->countAllResults());
         $this->assertTrue($auth->can($purchasingId, $penaId, 'purchasing.master.manage'));
@@ -458,6 +463,9 @@ final class FoundationMasterTest extends CIUnitTestCase
         $nusaTermId = (int) $this->db->table('customer_terms')->where(['company_id' => $nusaId, 'code' => 'NET30'])->get()->getFirstRow()->id;
         $penaAddressId = (int) $this->db->table('addresses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
         $nusaCustomerId = (int) $this->db->table('customers')->where(['company_id' => $nusaId, 'code' => 'CUS-DEMO'])->get()->getFirstRow()->id;
+        $penaCustomerId = (int) $this->db->table('customers')->where(['company_id' => $penaId, 'code' => 'CUS-DEMO'])->get()->getFirstRow()->id;
+        $nusaTaxId = (int) $this->db->table('tax_codes')->where(['company_id' => $nusaId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
+        $penaWarehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
         $writer = new CommercialWriteModel();
 
         $this->assertFalse($writer->createCustomer([
@@ -477,6 +485,14 @@ final class FoundationMasterTest extends CIUnitTestCase
             'is_default'   => true,
             'status'       => 'active',
         ], $actorId));
+        $this->assertFalse($writer->saveCustomerProfile([
+            'company_id'           => $penaId,
+            'customer_id'          => $penaCustomerId,
+            'reference_name'       => 'Invalid Tax Tenant',
+            'default_tax_code_id'  => $nusaTaxId,
+            'default_warehouse_id' => $penaWarehouseId,
+            'status'               => 'active',
+        ], $actorId));
 
         $writer->createCustomerTerm([
             'company_id'    => $penaId,
@@ -487,8 +503,22 @@ final class FoundationMasterTest extends CIUnitTestCase
             'discount_rate' => '0.000000',
             'status'        => 'active',
         ], $actorId);
+        $this->assertTrue($writer->saveCustomerProfile([
+            'company_id'           => $penaId,
+            'customer_id'          => $penaCustomerId,
+            'reference_name'       => 'Updated Reference',
+            'contact_name'         => 'Updated Contact',
+            'default_tax_code_id'  => null,
+            'default_warehouse_id' => $penaWarehouseId,
+            'account_manager_name' => 'Updated Sales PIC',
+            'quantity_limit'       => '1200.0000',
+            'limit_days'           => 20,
+            'status'               => 'active',
+        ], $actorId));
         $this->seeInDatabase('customer_terms', ['company_id' => $penaId, 'code' => 'CASH']);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'CUSTOMER_TERM_CREATED']);
+        $this->seeInDatabase('customer_profiles', ['company_id' => $penaId, 'customer_id' => $penaCustomerId, 'reference_name' => 'Updated Reference']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'CUSTOMER_PROFILE_UPDATED']);
         $this->assertSame(0, $this->db->table('customers')->where(['company_id' => $penaId, 'code' => 'BAD-CUSTOMER'])->countAllResults());
     }
 

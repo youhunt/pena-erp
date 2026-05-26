@@ -51,15 +51,15 @@ permission, dan nama tabel konsisten.
 
 | Workbook Table | Fields Penting Terbaca | Runtime Saat Ini | Gap yang Dicatat |
 | --- | --- | --- | --- |
-| `customer_master` | code/name/ref, contact, tax/VAT, terms, limits, sales PIC, bank, billing/mailing/shipping address, ship warehouse | `customers`, `customer_terms`, `customer_addresses`, `customer_promotions` | reference name, description, tax mapping, contact model, credit policy, sales PIC, default warehouse, secure partner bank account |
-| `supplier_master` | code/name/ref, contact, tax/VAT, terms, limits, purchasing PIC, bank, office/mailing/billing/shipping address | `suppliers`, `supplier_terms`, `supplier_addresses`, `supplier_promotions` | reference name, description, tax mapping, contact model, purchasing PIC, procurement policy, secure bank account |
+| `customer_master` | code/name/ref, contact, tax/VAT, terms, limits, sales PIC, bank, billing/mailing/shipping address, ship warehouse | `customers`, `customer_profiles`, `customer_terms`, `customer_addresses`, `customer_promotions` | bank account security dan richer contact directory masih menunggu |
+| `supplier_master` | code/name/ref, contact, tax/VAT, terms, limits, purchasing PIC, bank, office/mailing/billing/shipping address | `suppliers`, `supplier_profiles`, `supplier_terms`, `supplier_addresses`, `supplier_promotions` | bank account security dan richer contact directory masih menunggu |
 | `customer_terms` | company, site, terms, name, days, promo | `customer_terms` | optional site scope dan promo rule association |
 | `supplier_terms` | company, site, terms, name, days, promo | `supplier_terms` | optional site scope dan promo/rebate rule association |
 
 Alamat pada workbook diarahkan menjadi banyak record `addresses` yang
 ditautkan melalui `customer_addresses` / `supplier_addresses`, bukan kolom
 alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
-`shipping`, dan `pickup`; tipe `mailing` dicatat sebagai gap M2.1.
+`shipping`, `mailing`, dan `pickup`; tipe `mailing` diwujudkan pada M2.1.
 
 ### Inventory, POS and Transactions
 
@@ -77,8 +77,8 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 
 | Priority | Capability | Proposed Normalized Tables / Changes | Reason |
 | --- | --- | --- | --- |
-| P0 | Partner contact dan address completeness | perluas `addresses` atau buat `partner_contacts`; tambah type `mailing`/`shipping` pada UI | PO/SO membutuhkan address snapshot yang sah |
-| P0 | Customer/Supplier tax default | FK partner ke `tax_codes` atau partner tax mappings | invoice dan OCR validation butuh VAT default |
+| Delivered M2.1 | Partner profile dan address completeness awal | `customer_profiles`, `supplier_profiles`; address type `mailing` | tersedia di UI Sales/Purchasing Master |
+| Delivered M2.1 | Customer/Supplier tax default | `default_tax_code_id FK` dalam profile partner | tersedia dan diuji tenant isolation |
 | P1 | Item operational attributes | tambah alternate name/code, shelf life; rancang `product_dimensions` dan `product_price_lists` | purchasing, sales, POS dan gudang akan bergantung padanya |
 | P1 | POS Master | `pos_registers`, `pos_register_payment_methods` terhubung Site/Warehouse/Transaction Code/Currency | tercantum eksplisit di workbook dan daftar menu pengguna |
 | P1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan address snapshot dan numbering | mulai T1 tanpa kehilangan jejak dokumen |
@@ -89,7 +89,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 
 | Next Delivery | Isi | Catatan |
 | --- | --- | --- |
-| M2.1 Commercial enrichment | contact/address type, tax default partner, partner policy minimal | memperkaya Customer/Supplier tanpa merombak schema yang sudah berjalan |
+| M2.1 Commercial enrichment | contact/address type, tax default partner, partner policy minimal | Built: `customer_profiles`, `supplier_profiles`, `mailing` |
 | M2.2 Item enrichment | alternate data, shelf life, dimension/packaging, price list baseline | diperlukan sebelum transaksi dan POS |
 | M2.3 POS Master | register, default warehouse/customer, currency, transaction code, payment account mapping | menutup daftar master commercial/POS |
 | T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |

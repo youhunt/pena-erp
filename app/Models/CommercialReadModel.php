@@ -67,6 +67,18 @@ final class CommercialReadModel extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function customerProfiles(int $companyId): array
+    {
+        return $this->profiles('customer_profiles', 'customer_id', 'customers', $companyId);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function supplierProfiles(int $companyId): array
+    {
+        return $this->profiles('supplier_profiles', 'supplier_id', 'suppliers', $companyId);
+    }
+
+    /** @return list<array<string, mixed>> */
     public function currencies(int $companyId): array
     {
         return $this->db->table('currencies')->select('id, code, name')->where(['company_id' => $companyId, 'status' => 'active'])->where('deleted_at', null)->orderBy('code', 'ASC')->get()->getResultArray();
@@ -76,6 +88,22 @@ final class CommercialReadModel extends Model
     public function addresses(int $companyId): array
     {
         return $this->db->table('addresses')->select('id, code, label')->where(['company_id' => $companyId, 'status' => 'active'])->where('deleted_at', null)->orderBy('label', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function taxCodes(int $companyId): array
+    {
+        return $this->db->table('tax_codes')->select('id, code, name, rate')->where(['company_id' => $companyId, 'status' => 'active'])->where('deleted_at', null)->orderBy('code', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function warehouses(int $companyId): array
+    {
+        return $this->db->table('warehouses w')
+            ->select('w.id, w.code, w.name, b.code AS branch_code')
+            ->join('branches b', 'b.id = w.branch_id AND b.company_id = w.company_id')
+            ->where(['w.company_id' => $companyId, 'w.is_active' => true])
+            ->where('w.deleted_at', null)->orderBy('b.code', 'ASC')->orderBy('w.code', 'ASC')->get()->getResultArray();
     }
 
     public function codeExists(string $table, int $companyId, string $code): bool
@@ -113,6 +141,17 @@ final class CommercialReadModel extends Model
             ->select('x.*, p.code AS partner_code, p.name AS partner_name, a.code AS address_code, a.label AS address_label')
             ->join($partnerTable . ' p', "p.id = x.{$partnerId} AND p.company_id = x.company_id")
             ->join('addresses a', 'a.id = x.address_id AND a.company_id = x.company_id')
+            ->where('x.company_id', $companyId)->where('x.deleted_at', null)->orderBy('p.name', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function profiles(string $table, string $partnerId, string $partnerTable, int $companyId): array
+    {
+        return $this->db->table($table . ' x')
+            ->select('x.*, p.code AS partner_code, p.name AS partner_name, t.code AS tax_code, w.code AS warehouse_code')
+            ->join($partnerTable . ' p', "p.id = x.{$partnerId} AND p.company_id = x.company_id")
+            ->join('tax_codes t', 't.id = x.default_tax_code_id AND t.company_id = x.company_id', 'left')
+            ->join('warehouses w', 'w.id = x.default_warehouse_id AND w.company_id = x.company_id', 'left')
             ->where('x.company_id', $companyId)->where('x.deleted_at', null)->orderBy('p.name', 'ASC')->get()->getResultArray();
     }
 }

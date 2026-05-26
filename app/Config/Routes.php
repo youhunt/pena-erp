@@ -38,6 +38,7 @@ $routes->group('sales/master', ['filter' => ['session', 'sessionsecurity', 'pass
     $routes->get('', 'CommercialMaster::sales');
     $routes->post('terms', 'CommercialMaster::createCustomerTerm');
     $routes->post('partners', 'CommercialMaster::createCustomer');
+    $routes->post('profiles', 'CommercialMaster::saveCustomerProfile');
     $routes->post('addresses', 'CommercialMaster::linkCustomerAddress');
     $routes->post('promotions', 'CommercialMaster::createCustomerPromotion');
 });
@@ -46,6 +47,7 @@ $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 
     $routes->get('', 'CommercialMaster::purchasing');
     $routes->post('terms', 'CommercialMaster::createSupplierTerm');
     $routes->post('partners', 'CommercialMaster::createSupplier');
+    $routes->post('profiles', 'CommercialMaster::saveSupplierProfile');
     $routes->post('addresses', 'CommercialMaster::linkSupplierAddress');
     $routes->post('promotions', 'CommercialMaster::createSupplierPromotion');
 });

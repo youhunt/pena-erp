@@ -341,6 +341,8 @@ final class MultiCompanyDemoSeeder extends Seeder
         foreach ($tenantIds as $code => $companyId) {
             $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $companyId, 'code' => 'IDR'])->get()->getFirstRow()->id;
             $addressId = (int) $this->db->table('addresses')->where(['company_id' => $companyId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+            $taxCodeId = (int) $this->db->table('tax_codes')->where(['company_id' => $companyId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
+            $warehouseId = (int) $this->db->table('warehouses')->where('company_id', $companyId)->orderBy('id', 'ASC')->get()->getFirstRow()->id;
             $customerTermId = $this->inventoryRecord('customer_terms', $companyId, 'code', 'NET30', [
                 'code'          => 'NET30',
                 'name'          => 'Net 30 Days',
@@ -385,12 +387,55 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'address_id'   => $addressId,
                 'address_type' => 'billing',
             ], ['is_default' => true, 'status' => 'active', 'created_at' => $now]);
+            $this->relationRecord('customer_addresses', [
+                'company_id'   => $companyId,
+                'customer_id'  => $customerId,
+                'address_id'   => $addressId,
+                'address_type' => 'mailing',
+            ], ['is_default' => false, 'status' => 'active', 'created_at' => $now]);
             $this->relationRecord('supplier_addresses', [
                 'company_id'   => $companyId,
                 'supplier_id'  => $supplierId,
                 'address_id'   => $addressId,
                 'address_type' => 'office',
             ], ['is_default' => true, 'status' => 'active', 'created_at' => $now]);
+            $this->relationRecord('supplier_addresses', [
+                'company_id'   => $companyId,
+                'supplier_id'  => $supplierId,
+                'address_id'   => $addressId,
+                'address_type' => 'mailing',
+            ], ['is_default' => false, 'status' => 'active', 'created_at' => $now]);
+            $this->relationRecord('customer_profiles', [
+                'company_id'  => $companyId,
+                'customer_id' => $customerId,
+            ], [
+                'reference_name'       => 'Customer Reference ' . $code,
+                'contact_name'         => 'Contact Customer ' . $code,
+                'description'          => 'Demo customer profile from normalized workbook mapping.',
+                'default_tax_code_id'  => $taxCodeId,
+                'default_warehouse_id' => $warehouseId,
+                'account_manager_name' => 'Sales PIC ' . $code,
+                'quantity_limit'       => '1000.0000',
+                'limit_days'           => 30,
+                'status'               => 'active',
+                'created_at'           => $now,
+            ]);
+            $this->relationRecord('supplier_profiles', [
+                'company_id'  => $companyId,
+                'supplier_id' => $supplierId,
+            ], [
+                'reference_name'       => 'Supplier Reference ' . $code,
+                'contact_name'         => 'Contact Supplier ' . $code,
+                'description'          => 'Demo supplier profile from normalized workbook mapping.',
+                'default_tax_code_id'  => $taxCodeId,
+                'default_warehouse_id' => $warehouseId,
+                'buyer_name'           => 'Purchasing PIC ' . $code,
+                'amount_limit'         => '25000000.0000',
+                'quantity_limit'       => '2000.0000',
+                'limit_days'           => 14,
+                'status'               => 'active',
+                'created_at'           => $now,
+            ]);
             $this->inventoryRecord('customer_promotions', $companyId, 'code', 'WELCOME5', [
                 'customer_id'    => $customerId,
                 'code'           => 'WELCOME5',

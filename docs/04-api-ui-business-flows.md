@@ -49,6 +49,7 @@ Mutation requirements:
 | `GET /sales/master`, `GET /purchasing/master` | Customer/Supplier Commercial Master tenant aktif | `sales.master.view` / `purchasing.master.view` |
 | `POST /sales/master/terms`, `/partners`, `/addresses`, `/promotions` | Create customer terms, customer, address link dan promo dasar | `sales.master.manage` |
 | `POST /purchasing/master/terms`, `/partners`, `/addresses`, `/promotions` | Create supplier terms, supplier, address link dan promo dasar | `purchasing.master.manage` |
+| `POST /sales/master/profiles`, `/purchasing/master/profiles` | Upsert profile/policy, VAT default, warehouse default dan PIC partner | permission `.master.manage` sesuai sisi |
 
 ### Masters and Inventory
 

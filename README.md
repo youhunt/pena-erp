@@ -39,6 +39,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
 - Tahap 7 dimulai: menu `Sales Master` dan `Purchasing Master` menyediakan
   Customer/Supplier Master, terms, relasi Address Master, serta promo dasar
   tenant-scoped dengan permission, audit trail dan data demo per company.
+- Tahap 8 dimulai: hasil gap workbook diterapkan sebagai Commercial
+  Enrichment melalui customer/supplier profile, VAT dan warehouse default,
+  PIC/limit policy, serta address type `mailing`.
 
 ```bash
 composer install

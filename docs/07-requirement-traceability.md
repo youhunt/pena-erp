@@ -73,6 +73,10 @@ berikutnya tetap dibangun mengikuti dependency roadmap tersebut.
 Workbook data dictionary pengguna yang memuat 257 table sheets telah dicatat
 sebagai sumber requirement tambahan melalui `10-workbook-schema-gap-analysis.md`;
 hasilnya menjadi backlog normalisasi, bukan perubahan schema otomatis.
+Tahap 8 mengimplementasikan prioritas M2.1 hasil workbook melalui
+`customer_profiles` dan `supplier_profiles`: contact/reference, VAT dan
+warehouse default, PIC, policy limit, serta address type `mailing`, dengan
+audit dan penolakan referensi lintas-company.
 
 ## Definition of Ready for Implementation
 

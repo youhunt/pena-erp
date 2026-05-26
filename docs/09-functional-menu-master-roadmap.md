@@ -135,3 +135,14 @@ Master pada tranche selanjutnya tetap wajib mengikuti aturan yang sudah
 berjalan: `company_id` tenant scoped, optional `branch_id` untuk Site,
 audit column, permission per role, audit trail, dan automated cross-company
 isolation test.
+
+## 7. Workbook Reference Alignment
+
+Workbook referensi pengguna yang dibaca pada 26 Mei 2026 mencakup 257 table
+sheets dan memperinci master serta transaksi di roadmap ini. Analisis gap
+field dan keputusan normalisasi dicatat di
+`10-workbook-schema-gap-analysis.md`.
+
+Field tambahan dari workbook tidak disalin secara literal: address variants,
+tax, terms, currency, warehouse dan financial account harus tetap mengikuti
+relation/FK tenant pada arsitektur Pena ERP.

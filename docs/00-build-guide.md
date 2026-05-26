@@ -16,6 +16,7 @@ keputusan yang harus diambil sebelum tahap berikutnya.
 | Deploy dan scaling | `06-deployment-saas-operations.md` |
 | Memastikan requirement terpenuhi | `07-requirement-traceability.md` |
 | Setup laptop kedua dan Git sync aman | `08-multi-laptop-development-guide.md` |
+| Membandingkan workbook spesifikasi lama dengan schema baru | `10-workbook-schema-gap-analysis.md` |
 
 Aturan kerja: ketika implementasi berbeda dari blueprint, jangan membiarkan
 keduanya menyimpang. Revisi dokumen dan source code dalam task yang sama atau
@@ -397,3 +398,16 @@ php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
 php spark routes
 php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
 ```
+
+### Referensi Workbook Setelah Tahap 7
+
+Workbook `Pena_ERP_1_Table_1_Sheet_No_ID.xlsx` telah dibaca sebagai input
+requirement tambahan. File tersebut berisi 257 table sheets dan 1.934 field
+tanpa `id`. Gap analysis dan keputusan normalisasinya disimpan pada
+`10-workbook-schema-gap-analysis.md`.
+
+Keputusan penting: field legacy tidak otomatis ditambahkan ke migration.
+Alamat berulang customer/supplier/site tetap dinormalisasi melalui Address
+Master dan relation table; code text seperti currency, VAT, terms dan
+warehouse tetap dipetakan ke foreign key tenant. Implementasi lanjutan
+diprioritaskan pada commercial enrichment, item enrichment, lalu POS Master.

@@ -70,6 +70,9 @@ permission tenant dan seed demo. Tahap 7 telah memulai Commercial Master:
 promo dasar, dengan UI Sales/Purchasing, permission, audit, seed demo serta
 uji isolasi tenant. POS, transaksi commercial, finance dan manufacturing
 berikutnya tetap dibangun mengikuti dependency roadmap tersebut.
+Workbook data dictionary pengguna yang memuat 257 table sheets telah dicatat
+sebagai sumber requirement tambahan melalui `10-workbook-schema-gap-analysis.md`;
+hasilnya menjadi backlog normalisasi, bukan perubahan schema otomatis.
 
 ## Definition of Ready for Implementation
 

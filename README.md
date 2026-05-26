@@ -134,6 +134,7 @@ masing-masing; inventory tetap hanya dapat diubah oleh role yang memiliki
 | [07-requirement-traceability.md](docs/07-requirement-traceability.md) | Matriks cakupan 24 keluaran dan definition of ready/done |
 | [08-multi-laptop-development-guide.md](docs/08-multi-laptop-development-guide.md) | Setup laptop baru, Git sync, migration/seeder, serta perlindungan secret/data lokal |
 | [09-functional-menu-master-roadmap.md](docs/09-functional-menu-master-roadmap.md) | Pemetaan menu ERP operasional, target tabel, status implementasi dan urutan master/transaksi |
+| [10-workbook-schema-gap-analysis.md](docs/10-workbook-schema-gap-analysis.md) | Pemetaan workbook referensi pengguna terhadap schema runtime dan backlog normalisasi |
 
 ## Bekerja dari Beberapa Laptop
 

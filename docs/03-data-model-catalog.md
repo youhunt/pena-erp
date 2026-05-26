@@ -148,6 +148,9 @@ sequence cabang dipakai.
 Status implementasi: Commercial Master (`customers`, `suppliers`, terms,
 promotion, dan link address) sudah memiliki migration dan UI tenant-scoped.
 Tabel transaksi pada bagian ini masih merupakan desain tahap berikutnya.
+Workbook referensi field legacy telah dibandingkan pada
+`10-workbook-schema-gap-analysis.md`; perluasan berikutnya menambah kebutuhan
+business dengan FK/relations, bukan menyalin kolom alamat atau kode teks.
 
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |

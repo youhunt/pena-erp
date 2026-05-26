@@ -158,12 +158,15 @@ final class AdministrationReadModel extends Model
     public function tenantAccessAssignments(): array
     {
         return $this->db->table('user_company_memberships m')
-            ->select('m.company_id, c.code AS company_code, c.name AS company_name, u.username, i.secret AS email, r.name AS role_name, m.status')
+            ->select('m.company_id, m.user_id, ur.id AS assignment_id, c.code AS company_code, c.name AS company_name, u.username, i.secret AS email, r.name AS role_name, GROUP_CONCAT(DISTINCT b.code) AS branch_codes, m.status')
             ->join('companies c', 'c.id = m.company_id')
             ->join('users u', 'u.id = m.user_id')
             ->join('auth_identities i', "i.user_id = u.id AND i.type = 'email_password'", 'left')
             ->join('user_roles ur', 'ur.company_id = m.company_id AND ur.user_id = m.user_id', 'left')
             ->join('roles r', 'r.id = ur.role_id', 'left')
+            ->join('user_branch_memberships bm', "bm.company_id = m.company_id AND bm.user_id = m.user_id AND bm.status = 'active'", 'left')
+            ->join('branches b', 'b.id = bm.branch_id', 'left')
+            ->groupBy('m.company_id, m.user_id, ur.id, c.code, c.name, u.username, i.secret, r.name, m.status')
             ->orderBy('c.name', 'ASC')
             ->orderBy('u.username', 'ASC')
             ->get()
@@ -241,6 +244,24 @@ final class AdministrationReadModel extends Model
             ->join('permissions p', 'p.id = rp.permission_id')
             ->orderBy('c.name', 'ASC')
             ->orderBy('r.name', 'ASC')
+            ->orderBy('p.code', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function menuPermissionMatrix(): array
+    {
+        return $this->db->table('menu_permissions mp')
+            ->select('c.code AS company_code, m.label AS menu_label, m.route, p.code AS permission_code')
+            ->join('companies c', 'c.id = mp.company_id')
+            ->join('menus m', 'm.id = mp.menu_id')
+            ->join('permissions p', 'p.id = mp.permission_id')
+            ->where('m.deleted_at', null)
+            ->orderBy('c.name', 'ASC')
+            ->orderBy('m.sort_order', 'ASC')
             ->orderBy('p.code', 'ASC')
             ->get()
             ->getResultArray();

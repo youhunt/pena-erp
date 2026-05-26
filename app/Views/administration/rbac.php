@@ -104,13 +104,23 @@
             <div class="card-body">
                 <h4 class="card-title mb-3">Daftar Role</h4>
                 <table class="table align-middle mb-0">
-                    <thead><tr><th>Company</th><th>Role</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Company</th><th>Role</th><th>Status / Nama</th></tr></thead>
                     <tbody>
                     <?php foreach ($roles as $role) : ?>
                         <tr>
                             <td><?= esc($role['company_code']) ?></td>
                             <td><?= esc($role['name']) ?> <small class="text-muted">(<?= esc($role['code']) ?>)</small></td>
-                            <td><?= esc($role['status']) ?></td>
+                            <td>
+                                <form method="post" action="<?= site_url('administration/rbac/roles/' . $role['id']) ?>" class="d-flex gap-2">
+                                    <?= csrf_field() ?>
+                                    <input class="form-control form-control-sm" type="text" name="name" value="<?= esc($role['name']) ?>" required>
+                                    <select class="form-select form-select-sm" name="status">
+                                        <option value="active" <?= $role['status'] === 'active' ? 'selected' : '' ?>>Active</option>
+                                        <option value="inactive" <?= $role['status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                                    </select>
+                                    <button class="btn btn-outline-primary btn-sm" type="submit">Update</button>
+                                </form>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -142,6 +152,31 @@
                     <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title mb-3">Matriks Menu dan Permission</h4>
+                <p class="text-muted">Menu sidebar tenant akan terlihat jika role user memiliki permission yang dipetakan berikut.</p>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead><tr><th>Company</th><th>Menu</th><th>Route</th><th>Permission</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($menuMatrix as $mapping) : ?>
+                            <tr>
+                                <td><?= esc($mapping['company_code']) ?></td>
+                                <td><?= esc($mapping['menu_label']) ?></td>
+                                <td><small><?= esc($mapping['route'] ?? '-') ?></small></td>
+                                <td><code><?= esc($mapping['permission_code']) ?></code></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

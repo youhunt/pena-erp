@@ -53,7 +53,7 @@
                 <h4 class="card-title mb-3">Membership Aktif</h4>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
-                        <thead><tr><th>Company</th><th>User</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+                        <thead><tr><th>Company</th><th>User</th><th>Email</th><th>Role</th><th>Branch</th><th>Status</th><th class="text-end">Aksi</th></tr></thead>
                         <tbody>
                         <?php foreach ($assignments as $assignment) : ?>
                             <tr>
@@ -61,7 +61,18 @@
                                 <td><?= esc($assignment['username']) ?></td>
                                 <td><?= esc($assignment['email']) ?></td>
                                 <td><?= esc($assignment['role_name'] ?? '-') ?></td>
+                                <td><?= esc($assignment['branch_codes'] ?? '-') ?></td>
                                 <td><span class="badge bg-success"><?= esc($assignment['status']) ?></span></td>
+                                <td class="text-end">
+                                    <?php if ($assignment['assignment_id'] !== null) : ?>
+                                        <form method="post" action="<?= site_url('administration/access/revoke') ?>" onsubmit="return confirm('Cabut role user dari company ini?')">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="company_id" value="<?= esc($assignment['company_id']) ?>">
+                                            <input type="hidden" name="assignment_id" value="<?= esc($assignment['assignment_id']) ?>">
+                                            <button class="btn btn-outline-danger btn-sm" type="submit">Cabut Role</button>
+                                        </form>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

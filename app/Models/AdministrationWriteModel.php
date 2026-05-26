@@ -111,6 +111,28 @@ final class AdministrationWriteModel extends Model
         $this->completeTransaction();
     }
 
+    /**
+     * @param array{name: string, status: string} $data
+     */
+    public function updateRole(int $roleId, array $data, int $actorId): bool
+    {
+        $before = $this->db->table('roles')->where('id', $roleId)->get()->getFirstRow('array');
+
+        if ($before === null) {
+            return false;
+        }
+
+        $this->db->transStart();
+        $this->db->table('roles')->where('id', $roleId)->update($data + [
+            'updated_by' => $actorId,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+        $this->audit()->record('ROLE_UPDATED', 'role', $roleId, (int) $before['company_id'], null, $actorId, $data, $before);
+        $this->completeTransaction();
+
+        return true;
+    }
+
     public function grantRolePermission(int $companyId, int $roleId, int $permissionId, int $actorId): bool
     {
         $roleExists = $this->db->table('roles')
@@ -255,6 +277,45 @@ final class AdministrationWriteModel extends Model
             'role_id'       => (int) $grant['role_id'],
             'permission_id' => (int) $grant['permission_id'],
         ], $grant);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    public function revokeUserRole(int $companyId, int $assignmentId, int $actorId): bool
+    {
+        $assignment = $this->db->table('user_roles')
+            ->where(['id' => $assignmentId, 'company_id' => $companyId])
+            ->get()
+            ->getFirstRow('array');
+
+        if ($assignment === null) {
+            return false;
+        }
+
+        $userId = (int) $assignment['user_id'];
+        $this->db->transStart();
+        $this->db->table('user_roles')->where('id', $assignmentId)->delete();
+
+        $remainingRoles = $this->db->table('user_roles')
+            ->where(['company_id' => $companyId, 'user_id' => $userId])
+            ->countAllResults();
+
+        if ($remainingRoles === 0) {
+            $now = date('Y-m-d H:i:s');
+            $this->db->table('user_company_memberships')
+                ->where(['company_id' => $companyId, 'user_id' => $userId])
+                ->update(['status' => 'inactive', 'updated_by' => $actorId, 'updated_at' => $now]);
+            $this->db->table('user_branch_memberships')
+                ->where(['company_id' => $companyId, 'user_id' => $userId])
+                ->update(['status' => 'inactive', 'can_switch' => false, 'updated_by' => $actorId, 'updated_at' => $now]);
+        }
+
+        $this->audit()->record('USER_ROLE_REVOKED', 'user', $userId, $companyId, null, $actorId, [
+            'role_id'               => (int) $assignment['role_id'],
+            'assignment_id'         => $assignmentId,
+            'membership_deactivated' => $remainingRoles === 0,
+        ], $assignment);
         $this->completeTransaction();
 
         return true;

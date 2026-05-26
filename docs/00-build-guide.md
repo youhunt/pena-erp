@@ -182,6 +182,15 @@ php -d extension=sqlite3 vendor/bin/phpunit --no-coverage
 - Menu administrasi `Audit Trail` menyediakan pencarian event berdasarkan
   company, event type dan isi aktivitas. Layar `Role & Permission` kini dapat
   melakukan revoke grant dengan event audit `ROLE_PERMISSION_REVOKED`.
+- Status role dapat diedit; role nonaktif tidak lagi menerbitkan menu atau
+  permission untuk user yang ditugaskan dan perubahan dicatat sebagai
+  `ROLE_UPDATED`.
+- Layar `Akses User` dapat mencabut assignment role. Jika role terakhir user
+  pada company dicabut, membership company/branch tersebut dinonaktifkan,
+  tanpa mengganggu membership user pada company lain; event dicatat sebagai
+  `USER_ROLE_REVOKED`.
+- Layar RBAC menampilkan matriks read-only menu-to-permission untuk
+  memudahkan verifikasi sidebar tenant sebelum CRUD mapping menu dibangun.
 - Company nonaktif tidak dapat digunakan sebagai tenant context atau sumber
   permission. Branch nonaktif tidak lagi muncul sebagai context aktif, dan
   ownership company pada branch tidak dapat diubah melalui form edit biasa.
@@ -217,11 +226,12 @@ administrasi dan workspace berizin telah diverifikasi melalui login
 superadmin. Regression suite kini mencakup audit mutation/context, pemblokiran
 company atau branch nonaktif, perlindungan branch terhadap perpindahan
 lintas-company, serta revoke permission menghilangkan menu role dan tercatat
-di audit. Regression suite juga memverifikasi perbedaan menu Purchasing dan
-Finance serta owner demo dapat berpindah antara tiga company. Pekerjaan
-lanjutan Tahap 4 adalah mengganti atau melengkapi
+di audit. Regression suite juga memverifikasi role nonaktif menghentikan menu,
+revoke assignment satu company tidak menghapus akses company lain, perbedaan
+menu Purchasing/Finance, dan owner demo dapat berpindah antara tiga company.
+Pekerjaan lanjutan Tahap 4 adalah mengganti atau melengkapi
 dataset API hingga sesuai rujukan master resmi serta memperluas UI RBAC untuk
-edit role/user assignment dan matriks menu.
+CRUD mapping menu, status membership granular, dan provisioning user resmi.
 
 ### Keputusan Tenant pada Tahap 4
 

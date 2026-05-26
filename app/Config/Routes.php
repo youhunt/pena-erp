@@ -23,8 +23,10 @@ $routes->group('administration', ['filter' => ['session', 'permission:platform.c
     $routes->get('regions', 'Administration::regions');
     $routes->get('access', 'Administration::access');
     $routes->post('access', 'Administration::assignAccess');
+    $routes->post('access/revoke', 'Administration::revokeAccess');
     $routes->get('rbac', 'Administration::rbac');
     $routes->post('rbac/roles', 'Administration::createRole');
+    $routes->post('rbac/roles/(:num)', 'Administration::updateRole/$1');
     $routes->post('rbac/permissions', 'Administration::createPermission');
     $routes->post('rbac/grants', 'Administration::grantPermission');
     $routes->post('rbac/grants/revoke', 'Administration::revokePermission');

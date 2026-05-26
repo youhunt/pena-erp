@@ -22,7 +22,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   administrasi superadmin telah dibuat. Audit mutation/context dan pemblokiran
   context nonaktif sudah ditambahkan. Seeder simulasi multi-company dan menu
   workspace dinamis per role telah tersedia. Halaman Audit Trail serta revoke
-  permission grant kini dapat digunakan oleh superadmin.
+  permission grant kini dapat digunakan oleh superadmin. Administrasi RBAC
+  juga mendukung perubahan status role, pencabutan assignment user, dan
+  matriks menu-permission.
 
 ```bash
 composer install

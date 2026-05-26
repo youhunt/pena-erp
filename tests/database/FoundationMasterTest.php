@@ -329,6 +329,62 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertSame('ROLE_PERMISSION_REVOKED', $logs[0]['event_type']);
     }
 
+    public function testInactiveRoleStopsMenusAndIsAudited(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $companyId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $userId = $this->demoUserId('purchasing@demo.pena-erp.test');
+        $roleId = (int) $this->db->table('roles')->where(['company_id' => $companyId, 'code' => 'purchasing'])->get()->getFirstRow()->id;
+        $service = new TenantMenuService($this->db);
+
+        $this->assertContains('purchasing', array_column($service->accessibleMenus($userId, $companyId), 'code'));
+        $this->assertTrue((new AdministrationWriteModel())->updateRole($roleId, ['name' => 'Purchasing', 'status' => 'inactive'], $userId));
+        $this->assertSame([], $service->accessibleMenus($userId, $companyId));
+        $this->seeInDatabase('audit_logs', ['company_id' => $companyId, 'event_type' => 'ROLE_UPDATED', 'entity_id' => $roleId]);
+    }
+
+    public function testRevokingUserRoleOnlyRemovesItsCompanyContext(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $userId = $this->demoUserId('finance@demo.pena-erp.test');
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $assignmentId = (int) $this->db->table('user_roles')
+            ->select('user_roles.id AS assignment_id')
+            ->join('roles', 'roles.id = user_roles.role_id')
+            ->where(['user_roles.company_id' => $nusaId, 'user_roles.user_id' => $userId, 'roles.code' => 'finance'])
+            ->get()
+            ->getFirstRow()
+            ->assignment_id;
+        $contextService = new TenantContextService($this->db, service('session'));
+
+        $this->assertCount(2, $contextService->availableContexts($userId));
+        $this->assertTrue((new AdministrationWriteModel())->revokeUserRole($nusaId, $assignmentId, $userId));
+        $remaining = $contextService->availableContexts($userId);
+
+        $this->assertCount(1, $remaining);
+        $this->assertSame($penaId, (int) $remaining[0]['company_id']);
+        $this->seeInDatabase('user_company_memberships', ['company_id' => $nusaId, 'user_id' => $userId, 'status' => 'inactive']);
+        $this->seeInDatabase('user_company_memberships', ['company_id' => $penaId, 'user_id' => $userId, 'status' => 'active']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $nusaId, 'event_type' => 'USER_ROLE_REVOKED', 'entity_id' => $userId]);
+    }
+
+    public function testMenuPermissionMatrixExplainsSidebarVisibility(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $matrix = (new AdministrationReadModel())->menuPermissionMatrix();
+        $documents = array_values(array_filter(
+            $matrix,
+            static fn (array $mapping): bool => $mapping['company_code'] === 'PENA' && $mapping['permission_code'] === 'documents.upload',
+        ));
+
+        $this->assertNotSame([], $documents);
+        $this->assertSame('AI Document Processing', $documents[0]['menu_label']);
+    }
+
     private function createTestUser(string $username, string $email): int
     {
         $this->db->table('users')->insert([

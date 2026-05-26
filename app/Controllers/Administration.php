@@ -213,6 +213,7 @@ final class Administration extends BaseController
             'roles'       => $model->roles(),
             'permissions' => $model->permissions(),
             'grants'      => $model->rolePermissionGrants(),
+            'menuMatrix'  => $model->menuPermissionMatrix(),
         ]);
     }
 
@@ -296,6 +297,27 @@ final class Administration extends BaseController
         (new AdministrationWriteModel())->createPermission($data, $this->actorId());
 
         return redirect()->to(site_url('administration/rbac'))->with('message', 'Permission tenant berhasil ditambahkan.');
+    }
+
+    public function updateRole(int $id): RedirectResponse
+    {
+        $data = [
+            'name'   => trim((string) $this->request->getPost('name')),
+            'status' => (string) $this->request->getPost('status'),
+        ];
+
+        if (! $this->validateData($data, [
+            'name'   => 'required|max_length[100]',
+            'status' => 'required|in_list[active,inactive]',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        if (! (new AdministrationWriteModel())->updateRole($id, $data, $this->actorId())) {
+            return redirect()->back()->with('errors', ['role_id' => 'Role tidak ditemukan.']);
+        }
+
+        return redirect()->to(site_url('administration/rbac'))->with('message', 'Role berhasil diperbarui.');
     }
 
     public function grantPermission(): RedirectResponse
@@ -386,6 +408,27 @@ final class Administration extends BaseController
         }
 
         return redirect()->to(site_url('administration/access'))->with('message', 'Akses user berhasil diberikan.');
+    }
+
+    public function revokeAccess(): RedirectResponse
+    {
+        $data = [
+            'company_id'    => $this->request->getPost('company_id'),
+            'assignment_id' => $this->request->getPost('assignment_id'),
+        ];
+
+        if (! $this->validateData($data, [
+            'company_id'    => 'required|is_natural_no_zero',
+            'assignment_id' => 'required|is_natural_no_zero',
+        ])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        if (! (new AdministrationWriteModel())->revokeUserRole((int) $data['company_id'], (int) $data['assignment_id'], $this->actorId())) {
+            return redirect()->back()->with('errors', ['assignment_id' => 'Assignment role tidak ditemukan pada company tersebut.']);
+        }
+
+        return redirect()->to(site_url('administration/access'))->with('message', 'Assignment role user berhasil dicabut.');
     }
 
     /**

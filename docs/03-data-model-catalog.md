@@ -122,19 +122,21 @@ Master wilayah global berada pada bagian 3 dan menjadi referensi alamat, bukan
 disalin per company.
 
 Status implementasi master: `units_of_measure`, `product_categories`,
-`products`, `warehouses`, `warehouse_bins`, `product_uom_conversions`,
-`tax_codes`, `product_tax_codes`, dan `stock_lots` telah diwujudkan melalui
+`products`, `product_profiles`, `product_prices`, `warehouses`, `warehouse_bins`,
+`product_uom_conversions`, `tax_codes`, `product_tax_codes`, dan `stock_lots` telah diwujudkan melalui
 migration aplikasi, model tenant-scoped, seed simulasi, serta audit mutation.
 Tabel ledger stok tetap menjadi kontrak tranche transaksi berikutnya.
 
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
 | `currencies` (enabled currencies) | `id PK`, `code CHAR(3)`, `name VARCHAR(60)`, `is_base BOOLEAN`, `status VARCHAR(20)` | `UQ(company_id,code)` | `IDR` |
-| `exchange_rates` (daily rate) | `id PK`, `currency_id FK currencies`, `rate_date DATE`, `rate DECIMAL(19,8)`, `source VARCHAR(40)` | `UQ(company_id,currency_id,rate_date)` | `USD 2026-05-25 16250` |
+| `exchange_rates` (daily rate) | `id PK`, `currency_id FK currencies`, `rate_date DATE`, `rate_type VARCHAR(20)`, `rate_to_base DECIMAL(19,8)`, `status VARCHAR(20)` | `UQ(company_id,currency_id,rate_date,rate_type)` | `IDR 2026-05-26 middle 1.00000000` |
 | `tax_codes` (VAT rules) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(80)`, `tax_type VARCHAR(20)`, `rate DECIMAL(9,6)`, `status VARCHAR(20)`; akun input/output ditambahkan pada tranche COA | `UQ(company_id,code)` | `PPN11 0.11` |
 | `units_of_measure` (UOM) | `id PK`, `code VARCHAR(20)`, `name VARCHAR(60)`, `precision TINYINT` | `UQ(company_id,code)` | `REAM` |
 | `product_categories` (catalog hierarchy) | `id PK`, `parent_id FK same NULL`, `code VARCHAR(30)`, `name VARCHAR(120)` | `UQ(company_id,code)`, `IDX(parent_id)` | `ATK` |
 | `products` (stock/service master) | `id PK`, `category_id FK`, `sku VARCHAR(60)`, `barcode VARCHAR(80) NULL`, `name VARCHAR(180)`, `base_uom_id FK`, `product_type VARCHAR(20)`, `track_lot BOOLEAN`, `standard_cost DECIMAL(19,4)`, `status VARCHAR(20)` | `UQ(company_id,sku)`, `IDX(company_id,barcode)`, search name | `ATK-A4-80` |
+| `product_profiles` (operational item attributes) | `id PK`, `product_id FK`, `alternate_code/name`, `default_warehouse_id FK NULL`, `shelf_life_days`, dimensions/weight, `package_uom_id FK NULL`, `units_per_package`, `status` | `UQ(company_id,product_id)`, active FK validation | `A4-80 / MAIN / 5 PCS` |
+| `product_prices` (effective baseline price) | `id PK`, `product_id FK`, `price_type`, `currency_id FK`, `uom_id FK`, `unit_price`, `effective_from/to`, `status` | `UQ(company_id,product_id,price_type,currency_id,uom_id,effective_from)` | `sales IDR 72500/REAM` |
 | `product_uom_conversions` (alternate UOM) | `id PK`, `product_id FK`, `from_uom_id FK`, `to_uom_id FK`, `factor DECIMAL(18,6)`, `status VARCHAR(20)` | `UQ(company_id,product_id,from_uom_id,to_uom_id)` | `BOX -> PCS x12` |
 | `product_tax_codes` (Item VAT mapping) | `id PK`, `product_id FK`, `tax_code_id FK`, `usage_type VARCHAR(20)`, `status VARCHAR(20)` | `UQ(company_id,product_id,tax_code_id,usage_type)` | `A4 -> PPN11 sales` |
 | `warehouses` (department storage) | `id PK`, `branch_id FK branches`, `department_id FK departments`, `code VARCHAR(30)`, `name VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `is_active BOOLEAN` | `UQ(company_id,branch_id,code)`, `IDX(company_id,branch_id,department_id)`; department harus pada Site yang sama | `JKT / OPS / MAIN` |
@@ -199,11 +201,12 @@ menggunakan reversal entry.
 | `journal_entry_lines` (debit/credit) | `id PK`, `journal_entry_id FK`, `account_id FK`, `description VARCHAR(200)`, `debit DECIMAL(19,4)`, `credit DECIMAL(19,4)`, `partner_type VARCHAR(20) NULL`, `partner_id BIGINT NULL` | `IDX(company_id,journal_entry_id)`, `IDX(account_id)` | `AP credit 1,387,500` |
 | `payments` (incoming/outgoing money) | `id PK`, `payment_no VARCHAR(50)`, `payment_type VARCHAR(20)`, `partner_type VARCHAR(20)`, `partner_id BIGINT`, `payment_date DATE`, `amount DECIMAL(19,4)`, `currency_id FK`, `bank_account_id FK`, `status VARCHAR(20)` | `UQ(company_id,payment_no)`, `IDX(partner_type,partner_id,status)` | `PAY-01 outgoing` |
 | `payment_allocations` (settlement link) | `id PK`, `payment_id FK`, `document_type VARCHAR(30)`, `document_id BIGINT`, `allocated_amount DECIMAL(19,4)` | `IDX(company_id,payment_id)`, target index | `PAY-01 -> PI 51` |
-| `bank_accounts` (company cash/bank) | `id PK`, `account_id FK chart_of_accounts`, `bank_name VARCHAR(100)`, `account_number_masked VARCHAR(40)`, `currency_id FK`, `status VARCHAR(20)` | `UQ(company_id,account_id)`, encrypted full number outside display | `BCA ****2345` |
+| `cash_bank_accounts` (company cash/bank) | `id PK`, `branch_id FK NULL`, `account_id FK chart_of_accounts`, `currency_id FK`, `code`, `name`, `account_type`, `bank_name`, `account_number_masked`, `status` | `UQ(company_id,code)`, display menyimpan nomor masked saja | `BANK-MAIN Demo Bank ****PENA` |
 | `bank_transactions` (statement line) | `id PK`, `bank_account_id FK`, `transaction_date DATE`, `external_ref VARCHAR(100)`, `description VARCHAR(200)`, `amount DECIMAL(19,4)`, `match_status VARCHAR(20)` | `UQ(company_id,bank_account_id,external_ref)`, date/status index | `TRX-77 matched` |
 | `bank_reconciliations` (closing session) | `id PK`, `bank_account_id FK`, `period_end DATE`, `statement_balance DECIMAL(19,4)`, `book_balance DECIMAL(19,4)`, `status VARCHAR(20)` | `UQ(company_id,bank_account_id,period_end)` | `2026-05 reconciled` |
-| `pos_registers` (cashier device/counter) | `id PK`, `code VARCHAR(30)`, `name VARCHAR(80)`, `warehouse_id FK`, `cash_account_id FK chart_of_accounts`, `status VARCHAR(20)` | `UQ(company_id,branch_id,code)` | `KSR-01` |
-| `pos_shifts` (cashier shift) | `id PK`, `register_id FK`, `cashier_user_id FK users`, `opened_at DATETIME`, `opening_cash DECIMAL(19,4)`, `closed_at DATETIME NULL`, `closing_cash DECIMAL(19,4) NULL`, `status VARCHAR(20)` | `IDX(company_id,register_id,status)` | `shift open` |
+| `pos_registers` (cashier device/counter) | `id PK`, `branch_id FK`, `department_id FK`, `warehouse_id FK`, `default_customer_id FK NULL`, `currency_id FK`, `transaction_code_id FK`, `code VARCHAR(30)`, `name VARCHAR(120)`, `device_label VARCHAR(80) NULL`, `status VARCHAR(20)` | `UQ(company_id,code)`, `IDX(company_id,branch_id,status)`; parent/reference harus aktif dalam tenant yang sama | `REG-01 / JKT / MAIN` |
+| `pos_payment_methods` (register payment setup) | `id PK`, `register_id FK`, `cash_bank_account_id FK`, `code`, `name`, `payment_type`, `is_default`, `sort_order`, `status` | `UQ(company_id,register_id,code)`; Cash/Bank harus aktif dan sama site/all-site | `REG-01 CASH -> CASH-MAIN` |
+| `pos_shifts` (cashier shift) | `id PK`, `register_id FK`, `cashier_user_id FK users`, `opened_at DATETIME`, `opening_cash DECIMAL(19,4)`, `closed_at DATETIME NULL`, `closing_cash DECIMAL(19,4) NULL`, `status VARCHAR(20)` | `IDX(company_id,register_id,status)`, `IDX(company_id,cashier_user_id,status)`; open shift divalidasi tidak ganda oleh write model | `REG-01 shift open` |
 | `pos_sales` (cash sale receipt) | `id PK`, `receipt_no VARCHAR(50)`, `shift_id FK`, `customer_id FK NULL`, `sold_at DATETIME`, `subtotal DECIMAL(19,4)`, `tax_amount DECIMAL(19,4)`, `total_amount DECIMAL(19,4)`, `status VARCHAR(20)` | `UQ(company_id,receipt_no)`, `IDX(shift_id,sold_at)` | `RCP-0001` |
 | `pos_sale_items` (receipt lines) | `id PK`, `pos_sale_id FK`, `product_id FK`, `qty DECIMAL(18,4)`, `unit_price DECIMAL(19,4)`, `line_total DECIMAL(19,4)` | `IDX(company_id,pos_sale_id)` | `A4 1` |
 

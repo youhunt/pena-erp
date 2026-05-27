@@ -108,6 +108,23 @@ final class Administration extends BaseController
         return redirect()->to(site_url('administration/companies'))->with('message', 'Company berhasil diperbarui.');
     }
 
+    public function updateCompanyStatus(int $id): RedirectResponse
+    {
+        if ((new AdministrationReadModel())->company($id) === null) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        $status = (string) $this->request->getPost('status');
+
+        if (! $this->validateData(['status' => $status], ['status' => 'required|in_list[active,inactive]'])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        (new AdministrationWriteModel())->updateCompany($id, ['status' => $status], $this->actorId());
+
+        return redirect()->to(site_url('administration/companies'))->with('message', 'Status company berhasil diperbarui.');
+    }
+
     public function newBranch(): string
     {
         $model  = new AdministrationReadModel();
@@ -191,6 +208,23 @@ final class Administration extends BaseController
         (new AdministrationWriteModel())->updateBranch($id, $data, $this->actorId());
 
         return redirect()->to(site_url('administration/branches'))->with('message', 'Branch berhasil diperbarui.');
+    }
+
+    public function updateBranchStatus(int $id): RedirectResponse
+    {
+        if ((new AdministrationReadModel())->branch($id) === null) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        $status = (string) $this->request->getPost('status');
+
+        if (! $this->validateData(['status' => $status], ['status' => 'required|in_list[active,inactive]'])) {
+            return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        (new AdministrationWriteModel())->updateBranch($id, ['status' => $status], $this->actorId());
+
+        return redirect()->to(site_url('administration/branches'))->with('message', 'Status site berhasil diperbarui.');
     }
 
     public function access(): string

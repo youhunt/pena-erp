@@ -14,15 +14,24 @@ $routes->post('account/security/password', 'AccountSecurity::updatePassword', ['
 $routes->group('inventory', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'Inventory::index');
     $routes->post('uoms', 'Inventory::createUnitOfMeasure');
+    $routes->post('uoms/(:num)', 'Inventory::updateUnitOfMeasure/$1');
     $routes->post('categories', 'Inventory::createCategory');
+    $routes->post('categories/(:num)', 'Inventory::updateCategory/$1');
     $routes->post('products', 'Inventory::createProduct');
+    $routes->post('products/(:num)', 'Inventory::updateProduct/$1');
     $routes->post('products/(:num)/status', 'Inventory::updateProductStatus/$1');
     $routes->post('warehouses', 'Inventory::createWarehouse');
+    $routes->post('warehouses/(:num)', 'Inventory::updateWarehouse/$1');
     $routes->post('warehouses/(:num)/status', 'Inventory::updateWarehouseStatus/$1');
     $routes->post('locations', 'Inventory::createLocation');
+    $routes->post('locations/(:num)', 'Inventory::updateLocation/$1');
     $routes->post('uom-conversions', 'Inventory::createUomConversion');
     $routes->post('item-taxes', 'Inventory::createItemTax');
     $routes->post('batches', 'Inventory::createBatch');
+    $routes->post('batches/(:num)', 'Inventory::updateBatch/$1');
+    $routes->post('product-profiles', 'Inventory::saveProductProfile');
+    $routes->post('product-prices', 'Inventory::createProductPrice');
+    $routes->post('status/(:segment)/(:num)', 'Inventory::updateMasterStatus/$1/$2');
 });
 
 $routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
@@ -43,19 +52,52 @@ $routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordreq
 $routes->group('sales/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'CommercialMaster::sales');
     $routes->post('terms', 'CommercialMaster::createCustomerTerm');
+    $routes->post('terms/(:num)', 'CommercialMaster::updateCustomerTerm/$1');
     $routes->post('partners', 'CommercialMaster::createCustomer');
+    $routes->post('partners/(:num)', 'CommercialMaster::updateCustomer/$1');
     $routes->post('profiles', 'CommercialMaster::saveCustomerProfile');
     $routes->post('addresses', 'CommercialMaster::linkCustomerAddress');
+    $routes->post('addresses/(:num)', 'CommercialMaster::updateCustomerAddress/$1');
     $routes->post('promotions', 'CommercialMaster::createCustomerPromotion');
+    $routes->post('promotions/(:num)', 'CommercialMaster::updateCustomerPromotion/$1');
+    $routes->post('status/(:segment)/(:num)', 'CommercialMaster::updateSalesStatus/$1/$2');
 });
 
 $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'CommercialMaster::purchasing');
     $routes->post('terms', 'CommercialMaster::createSupplierTerm');
+    $routes->post('terms/(:num)', 'CommercialMaster::updateSupplierTerm/$1');
     $routes->post('partners', 'CommercialMaster::createSupplier');
+    $routes->post('partners/(:num)', 'CommercialMaster::updateSupplier/$1');
     $routes->post('profiles', 'CommercialMaster::saveSupplierProfile');
     $routes->post('addresses', 'CommercialMaster::linkSupplierAddress');
+    $routes->post('addresses/(:num)', 'CommercialMaster::updateSupplierAddress/$1');
     $routes->post('promotions', 'CommercialMaster::createSupplierPromotion');
+    $routes->post('promotions/(:num)', 'CommercialMaster::updateSupplierPromotion/$1');
+    $routes->post('status/(:segment)/(:num)', 'CommercialMaster::updatePurchasingStatus/$1/$2');
+});
+
+$routes->group('pos/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'PosMaster::index');
+    $routes->post('registers', 'PosMaster::createRegister');
+    $routes->post('registers/(:num)', 'PosMaster::updateRegister/$1');
+    $routes->post('registers/(:num)/status', 'PosMaster::updateStatus/$1');
+    $routes->post('payment-methods', 'PosMaster::createPaymentMethod');
+    $routes->post('payment-methods/(:num)', 'PosMaster::updatePaymentMethod/$1');
+    $routes->post('payment-methods/(:num)/status', 'PosMaster::updatePaymentStatus/$1');
+    $routes->post('shifts/open', 'PosMaster::openShift');
+    $routes->post('shifts/(:num)/close', 'PosMaster::closeShift/$1');
+});
+
+$routes->group('finance/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'FinanceMaster::index');
+    $routes->post('accounts', 'FinanceMaster::createAccount');
+    $routes->post('accounts/(:num)', 'FinanceMaster::updateAccount/$1');
+    $routes->post('cash-bank-accounts', 'FinanceMaster::createCashBank');
+    $routes->post('cash-bank-accounts/(:num)', 'FinanceMaster::updateCashBank/$1');
+    $routes->post('exchange-rates', 'FinanceMaster::createExchangeRate');
+    $routes->post('exchange-rates/(:num)', 'FinanceMaster::updateExchangeRate/$1');
+    $routes->post('status/(:segment)/(:num)', 'FinanceMaster::updateStatus/$1/$2');
 });
 
 $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {
@@ -64,11 +106,13 @@ $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('companies', 'Administration::createCompany');
     $routes->get('companies/(:num)/edit', 'Administration::editCompany/$1');
     $routes->post('companies/(:num)', 'Administration::updateCompany/$1');
+    $routes->post('companies/(:num)/status', 'Administration::updateCompanyStatus/$1');
     $routes->get('branches', 'Administration::branches');
     $routes->get('branches/new', 'Administration::newBranch');
     $routes->post('branches', 'Administration::createBranch');
     $routes->get('branches/(:num)/edit', 'Administration::editBranch/$1');
     $routes->post('branches/(:num)', 'Administration::updateBranch/$1');
+    $routes->post('branches/(:num)/status', 'Administration::updateBranchStatus/$1');
     $routes->get('regions', 'Administration::regions');
     $routes->get('access', 'Administration::access');
     $routes->post('users', 'Administration::createUser');

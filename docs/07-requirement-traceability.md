@@ -81,6 +81,25 @@ Tahap 9 menyelaraskan ownership organisasi sesuai urutan operasional:
 `Company -> Site -> Department -> Warehouse -> Location`, melalui
 `departments.branch_id`, `warehouses.department_id`, backfill migration,
 validasi hierarchy pada write model, dan UI pemilihan parent.
+Tahap 10 mengimplementasikan M2.2 Item Enrichment melalui
+`product_profiles` dan `product_prices`: alternate item data, default
+warehouse, shelf life, dimension/packaging dan baseline harga efektif
+per currency/UOM dengan validasi tenant/status dan audit.
+Tahap 11 mengimplementasikan M2.3 POS Master foundation melalui
+`pos_registers`: register berizin per Site/Department/Warehouse, default
+customer/currency/transaction code, grid tambah/edit/nonaktifkan, audit dan
+uji isolasi tenant. Mapping rekening pembayaran dilanjutkan setelah referensi
+Finance Master tersedia.
+Tahap 12 memulai M3.1 Finance Master dengan `chart_of_accounts`,
+`cash_bank_accounts`, dan `exchange_rates`, halaman grid CRUD/status,
+permission tenant, seed demo, serta validasi referensi lintas-company.
+Tahap 13 menambahkan `pos_payment_methods` untuk mapping register POS ke
+Cash/Bank Account tenant aktif, termasuk UI CRUD/status, seed demo, audit dan
+uji penolakan referensi lintas-company. GL posting dan closing masih menjadi
+kelanjutan.
+Tahap 14 menambahkan `pos_shifts` sebagai fondasi transaksi kasir: open/close
+shift per register, validasi membership site cashier, proteksi shift open
+ganda, UI pada POS Master, dan audit open/close.
 
 ## Definition of Ready for Implementation
 

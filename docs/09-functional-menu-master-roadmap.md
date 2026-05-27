@@ -37,7 +37,7 @@ masih diselaraskan bertahap.
 | VAT | `tax_codes` | Built |
 | Item VAT | `product_tax_codes` | Built |
 | Address Master | `addresses`, reusable tenant address reference | Built |
-| POS Master | `pos_registers`, payment/device/register mapping | Designed |
+| POS Master | `pos_registers`, `pos_payment_methods`, `pos_shifts`, hierarchy/default customer/currency/numbering/payment register | Built; register + payment + shift foundation |
 
 UI Setup Master menggunakan pola grid/list utama dengan modal tambah dan
 edit. Transaction Code, Department, Currency, VAT, dan Address Master
@@ -110,14 +110,14 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Cost Type | `cost_types` | Designed |
 | Item Cost | `item_costs` history by type/period | Designed |
 | Calculate Cost | `cost_calculation_runs`, result lines | Designed |
-| Cash Bank ID | `cash_bank_accounts` linked COA/currency | Designed |
-| Currency / Rate Master | `currencies`, future `exchange_rates` | Currency Built; Rate Designed |
+| Cash Bank ID | `cash_bank_accounts` linked COA/currency | Built; foundation |
+| Currency / Rate Master | `currencies`, `exchange_rates` | Built; foundation |
 | Employee ID | `employees`, usable sebagai custodian/advance requester | Designed |
 | Cash Entry / Bank Entry | `cash_bank_entries`, lines | Designed |
 | Bank Reconcile | `bank_reconciliations`, matching lines | Designed |
 | GL Book | `gl_books` | Designed |
 | GL Column | `gl_columns` reporting mapping | Designed |
-| Account No. / Chart of Account | `chart_of_accounts` | Designed |
+| Account No. / Chart of Account | `chart_of_accounts` | Built; foundation |
 | Recurring / Recurring Posting | `recurring_journals`, posting runs | Designed |
 | GL Entry | `journal_entries`, `journal_entry_lines` immutable after posting | Designed |
 | GL Period Close | `module_period_closes` type `gl`, locks upstream posting | Designed |
@@ -130,8 +130,8 @@ tidak bisa dipakai transaksi:
 | Tranche | Deliverable |
 | --- | --- |
 | M1 Foundation master | Transaction Code, Department, Country/Address, Currency, VAT, Location, UoM Conversion, Item VAT, Batch Master |
-| M2 Commercial master | Customer/Supplier, profile policy, VAT/warehouse default, terms, address links, promo dasar (Built); POS register (Designed) |
-| M3 Finance master | COA, GL Book/Column, Cash Bank, Rate, Cost Type/Item Cost, fiscal close authority |
+| M2 Commercial master | Customer/Supplier/profile policy, item profile/effective baseline price, POS register (Built) |
+| M3 Finance master | COA, Cash Bank, Rate (Built foundation); POS payment mapping and shift foundation (Built); GL Book/Column, Cost Type/Item Cost, fiscal close authority (next) |
 | M4 Manufacturing master | BOM, Work Center, Routing, Forecast/MPS/MRP setup |
 | T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting |
 | T2 Financial transactions | AP/AR, payment, cash/bank, GL posting and period close |
@@ -155,6 +155,13 @@ relation/FK tenant pada arsitektur Pena ERP.
 M2.1 telah mengimplementasikan `customer_profiles`, `supplier_profiles`,
 VAT/default warehouse terverifikasi tenant, PIC/limit policy, dan address
 type `mailing`. Partner bank account tetap menunggu desain security khusus.
+M2.2 telah menambahkan `product_profiles` dan `product_prices` untuk alternate
+item data, shelf life, dimension/packaging, default warehouse serta harga
+purchase/sales efektif per currency/UOM.
+M2.3 telah menambahkan `pos_registers` untuk register aktif per
+Site/Department/Warehouse dengan default customer, currency, device label dan
+transaction code. Payment account mapping sekarang menggunakan Cash Bank/COA
+M3 melalui `pos_payment_methods`.
 
 ## 8. Master UI Convention
 

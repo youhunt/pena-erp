@@ -55,6 +55,8 @@ final class MultiCompanyDemoSeeder extends Seeder
         $this->provisionSetupMasters($tenantIds, $branchIds, $countryId, $villageId, $now);
         $this->provisionInventoryMasters($tenantIds, $branchIds, $now);
         $this->provisionCommercialMasters($tenantIds, $now);
+        $this->provisionFinanceMasters($tenantIds, $now);
+        $this->provisionPosMasters($tenantIds, $now);
 
         $users = [
             'owner@demo.pena-erp.test'      => 'demo.owner',
@@ -145,6 +147,10 @@ final class MultiCompanyDemoSeeder extends Seeder
             'sales.order.view'       => ['Lihat Sales Order', 'sales'],
             'sales.master.view'      => ['Lihat Sales Master', 'sales'],
             'sales.master.manage'    => ['Kelola Sales Master', 'sales'],
+            'pos.master.view'        => ['Lihat POS Master', 'pos'],
+            'pos.master.manage'      => ['Kelola POS Master', 'pos'],
+            'finance.master.view'    => ['Lihat Finance Master', 'finance'],
+            'finance.master.manage'  => ['Kelola Finance Master', 'finance'],
             'finance.invoice.view'   => ['Lihat Invoice Finance', 'finance'],
             'cashbank.view'          => ['Lihat Cash dan Bank', 'cashbank'],
             'reports.view'           => ['Lihat Reporting', 'reports'],
@@ -162,7 +168,8 @@ final class MultiCompanyDemoSeeder extends Seeder
             'inventory'  => ['Inventory', 'inventory', 'bx bx-package', 20, 'inventory.stock.view'],
             'purchasing' => ['Purchasing Master', 'purchasing/master', 'bx bx-cart', 30, 'purchasing.master.view'],
             'sales'      => ['Sales Master', 'sales/master', 'bx bx-receipt', 40, 'sales.master.view'],
-            'finance'    => ['Accounting & Finance', 'workspace/modules/finance', 'bx bx-calculator', 50, 'finance.invoice.view'],
+            'pos'        => ['POS Master', 'pos/master', 'bx bx-store', 45, 'pos.master.view'],
+            'finance'    => ['Accounting & Finance', 'finance/master', 'bx bx-calculator', 50, 'finance.master.view'],
             'cashbank'   => ['Cash & Bank', 'workspace/modules/cashbank', 'bx bx-wallet', 60, 'cashbank.view'],
             'reports'    => ['Reporting', 'workspace/modules/reports', 'bx bx-line-chart', 70, 'reports.view'],
             'documents'  => ['AI Document Processing', 'workspace/modules/documents', 'bx bx-scan', 80, 'documents.upload'],
@@ -175,12 +182,12 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
-            'finance'    => ['company.dashboard.view', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'finance'    => ['company.dashboard.view', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
             'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
             'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
-            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.master.view', 'sales.master.manage'],
-            'cashier'    => ['company.dashboard.view', 'sales.order.view', 'cashbank.view'],
+            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view'],
+            'cashier'    => ['company.dashboard.view', 'sales.order.view', 'pos.master.view', 'pos.master.manage', 'cashbank.view'],
         ];
 
         foreach ($roleGrants as $roleCode => $grants) {
@@ -278,18 +285,24 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'uom'       => ['code' => 'REAM', 'name' => 'Rim', 'precision' => 0],
                 'category'  => ['code' => 'ATK', 'name' => 'Alat Tulis Kantor'],
                 'product'   => ['sku' => 'ATK-A4-80', 'name' => 'Kertas A4 80 gsm', 'product_type' => 'stock', 'standard_cost' => '65000.0000'],
+                'profile'   => ['alternate_code' => 'A4-80', 'alternate_name' => 'Copy Paper A4', 'shelf_life_days' => null, 'units_per_package' => '5.000000'],
+                'price'     => '72500.0000',
                 'warehouse' => ['branch' => 'JKT', 'code' => 'MAIN', 'name' => 'Gudang Utama Jakarta'],
             ],
             'NUSA' => [
                 'uom'       => ['code' => 'PCS', 'name' => 'Pieces', 'precision' => 0],
                 'category'  => ['code' => 'RETAIL', 'name' => 'Retail Product'],
                 'product'   => ['sku' => 'RTL-SNACK-01', 'name' => 'Produk Retail Demo', 'product_type' => 'stock', 'standard_cost' => '7500.0000'],
+                'profile'   => ['alternate_code' => 'SNACK-01', 'alternate_name' => 'Retail Snack', 'shelf_life_days' => 180, 'units_per_package' => '12.000000'],
+                'price'     => '10000.0000',
                 'warehouse' => ['branch' => 'BDG', 'code' => 'STORE', 'name' => 'Stock Store Bandung'],
             ],
             'KARYA' => [
                 'uom'       => ['code' => 'HOUR', 'name' => 'Jam', 'precision' => 2],
                 'category'  => ['code' => 'SERVICE', 'name' => 'Jasa'],
                 'product'   => ['sku' => 'SRV-CONSULT', 'name' => 'Consulting Hour', 'product_type' => 'service', 'standard_cost' => '0.0000'],
+                'profile'   => ['alternate_code' => 'CONSULT', 'alternate_name' => 'Consulting Service', 'shelf_life_days' => null, 'units_per_package' => '1.000000'],
+                'price'     => '350000.0000',
                 'warehouse' => ['branch' => 'DPS', 'code' => 'ASSET', 'name' => 'Penyimpanan Aset Denpasar'],
             ],
         ];
@@ -328,6 +341,7 @@ final class MultiCompanyDemoSeeder extends Seeder
                 $now,
             );
             $taxId = (int) $this->db->table('tax_codes')->where(['company_id' => $companyId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
+            $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $companyId, 'code' => 'IDR'])->get()->getFirstRow()->id;
             $this->relationRecord('product_tax_codes', [
                 'company_id'  => $companyId,
                 'product_id'  => $productId,
@@ -340,6 +354,27 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'warehouse_id' => $warehouseId,
                 'code'         => 'DEFAULT',
             ], ['name' => 'Default Location', 'status' => 'active', 'created_at' => $now]);
+            $this->relationRecord('product_profiles', [
+                'company_id' => $companyId,
+                'product_id' => $productId,
+            ], $master['profile'] + [
+                'default_warehouse_id' => $warehouseId,
+                'package_uom_id'       => $alternateUomId,
+                'status'               => 'active',
+                'created_at'           => $now,
+            ]);
+            $this->relationRecord('product_prices', [
+                'company_id'     => $companyId,
+                'product_id'     => $productId,
+                'price_type'     => 'sales',
+                'currency_id'    => $currencyId,
+                'uom_id'         => $uomId,
+                'effective_from' => '2026-05-26',
+            ], [
+                'unit_price' => $master['price'],
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
 
             if ($uomId !== $alternateUomId) {
                 $this->relationRecord('product_uom_conversions', [
@@ -476,6 +511,166 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'ends_on'        => '2026-12-31',
                 'status'         => 'active',
                 'created_at'     => $now,
+            ]);
+        }
+    }
+
+    /** @param array<string, int> $tenantIds */
+    private function provisionPosMasters(array $tenantIds, string $now): void
+    {
+        foreach ($tenantIds as $code => $companyId) {
+            $warehouse = $this->db->table('warehouses')->where(['company_id' => $companyId, 'is_active' => true])
+                ->orderBy('id', 'ASC')->get()->getFirstRow('array');
+            $customer = $this->db->table('customers')->where(['company_id' => $companyId, 'code' => 'CUS-DEMO'])->get()->getFirstRow('array');
+            $currency = $this->db->table('currencies')->where(['company_id' => $companyId, 'code' => 'IDR'])->get()->getFirstRow('array');
+
+            if ($warehouse === null || $customer === null || $currency === null) {
+                continue;
+            }
+
+            $branchId = (int) $warehouse['branch_id'];
+            $transaction = $this->db->table('transaction_codes')->where([
+                'company_id' => $companyId, 'branch_id' => $branchId, 'code' => 'POS',
+            ])->get()->getFirstRow('array');
+
+            if ($transaction === null) {
+                $branchCode = (string) $this->db->table('branches')->select('code')->where('id', $branchId)->get()->getFirstRow()->code;
+                $this->db->table('transaction_codes')->insert([
+                    'company_id'    => $companyId,
+                    'branch_id'     => $branchId,
+                    'module'        => 'pos',
+                    'code'          => 'POS',
+                    'prefix'        => $branchCode . '-POS-',
+                    'next_number'   => 1,
+                    'number_length' => 6,
+                    'reset_rule'    => 'daily',
+                    'status'        => 'active',
+                    'created_at'    => $now,
+                ]);
+                $transactionId = (int) $this->db->insertID();
+            } else {
+                $transactionId = (int) $transaction['id'];
+            }
+
+            $registerId = $this->inventoryRecord('pos_registers', $companyId, 'code', 'REG-01', [
+                'branch_id'           => $branchId,
+                'department_id'       => (int) $warehouse['department_id'],
+                'warehouse_id'        => (int) $warehouse['id'],
+                'default_customer_id' => (int) $customer['id'],
+                'currency_id'         => (int) $currency['id'],
+                'transaction_code_id' => $transactionId,
+                'code'                => 'REG-01',
+                'name'                => 'Register Utama ' . $code,
+                'device_label'        => 'POS-' . $code . '-01',
+                'status'              => 'active',
+                'created_at'          => $now,
+            ]);
+            $cashAccount = $this->db->table('cash_bank_accounts')->where(['company_id' => $companyId, 'code' => 'CASH-MAIN'])->get()->getFirstRow('array');
+            $bankAccount = $this->db->table('cash_bank_accounts')->where(['company_id' => $companyId, 'code' => 'BANK-MAIN'])->get()->getFirstRow('array');
+
+            if ($cashAccount !== null) {
+                $this->relationRecord('pos_payment_methods', [
+                    'company_id'  => $companyId,
+                    'register_id' => $registerId,
+                    'code'        => 'CASH',
+                ], [
+                    'cash_bank_account_id' => (int) $cashAccount['id'],
+                    'name'                 => 'Cash',
+                    'payment_type'         => 'cash',
+                    'is_default'           => true,
+                    'sort_order'           => 10,
+                    'status'               => 'active',
+                    'created_at'           => $now,
+                ]);
+            }
+
+            if ($bankAccount !== null) {
+                $this->relationRecord('pos_payment_methods', [
+                    'company_id'  => $companyId,
+                    'register_id' => $registerId,
+                    'code'        => 'BANK',
+                ], [
+                    'cash_bank_account_id' => (int) $bankAccount['id'],
+                    'name'                 => 'Bank Transfer',
+                    'payment_type'         => 'transfer',
+                    'is_default'           => false,
+                    'sort_order'           => 20,
+                    'status'               => 'active',
+                    'created_at'           => $now,
+                ]);
+            }
+        }
+    }
+
+    /** @param array<string, int> $tenantIds */
+    private function provisionFinanceMasters(array $tenantIds, string $now): void
+    {
+        foreach ($tenantIds as $code => $companyId) {
+            $currency = $this->db->table('currencies')->where(['company_id' => $companyId, 'code' => 'IDR'])->get()->getFirstRow('array');
+            $branch = $this->db->table('branches')->where(['company_id' => $companyId, 'status' => 'active'])->orderBy('id', 'ASC')->get()->getFirstRow('array');
+
+            if ($currency === null || $branch === null) {
+                continue;
+            }
+
+            $cashAccount = $this->inventoryRecord('chart_of_accounts', $companyId, 'account_code', '1101', [
+                'account_code'   => '1101',
+                'account_name'   => 'Cash on Hand',
+                'account_type'   => 'asset',
+                'normal_balance' => 'D',
+                'is_postable'    => true,
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $bankAccount = $this->inventoryRecord('chart_of_accounts', $companyId, 'account_code', '1102', [
+                'account_code'   => '1102',
+                'account_name'   => 'Cash in Bank',
+                'account_type'   => 'asset',
+                'normal_balance' => 'D',
+                'is_postable'    => true,
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $this->inventoryRecord('chart_of_accounts', $companyId, 'account_code', '4101', [
+                'account_code'   => '4101',
+                'account_name'   => 'Sales Revenue',
+                'account_type'   => 'revenue',
+                'normal_balance' => 'C',
+                'is_postable'    => true,
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $this->inventoryRecord('cash_bank_accounts', $companyId, 'code', 'CASH-MAIN', [
+                'branch_id'             => (int) $branch['id'],
+                'account_id'            => $cashAccount,
+                'currency_id'           => (int) $currency['id'],
+                'code'                  => 'CASH-MAIN',
+                'name'                  => 'Cash Counter ' . $code,
+                'account_type'          => 'cash',
+                'status'                => 'active',
+                'created_at'            => $now,
+            ]);
+            $this->inventoryRecord('cash_bank_accounts', $companyId, 'code', 'BANK-MAIN', [
+                'branch_id'             => (int) $branch['id'],
+                'account_id'            => $bankAccount,
+                'currency_id'           => (int) $currency['id'],
+                'code'                  => 'BANK-MAIN',
+                'name'                  => 'Operational Bank ' . $code,
+                'account_type'          => 'bank',
+                'bank_name'             => 'Demo Bank',
+                'account_number_masked' => '****' . $code,
+                'status'                => 'active',
+                'created_at'            => $now,
+            ]);
+            $this->relationRecord('exchange_rates', [
+                'company_id'  => $companyId,
+                'currency_id' => (int) $currency['id'],
+                'rate_date'   => '2026-05-26',
+                'rate_type'   => 'middle',
+            ], [
+                'rate_to_base' => '1.00000000',
+                'status'       => 'active',
+                'created_at'   => $now,
             ]);
         }
     }

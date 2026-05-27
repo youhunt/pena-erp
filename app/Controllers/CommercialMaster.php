@@ -68,6 +68,16 @@ final class CommercialMaster extends BaseController
         return $this->completed('purchasing', 'Supplier Terms berhasil ditambahkan.');
     }
 
+    public function updateCustomerTerm(int $id): RedirectResponse
+    {
+        return $this->updateTerm('sales', $id);
+    }
+
+    public function updateSupplierTerm(int $id): RedirectResponse
+    {
+        return $this->updateTerm('purchasing', $id);
+    }
+
     public function createCustomer(): RedirectResponse
     {
         return $this->createPartner('sales');
@@ -76,6 +86,16 @@ final class CommercialMaster extends BaseController
     public function createSupplier(): RedirectResponse
     {
         return $this->createPartner('purchasing');
+    }
+
+    public function updateCustomer(int $id): RedirectResponse
+    {
+        return $this->updatePartner('sales', $id);
+    }
+
+    public function updateSupplier(int $id): RedirectResponse
+    {
+        return $this->updatePartner('purchasing', $id);
     }
 
     public function saveCustomerProfile(): RedirectResponse
@@ -98,6 +118,16 @@ final class CommercialMaster extends BaseController
         return $this->linkAddress('purchasing');
     }
 
+    public function updateCustomerAddress(int $id): RedirectResponse
+    {
+        return $this->updateAddress('sales', $id);
+    }
+
+    public function updateSupplierAddress(int $id): RedirectResponse
+    {
+        return $this->updateAddress('purchasing', $id);
+    }
+
     public function createCustomerPromotion(): RedirectResponse
     {
         return $this->createPromotion('sales');
@@ -106,6 +136,42 @@ final class CommercialMaster extends BaseController
     public function createSupplierPromotion(): RedirectResponse
     {
         return $this->createPromotion('purchasing');
+    }
+
+    public function updateCustomerPromotion(int $id): RedirectResponse
+    {
+        return $this->updatePromotion('sales', $id);
+    }
+
+    public function updateSupplierPromotion(int $id): RedirectResponse
+    {
+        return $this->updatePromotion('purchasing', $id);
+    }
+
+    public function updateSalesStatus(string $master, int $id): RedirectResponse
+    {
+        return $this->updateStatus('sales', $master, $id);
+    }
+
+    public function updatePurchasingStatus(string $master, int $id): RedirectResponse
+    {
+        return $this->updateStatus('purchasing', $master, $id);
+    }
+
+    private function updateStatus(string $side, string $master, int $id): RedirectResponse
+    {
+        $context = $this->manageableContext($side);
+        $status = (string) $this->request->getPost('status');
+
+        if ($context === null) {
+            return $this->denied($side);
+        }
+
+        if (! (new CommercialWriteModel())->updateStatus($side, $master, (int) $context['company_id'], $id, $status, $this->actorId())) {
+            return $this->invalid($side, ['status' => 'Status atau commercial master tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed($side, 'Status commercial master diperbarui.');
     }
 
     private function render(string $side, string $permission): string
@@ -196,6 +262,75 @@ final class CommercialMaster extends BaseController
         }
 
         return $this->completed($side, ($side === 'sales' ? 'Customer' : 'Supplier') . ' berhasil ditambahkan.');
+    }
+
+    private function updatePartner(string $side, int $id): RedirectResponse
+    {
+        $context = $this->manageableContext($side);
+
+        if ($context === null) {
+            return $this->denied($side);
+        }
+
+        $termsId = (int) $this->request->getPost('default_term_id');
+        $data = [
+            'name'            => trim((string) $this->request->getPost('name')),
+            'tax_no'          => trim((string) $this->request->getPost('tax_no')) ?: null,
+            'email'           => trim((string) $this->request->getPost('email')) ?: null,
+            'phone'           => trim((string) $this->request->getPost('phone')) ?: null,
+            'currency_id'     => (int) $this->request->getPost('currency_id'),
+            'default_term_id' => $termsId > 0 ? $termsId : null,
+        ];
+        $rules = [
+            'name'        => 'required|max_length[180]',
+            'tax_no'      => 'permit_empty|max_length[50]',
+            'email'       => 'permit_empty|valid_email|max_length[120]',
+            'phone'       => 'permit_empty|max_length[40]',
+            'currency_id' => 'required|is_natural_no_zero',
+        ];
+
+        if ($side === 'sales') {
+            $data['credit_limit'] = (string) ($this->request->getPost('credit_limit') ?: '0');
+            $rules['credit_limit'] = 'required|decimal|greater_than_equal_to[0]';
+        }
+
+        if (! $this->validateData($data, $rules)) {
+            return $this->invalid($side);
+        }
+
+        $writer = new CommercialWriteModel();
+        $saved = $side === 'sales'
+            ? $writer->updateCustomer((int) $context['company_id'], $id, $data, $this->actorId())
+            : $writer->updateSupplier((int) $context['company_id'], $id, $data, $this->actorId());
+
+        return $saved
+            ? $this->completed($side, ($side === 'sales' ? 'Customer' : 'Supplier') . ' berhasil diperbarui.')
+            : $this->invalid($side, ['master' => 'Data partner, currency, atau terms tidak valid.']);
+    }
+
+    private function updateTerm(string $side, int $id): RedirectResponse
+    {
+        $context = $this->manageableContext($side);
+
+        if ($context === null) {
+            return $this->denied($side);
+        }
+
+        $data = $this->termData((int) $context['company_id']);
+        unset($data['company_id'], $data['code'], $data['status']);
+
+        if (! $this->validateData($data, $this->termRulesForUpdate())) {
+            return $this->invalid($side);
+        }
+
+        $writer = new CommercialWriteModel();
+        $saved = $side === 'sales'
+            ? $writer->updateCustomerTerm((int) $context['company_id'], $id, $data, $this->actorId())
+            : $writer->updateSupplierTerm((int) $context['company_id'], $id, $data, $this->actorId());
+
+        return $saved
+            ? $this->completed($side, 'Terms berhasil diperbarui.')
+            : $this->invalid($side, ['term' => 'Terms tidak valid untuk company aktif.']);
     }
 
     private function saveProfile(string $side): RedirectResponse
@@ -303,6 +438,40 @@ final class CommercialMaster extends BaseController
         return $this->completed($side, 'Alamat partner berhasil ditautkan.');
     }
 
+    private function updateAddress(string $side, int $id): RedirectResponse
+    {
+        $context = $this->manageableContext($side);
+
+        if ($context === null) {
+            return $this->denied($side);
+        }
+
+        $partnerField = $side === 'sales' ? 'customer_id' : 'supplier_id';
+        $data = [
+            $partnerField  => (int) $this->request->getPost($partnerField),
+            'address_id'   => (int) $this->request->getPost('address_id'),
+            'address_type' => (string) $this->request->getPost('address_type'),
+            'is_default'   => $this->request->getPost('is_default') === '1',
+        ];
+
+        if (! $this->validateData($data, [
+            $partnerField  => 'required|is_natural_no_zero',
+            'address_id'   => 'required|is_natural_no_zero',
+            'address_type' => 'required|in_list[billing,shipping,mailing,office,pickup]',
+        ])) {
+            return $this->invalid($side);
+        }
+
+        $writer = new CommercialWriteModel();
+        $saved = $side === 'sales'
+            ? $writer->updateCustomerAddress((int) $context['company_id'], $id, $data, $this->actorId())
+            : $writer->updateSupplierAddress((int) $context['company_id'], $id, $data, $this->actorId());
+
+        return $saved
+            ? $this->completed($side, 'Alamat partner berhasil diperbarui.')
+            : $this->invalid($side, ['address' => 'Partner atau Address Master tidak valid untuk company aktif.']);
+    }
+
     private function createPromotion(string $side): RedirectResponse
     {
         $context = $this->manageableContext($side);
@@ -356,6 +525,45 @@ final class CommercialMaster extends BaseController
         return $this->completed($side, 'Promo berhasil ditambahkan.');
     }
 
+    private function updatePromotion(string $side, int $id): RedirectResponse
+    {
+        $context = $this->manageableContext($side);
+
+        if ($context === null) {
+            return $this->denied($side);
+        }
+
+        $partnerField = $side === 'sales' ? 'customer_id' : 'supplier_id';
+        $partnerId = (int) $this->request->getPost($partnerField);
+        $data = [
+            $partnerField    => $partnerId > 0 ? $partnerId : null,
+            'name'           => trim((string) $this->request->getPost('name')),
+            'discount_type'  => (string) $this->request->getPost('discount_type'),
+            'discount_value' => (string) $this->request->getPost('discount_value'),
+            'starts_on'      => (string) $this->request->getPost('starts_on'),
+            'ends_on'        => (string) $this->request->getPost('ends_on'),
+        ];
+
+        if (! $this->validateData($data, [
+            'name'           => 'required|max_length[120]',
+            'discount_type'  => 'required|in_list[percentage,amount]',
+            'discount_value' => 'required|decimal|greater_than[0]',
+            'starts_on'      => 'required|valid_date[Y-m-d]',
+            'ends_on'        => 'required|valid_date[Y-m-d]',
+        ]) || $data['ends_on'] < $data['starts_on']) {
+            return $this->invalid($side, ['promotion' => 'Data atau periode promo tidak valid.']);
+        }
+
+        $writer = new CommercialWriteModel();
+        $saved = $side === 'sales'
+            ? $writer->updateCustomerPromotion((int) $context['company_id'], $id, $data, $this->actorId())
+            : $writer->updateSupplierPromotion((int) $context['company_id'], $id, $data, $this->actorId());
+
+        return $saved
+            ? $this->completed($side, 'Promo berhasil diperbarui.')
+            : $this->invalid($side, ['partner' => 'Partner promo tidak valid untuk company aktif.']);
+    }
+
     /** @return array<string, mixed> */
     private function termData(int $companyId): array
     {
@@ -375,6 +583,17 @@ final class CommercialMaster extends BaseController
     {
         return [
             'code'          => 'required|alpha_numeric_punct|max_length[30]',
+            'name'          => 'required|max_length[100]',
+            'due_days'      => 'required|integer|greater_than_equal_to[0]',
+            'discount_days' => 'required|integer|greater_than_equal_to[0]',
+            'discount_rate' => 'required|decimal|greater_than_equal_to[0]',
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function termRulesForUpdate(): array
+    {
+        return [
             'name'          => 'required|max_length[100]',
             'due_days'      => 'required|integer|greater_than_equal_to[0]',
             'discount_days' => 'required|integer|greater_than_equal_to[0]',

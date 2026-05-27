@@ -17,7 +17,7 @@ final class SetupWriteModel extends Model
      */
     public function createDepartment(array $data, int $actorId): bool
     {
-        if (! $this->tenantRecord('branches', (int) $data['branch_id'], (int) $data['company_id'])) {
+        if (! $this->tenantRecord('branches', (int) $data['branch_id'], (int) $data['company_id'], true)) {
             return false;
         }
 
@@ -71,7 +71,7 @@ final class SetupWriteModel extends Model
      */
     public function createTransactionCode(array $data, int $actorId): bool
     {
-        if (($data['branch_id'] ?? null) !== null && ! $this->tenantRecord('branches', (int) $data['branch_id'], (int) $data['company_id'])) {
+        if (($data['branch_id'] ?? null) !== null && ! $this->tenantRecord('branches', (int) $data['branch_id'], (int) $data['company_id'], true)) {
             return false;
         }
 
@@ -133,12 +133,17 @@ final class SetupWriteModel extends Model
         return $this->updateTenantRecord($table, $event, $master, $companyId, $id, ['status' => $status], $actorId);
     }
 
-    private function tenantRecord(string $table, int $id, int $companyId): bool
+    private function tenantRecord(string $table, int $id, int $companyId, bool $mustBeActive = false): bool
     {
-        return $this->db->table($table)
+        $builder = $this->db->table($table)
             ->where(['id' => $id, 'company_id' => $companyId])
-            ->where('deleted_at', null)
-            ->countAllResults() === 1;
+            ->where('deleted_at', null);
+
+        if ($mustBeActive) {
+            $builder->where('status', 'active');
+        }
+
+        return $builder->countAllResults() === 1;
     }
 
     /**

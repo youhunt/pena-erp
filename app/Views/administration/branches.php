@@ -31,8 +31,8 @@
                         <td><?= esc($branch['name']) ?></td>
                         <td><?= esc(trim(implode(', ', array_filter([$branch['village'], $branch['regency'], $branch['province']])))) ?></td>
                         <td><?= $branch['is_head_office'] ? 'Head Office' : 'Site' ?></td>
-                        <td><span class="badge bg-success"><?= esc($branch['status']) ?></span></td>
-                        <td><a href="<?= site_url('administration/branches/' . $branch['id'] . '/edit') ?>" class="btn btn-outline-secondary btn-sm">Edit</a></td>
+                        <td><span class="badge <?= $branch['status'] === 'active' ? 'bg-success' : 'bg-secondary' ?>"><?= esc($branch['status']) ?></span></td>
+                        <td class="text-nowrap"><a href="<?= site_url('administration/branches/' . $branch['id'] . '/edit') ?>" class="btn btn-outline-secondary btn-sm">Edit</a> <form class="d-inline" method="post" action="<?= site_url('administration/branches/' . $branch['id'] . '/status') ?>"><?= csrf_field() ?><input type="hidden" name="status" value="<?= $branch['status'] === 'active' ? 'inactive' : 'active' ?>"><button class="btn btn-outline-danger btn-sm"><?= $branch['status'] === 'active' ? 'Hapus' : 'Aktifkan' ?></button></form></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

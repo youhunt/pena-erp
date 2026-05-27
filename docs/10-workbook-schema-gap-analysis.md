@@ -65,13 +65,13 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 
 | Workbook Table | Fields Penting Terbaca | Runtime Saat Ini | Gap yang Dicatat |
 | --- | --- | --- | --- |
-| `item_master` | code/name aliases, shelf life, stock/purchase/selling UoM, warehouse, price, VAT, dimension, classification | `products`, `product_categories`, `product_uom_conversions`, `product_tax_codes`, `stock_lots` | alternate codes/name, shelf life policy, default warehouse, dimension/packaging, price lists, deeper classification |
-| `pos_master` | company, site, department, warehouse, customer, transaction code, banks, currency | belum dibangun | kandidat M2 berikutnya: `pos_registers` dan payment mappings |
+| `item_master` | code/name aliases, shelf life, stock/purchase/selling UoM, warehouse, price, VAT, dimension, classification | `products`, `product_profiles`, `product_prices`, `product_categories`, `product_uom_conversions`, `product_tax_codes`, `stock_lots` | deeper classification dan advanced price-list policy |
+| `pos_master` | company, site, department, warehouse, customer, transaction code, banks, currency | `pos_registers`, `pos_payment_methods` | register/default hierarchy dan payment account mapping Built |
 | `purchaseorder` | PO date/revision, numbering, site, supplier, address snapshot, terms, discount, total | dirancang `purchase_orders` | T1 setelah master policy siap |
 | `salesorder` | order/ref/customer/currency/terms, PO ref, address snapshot, warehouse, discount, total | dirancang `sales_orders` | T1 setelah master policy siap |
 | `allocationorder` | allocation no/date, customer, ship date, warehouse | dirancang `sales_allocations` | T1 bersama stock reservation |
 | `delivery` | delivery header/line reference | dirancang `deliveries` | T1 setelah allocation dan stock movement |
-| `chart_of_account` | book type, company, site, code, remarks | dirancang `chart_of_accounts` | M3 finance perlu COA hierarki dan posting policy |
+| `chart_of_account` | book type, company, site, code, remarks | `chart_of_accounts` | COA/postable Built foundation; GL book dan posting policy lanjutan |
 
 ## 4. Priority Gap Register
 
@@ -79,22 +79,27 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | --- | --- | --- | --- |
 | Delivered M2.1 | Partner profile dan address completeness awal | `customer_profiles`, `supplier_profiles`; address type `mailing` | tersedia di UI Sales/Purchasing Master |
 | Delivered M2.1 | Customer/Supplier tax default | `default_tax_code_id FK` dalam profile partner | tersedia dan diuji tenant isolation |
-| P1 | Item operational attributes | tambah alternate name/code, shelf life; rancang `product_dimensions` dan `product_price_lists` | purchasing, sales, POS dan gudang akan bergantung padanya |
-| P1 | POS Master | `pos_registers`, `pos_register_payment_methods` terhubung Site/Warehouse/Transaction Code/Currency | tercantum eksplisit di workbook dan daftar menu pengguna |
+| Delivered M2.2 | Item operational attributes dan baseline price | `product_profiles`, `product_prices` | purchasing, sales, POS dan gudang memiliki reference awal terstruktur |
+| Delivered M2.3 | POS Master register foundation | `pos_registers` terhubung Site/Department/Warehouse/Customer/Transaction Code/Currency | payment account ditunda sampai referensi Finance tersedia |
+| Delivered M3.1 | Finance master foundation | `chart_of_accounts`, `cash_bank_accounts`, `exchange_rates` | membuka referensi payment/GL berikutnya secara tenant-scoped |
+| Delivered M3.2 | POS payment mapping | `pos_payment_methods` linked register ke `cash_bank_accounts` | POS punya rekening penerimaan default sebelum transaksi kasir |
+| Delivered T0.1 | POS shift foundation | `pos_shifts` open/close per register dan cashier | prerequisite receipt POS dan kontrol kasir |
 | P1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan address snapshot dan numbering | mulai T1 tanpa kehilangan jejak dokumen |
 | P2 | Organization profile/address | link address/contact untuk company/site/department/warehouse | diperlukan untuk cetak dokumen enterprise |
-| P2 | Finance master | COA, GL book, cash bank, currency rounding/exchange rates | prerequisite posting AP/AR dan POS |
+| P2 | Finance master lanjutan | GL book, currency rounding policy, fiscal close, posting setup | prerequisite posting AP/AR dan POS |
 
 ## 5. Recommended Delivery Sequence
 
 | Next Delivery | Isi | Catatan |
 | --- | --- | --- |
 | M2.1 Commercial enrichment | contact/address type, tax default partner, partner policy minimal | Built: `customer_profiles`, `supplier_profiles`, `mailing` |
-| M2.2 Item enrichment | alternate data, shelf life, dimension/packaging, price list baseline | diperlukan sebelum transaksi dan POS |
-| M2.3 POS Master | register, default warehouse/customer, currency, transaction code, payment account mapping | menutup daftar master commercial/POS |
+| M2.2 Item enrichment | alternate data, shelf life, dimension/packaging, price list baseline | Built: `product_profiles`, `product_prices` |
+| M2.3 POS Master | register, default warehouse/customer, currency, transaction code; payment account setelah M3 | Built: `pos_registers`, `pos_payment_methods` |
+| M3.1 Finance foundation | COA, cash bank, exchange rates | Built: grid CRUD/status dan validation tenant |
+| T0.1 POS shift | open/close shift kasir | Built: `pos_shifts` |
 | T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |
 | T1.2 Fulfilment stock | allocation, delivery, purchase receipt, immutable stock movement | baru dilakukan setelah workflow/locking diuji |
-| M3 Finance | COA, cash bank, rate, fiscal/posting setup | sebelum invoice/payment/GL posting |
+| M3 Finance lanjutan | GL book, fiscal/posting setup | sebelum invoice/payment/GL posting |
 
 ## 6. Acceptance Rule for Workbook Fields
 

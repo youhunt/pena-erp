@@ -16,7 +16,7 @@ final class InventoryReadModel extends Model
     public function products(int $companyId): array
     {
         return $this->db->table('products p')
-            ->select('p.id, p.sku, p.barcode, p.name, p.product_type, p.track_lot, p.standard_cost, p.status, c.name AS category_name, u.code AS uom_code')
+            ->select('p.id, p.category_id, p.base_uom_id, p.sku, p.barcode, p.name, p.product_type, p.track_lot, p.standard_cost, p.status, c.name AS category_name, u.code AS uom_code')
             ->join('product_categories c', 'c.id = p.category_id AND c.company_id = p.company_id', 'left')
             ->join('units_of_measure u', 'u.id = p.base_uom_id AND u.company_id = p.company_id')
             ->where('p.company_id', $companyId)
@@ -106,7 +106,7 @@ final class InventoryReadModel extends Model
     public function locations(int $companyId): array
     {
         return $this->db->table('warehouse_bins l')
-            ->select('l.id, l.code, l.name, l.status, w.code AS warehouse_code, b.code AS branch_code, d.code AS department_code')
+            ->select('l.id, l.warehouse_id, l.code, l.name, l.status, w.code AS warehouse_code, b.code AS branch_code, d.code AS department_code')
             ->join('warehouses w', 'w.id = l.warehouse_id AND w.company_id = l.company_id')
             ->join('branches b', 'b.id = l.branch_id AND b.company_id = l.company_id')
             ->join('departments d', 'd.id = w.department_id AND d.company_id = w.company_id AND d.branch_id = w.branch_id', 'left')
@@ -158,7 +158,7 @@ final class InventoryReadModel extends Model
     public function batches(int $companyId): array
     {
         return $this->db->table('stock_lots l')
-            ->select('l.id, l.lot_no, l.expiry_date, l.status, p.sku, p.name AS product_name')
+            ->select('l.id, l.product_id, l.lot_no, l.expiry_date, l.status, p.sku, p.name AS product_name')
             ->join('products p', 'p.id = l.product_id AND p.company_id = l.company_id')
             ->where('l.company_id', $companyId)
             ->where('l.deleted_at', null)
@@ -171,10 +171,59 @@ final class InventoryReadModel extends Model
     /**
      * @return list<array<string, mixed>>
      */
+    public function productProfiles(int $companyId): array
+    {
+        return $this->db->table('product_profiles x')
+            ->select('x.*, p.sku, p.name AS product_name, w.code AS warehouse_code, u.code AS package_uom_code')
+            ->join('products p', 'p.id = x.product_id AND p.company_id = x.company_id')
+            ->join('warehouses w', 'w.id = x.default_warehouse_id AND w.company_id = x.company_id', 'left')
+            ->join('units_of_measure u', 'u.id = x.package_uom_id AND u.company_id = x.company_id', 'left')
+            ->where('x.company_id', $companyId)
+            ->where('x.deleted_at', null)
+            ->orderBy('p.name', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function productPrices(int $companyId): array
+    {
+        return $this->db->table('product_prices x')
+            ->select('x.*, p.sku, p.name AS product_name, c.code AS currency_code, u.code AS uom_code')
+            ->join('products p', 'p.id = x.product_id AND p.company_id = x.company_id')
+            ->join('currencies c', 'c.id = x.currency_id AND c.company_id = x.company_id')
+            ->join('units_of_measure u', 'u.id = x.uom_id AND u.company_id = x.company_id')
+            ->where('x.company_id', $companyId)
+            ->where('x.deleted_at', null)
+            ->orderBy('p.name', 'ASC')
+            ->orderBy('x.effective_from', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function taxOptions(int $companyId): array
     {
         return $this->db->table('tax_codes')
             ->select('id, code, name, rate')
+            ->where(['company_id' => $companyId, 'status' => 'active'])
+            ->where('deleted_at', null)
+            ->orderBy('code', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function currencyOptions(int $companyId): array
+    {
+        return $this->db->table('currencies')
+            ->select('id, code, name')
             ->where(['company_id' => $companyId, 'status' => 'active'])
             ->where('deleted_at', null)
             ->orderBy('code', 'ASC')
@@ -252,6 +301,21 @@ final class InventoryReadModel extends Model
     {
         return $this->db->table('stock_lots')
             ->where(['company_id' => $companyId, 'product_id' => $productId, 'lot_no' => $lotNo])
+            ->where('deleted_at', null)
+            ->countAllResults() > 0;
+    }
+
+    public function productPriceExists(int $companyId, int $productId, string $priceType, int $currencyId, int $uomId, string $effectiveFrom): bool
+    {
+        return $this->db->table('product_prices')
+            ->where([
+                'company_id'    => $companyId,
+                'product_id'    => $productId,
+                'price_type'    => $priceType,
+                'currency_id'   => $currencyId,
+                'uom_id'        => $uomId,
+                'effective_from' => $effectiveFrom,
+            ])
             ->where('deleted_at', null)
             ->countAllResults() > 0;
     }

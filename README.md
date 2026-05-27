@@ -42,6 +42,15 @@ integrasi Skote, worker OCR/AI, dan deployment production.
 - Tahap 8 dimulai: hasil gap workbook diterapkan sebagai Commercial
   Enrichment melalui customer/supplier profile, VAT dan warehouse default,
   PIC/limit policy, serta address type `mailing`.
+- Tahap 10 dan 11 dimulai: Item Enrichment menyediakan profile/harga efektif,
+  sedangkan `POS Master` menyediakan grid register per Site/Department/
+  Warehouse dengan default customer, currency, numbering dan audit tenant.
+- Tahap 12 dimulai: `Finance Master` menyediakan grid Chart of Accounts,
+  Cash/Bank Account, dan Exchange Rate yang terisolasi per company.
+- Tahap 13 dimulai: `POS Master` menambahkan Payment Methods yang memetakan
+  register ke Cash/Bank Account aktif per company/site.
+- Tahap 14 dimulai: POS shift kasir dapat dibuka/ditutup dari POS Master
+  sebagai fondasi sebelum receipt penjualan.
 
 ```bash
 composer install

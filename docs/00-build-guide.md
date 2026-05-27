@@ -39,7 +39,13 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 6 | Functional Menu dan Setup Master | Berjalan: setup/reference master + UI, 26 Mei 2026 |
 | 7 | Commercial Master Customer/Supplier | Berjalan: terms/address/promo dasar + UI, 26 Mei 2026 |
 | 8 | Commercial Enrichment dari Workbook | Berjalan: profile/VAT/warehouse/PIC/limit + mailing address, 26 Mei 2026 |
-| 9+ | Domain transaction, workflow, AI/OCR, deploy | Belum dimulai |
+| 9 | Operational Hierarchy Alignment | Dibuat: Site/Department/Warehouse/Location validation, 26 Mei 2026 |
+| 10 | Item Enrichment dari Workbook | Dibuat: operational profile + baseline price, 26 Mei 2026 |
+| 11 | POS Master | Dibuat: register, hierarchy/default references + grid CRUD/status, 26 Mei 2026 |
+| 12 | Finance Master Foundation | Dibuat: COA, Cash/Bank, Exchange Rate + grid CRUD/status, 26 Mei 2026 |
+| 13 | POS Payment Mapping | Dibuat: metode bayar register -> Cash/Bank Account, 28 Mei 2026 |
+| 14 | POS Shift Foundation | Dibuat: open/close shift kasir, 28 Mei 2026 |
+| 15+ | Domain transaction, finance lanjutan, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -248,6 +254,98 @@ php spark routes
 php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
 ```
 
+## Tahap 10: Item Enrichment dari Workbook
+
+### Yang Sudah Dibuat
+
+- Migration `CreateProductEnrichmentTables` menambahkan `product_profiles`
+  dan `product_prices` sebagai perluasan tenant-scoped dari Item Master.
+- `product_profiles` menyimpan alternate code/name, default warehouse, shelf
+  life, dimensi, berat dan kebijakan kemasan tanpa mengulang kolom inti item.
+- `product_prices` menyimpan baseline harga purchase/sales dengan currency,
+  UOM dan periode efektif sehingga harga berikutnya tidak menimpa histori.
+- UI `/inventory` menyediakan form dan daftar profile/harga. Write model
+  memvalidasi item, warehouse, UOM dan currency aktif dalam company yang sama,
+  serta mencatat audit.
+- Seeder demo dan pengujian mencakup enrichment serta penolakan default
+  warehouse/currency nonaktif atau lintas-company.
+
+### Batas Tahap Ini
+
+Promotion-price resolution, overlap policy harga, purchase/sales order dan
+posting stock tetap menjadi tahap lanjutan.
+
+## Tahap 11: POS Master
+
+### Yang Sudah Dibuat
+
+- Migration `CreatePosMasterTables` menambahkan `pos_registers` sebagai master
+  register tenant-scoped untuk kasir/counter.
+- Register mengikat Site, Department, Warehouse, default Customer, Currency,
+  serta Transaction Code aktif dalam hierarchy company yang sama.
+- Menu `/pos/master` menggunakan grid dengan modal tambah/edit dan aksi
+  `Hapus/Aktifkan` berbasis status serta audit trail.
+- Seeder demo membuat transaction code `POS` dan satu register per company,
+  sekaligus permission/menu role untuk POS Master.
+- Pengujian mencakup seed idempotent, menu berizin, penolakan default customer
+  lintas-company, dan audit perubahan status register.
+
+### Batas Tahap Ini
+
+Referensi Cash Bank/Chart of Accounts tersedia pada Tahap 12 dan mapping
+payment method tersedia pada Tahap 13. Shift dan transaksi penjualan POS belum
+diaktifkan.
+
+## Tahap 12: Finance Master Foundation
+
+### Yang Sudah Dibuat
+
+- Migration `chart_of_accounts`, `cash_bank_accounts`, dan `exchange_rates`
+  dengan ownership `company_id`, audit actor, serta status aktif/nonaktif.
+- Menu `Accounting & Finance` membuka grid Finance Master dengan aksi tambah,
+  edit, dan Hapus/Aktifkan untuk COA, kas/bank, serta kurs.
+- Kas/bank hanya menerima COA posting, currency, dan site aktif dari company
+  yang sama; seeder dan pengujian mencakup isolasi tenant tersebut.
+
+### Batas Tahap Ini
+
+GL Book/Column, costing, fiscal close, jurnal, dan pembayaran masih menjadi
+lanjutan M3/T1 setelah master finance dasar stabil.
+
+## Tahap 13: POS Payment Mapping
+
+### Yang Sudah Dibuat
+
+- Migration `pos_payment_methods` menghubungkan register POS dengan
+  `cash_bank_accounts` tenant yang sama.
+- Halaman `/pos/master` memiliki grid Payment Methods dengan tambah, edit, dan
+  Hapus/Aktifkan.
+- Setiap payment method memiliki `payment_type`, default flag, sort order, dan
+  audit trail.
+- Seeder demo membuat payment method `CASH` dan `BANK` untuk register tiap
+  company, serta pengujian menolak Cash/Bank Account lintas-company.
+
+### Batas Tahap Ini
+
+Mapping ini belum membuat transaksi kas, shift kasir, receipt POS, atau jurnal
+GL. Ia baru menjadi referensi aman untuk transaksi POS berikutnya.
+
+## Tahap 14: POS Shift Foundation
+
+### Yang Sudah Dibuat
+
+- Migration `pos_shifts` untuk membuka dan menutup shift kasir per register.
+- Halaman `/pos/master` menampilkan grid Cashier Shifts serta modal Open Shift
+  dan Close Shift.
+- Validasi mencegah shift open ganda untuk register/cashier yang sama, dan
+  memastikan cashier memiliki membership aktif pada site register.
+- Audit event `POS_SHIFT_OPENED` dan `POS_SHIFT_CLOSED` tercatat.
+
+### Batas Tahap Ini
+
+Shift belum membuat receipt, pembayaran, stock movement, atau jurnal. Tahap
+berikutnya baru bisa mulai POS receipt/sale dengan memakai shift open ini.
+
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login
 superadmin. Regression suite kini mencakup audit mutation/context, pemblokiran
@@ -365,8 +463,8 @@ tranche transaksi berikutnya.
 ### Master Berikutnya
 
 Tranche M2 membangun customer/supplier, terms, address relation, promo dasar,
-dan POS Master. Customer/Supplier portion telah dilanjutkan pada Tahap 7;
-POS Master masih berada pada antrean M2 berikutnya. Tranche M3 membangun
+dan POS Master. Seluruh master M2 dasar telah dilanjutkan sampai Tahap 11.
+Tranche M3 membangun
 master Finance/GL, Cash Bank dan Costing; M4 membangun BOM, Work Center,
 Routing serta referensi Planning.
 

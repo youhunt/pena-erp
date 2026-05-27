@@ -30,10 +30,11 @@
                         <td><?= esc($company['name']) ?></td>
                         <td><?= esc(trim(implode(', ', array_filter([$company['village'], $company['regency'], $company['province']])))) ?></td>
                         <td><?= esc($company['base_currency']) ?></td>
-                        <td><span class="badge bg-success"><?= esc($company['status']) ?></span></td>
-                        <td>
+                        <td><span class="badge <?= $company['status'] === 'active' ? 'bg-success' : 'bg-secondary' ?>"><?= esc($company['status']) ?></span></td>
+                        <td class="text-nowrap">
                             <a href="<?= site_url('workspace/' . $company['id']) ?>" class="btn btn-outline-primary btn-sm">Buka</a>
                             <a href="<?= site_url('administration/companies/' . $company['id'] . '/edit') ?>" class="btn btn-outline-secondary btn-sm">Edit</a>
+                            <form class="d-inline" method="post" action="<?= site_url('administration/companies/' . $company['id'] . '/status') ?>"><?= csrf_field() ?><input type="hidden" name="status" value="<?= $company['status'] === 'active' ? 'inactive' : 'active' ?>"><button class="btn btn-outline-danger btn-sm"><?= $company['status'] === 'active' ? 'Hapus' : 'Aktifkan' ?></button></form>
                         </td>
                     </tr>
                 <?php endforeach; ?>

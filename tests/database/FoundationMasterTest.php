@@ -15,8 +15,12 @@ use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
 use App\Models\CommercialReadModel;
 use App\Models\CommercialWriteModel;
+use App\Models\FinanceReadModel;
+use App\Models\FinanceWriteModel;
 use App\Models\InventoryReadModel;
 use App\Models\InventoryWriteModel;
+use App\Models\PosReadModel;
+use App\Models\PosWriteModel;
 use App\Models\SetupReadModel;
 use App\Models\SetupWriteModel;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -321,6 +325,8 @@ final class FoundationMasterTest extends CIUnitTestCase
 
         $this->seeInDatabase('products', ['company_id' => $penaId, 'sku' => 'ATK-A4-80']);
         $this->seeInDatabase('warehouses', ['company_id' => $penaId, 'code' => 'MAIN']);
+        $this->seeInDatabase('product_profiles', ['company_id' => $penaId, 'alternate_code' => 'A4-80']);
+        $this->seeInDatabase('product_prices', ['company_id' => $penaId, 'price_type' => 'sales', 'unit_price' => '72500.0000']);
         $this->assertCount(1, $reader->products($penaId));
         $this->assertCount(1, $reader->products($nusaId));
         $this->assertSame('ATK-A4-80', $reader->products($penaId)[0]['sku']);
@@ -365,6 +371,129 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertTrue($writer->updateProductStatus($penaId, $productId, 'inactive', $actorId));
         $this->seeInDatabase('products', ['id' => $productId, 'company_id' => $penaId, 'status' => 'inactive']);
         $this->seeInDatabase('audit_logs', ['event_type' => 'PRODUCT_STATUS_UPDATED', 'entity_id' => $productId, 'company_id' => $penaId]);
+    }
+
+    public function testHierarchyWritesRejectInactiveOperationalParents(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $branchId = (int) $this->db->table('branches')->where(['company_id' => $penaId, 'code' => 'JKT'])->get()->getFirstRow()->id;
+        $departmentId = (int) $this->db->table('departments')->where(['company_id' => $penaId, 'branch_id' => $branchId, 'code' => 'OPS'])->get()->getFirstRow()->id;
+        $warehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+
+        $this->db->table('branches')->where('id', $branchId)->update(['status' => 'inactive']);
+
+        $this->assertFalse((new SetupWriteModel())->createDepartment([
+            'company_id' => $penaId,
+            'branch_id'  => $branchId,
+            'code'       => 'CLOSED-SITE',
+            'name'       => 'Closed Site Department',
+            'status'     => 'active',
+        ], $actorId));
+        $this->assertFalse((new SetupWriteModel())->createTransactionCode([
+            'company_id'    => $penaId,
+            'branch_id'     => $branchId,
+            'module'        => 'sales',
+            'code'          => 'CLOSED',
+            'prefix'        => 'CLOSED-',
+            'next_number'   => 1,
+            'number_length' => 6,
+            'reset_rule'    => 'never',
+            'status'        => 'active',
+        ], $actorId));
+        $this->assertFalse((new InventoryWriteModel())->createWarehouse([
+            'company_id'    => $penaId,
+            'branch_id'     => $branchId,
+            'department_id' => $departmentId,
+            'code'          => 'CLOSED',
+            'name'          => 'Closed Site Warehouse',
+            'is_active'     => true,
+        ], $actorId));
+
+        $this->db->table('warehouses')->where('id', $warehouseId)->update(['is_active' => false]);
+
+        $this->assertFalse((new InventoryWriteModel())->createLocation([
+            'company_id'   => $penaId,
+            'warehouse_id' => $warehouseId,
+            'branch_id'    => $branchId,
+            'code'         => 'CLOSED-BIN',
+            'name'         => 'Closed Warehouse Bin',
+            'status'       => 'active',
+        ], $actorId));
+        $this->assertSame(0, $this->db->table('warehouse_bins')->where(['company_id' => $penaId, 'code' => 'CLOSED-BIN'])->countAllResults());
+    }
+
+    public function testItemEnrichmentWritesRejectForeignOrInactiveReferencesAndAuditUpdates(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
+        $warehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+        $uomId = (int) $this->db->table('units_of_measure')->where(['company_id' => $penaId, 'code' => 'REAM'])->get()->getFirstRow()->id;
+        $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+        $foreignWarehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $nusaId, 'code' => 'STORE'])->get()->getFirstRow()->id;
+        $writer = new InventoryWriteModel();
+
+        $this->assertFalse($writer->saveProductProfile([
+            'company_id'           => $penaId,
+            'product_id'           => $productId,
+            'alternate_code'       => 'BAD-WH',
+            'default_warehouse_id' => $foreignWarehouseId,
+            'package_uom_id'       => $uomId,
+            'status'               => 'active',
+        ], $actorId));
+
+        $this->db->table('warehouses')->where('id', $warehouseId)->update(['is_active' => false]);
+        $this->assertFalse($writer->saveProductProfile([
+            'company_id'           => $penaId,
+            'product_id'           => $productId,
+            'alternate_code'       => 'BAD-INACTIVE',
+            'default_warehouse_id' => $warehouseId,
+            'package_uom_id'       => $uomId,
+            'status'               => 'active',
+        ], $actorId));
+
+        $this->db->table('warehouses')->where('id', $warehouseId)->update(['is_active' => true]);
+        $this->assertTrue($writer->saveProductProfile([
+            'company_id'           => $penaId,
+            'product_id'           => $productId,
+            'alternate_code'       => 'A4-UPDATED',
+            'default_warehouse_id' => $warehouseId,
+            'package_uom_id'       => $uomId,
+            'units_per_package'    => '5.000000',
+            'status'               => 'active',
+        ], $actorId));
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'PRODUCT_PROFILE_UPDATED']);
+
+        $this->db->table('currencies')->where('id', $currencyId)->update(['status' => 'inactive']);
+        $this->assertFalse($writer->createProductPrice([
+            'company_id'     => $penaId,
+            'product_id'     => $productId,
+            'price_type'     => 'purchase',
+            'currency_id'    => $currencyId,
+            'uom_id'         => $uomId,
+            'unit_price'     => '60000.0000',
+            'effective_from' => '2026-06-01',
+            'status'         => 'active',
+        ], $actorId));
+
+        $this->db->table('currencies')->where('id', $currencyId)->update(['status' => 'active']);
+        $this->assertTrue($writer->createProductPrice([
+            'company_id'     => $penaId,
+            'product_id'     => $productId,
+            'price_type'     => 'purchase',
+            'currency_id'    => $currencyId,
+            'uom_id'         => $uomId,
+            'unit_price'     => '60000.0000',
+            'effective_from' => '2026-06-01',
+            'status'         => 'active',
+        ], $actorId));
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'PRODUCT_PRICE_CREATED']);
     }
 
     public function testSetupMasterSeedProvidesOperationalReferencesPerTenant(): void
@@ -554,6 +683,130 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('customer_profiles', ['company_id' => $penaId, 'customer_id' => $penaCustomerId, 'reference_name' => 'Updated Reference']);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'event_type' => 'CUSTOMER_PROFILE_UPDATED']);
         $this->assertSame(0, $this->db->table('customers')->where(['company_id' => $penaId, 'code' => 'BAD-CUSTOMER'])->countAllResults());
+    }
+
+    public function testCommercialProfileRejectsInactiveDefaultReferences(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $customerId = (int) $this->db->table('customers')->where(['company_id' => $penaId, 'code' => 'CUS-DEMO'])->get()->getFirstRow()->id;
+        $taxId = (int) $this->db->table('tax_codes')->where(['company_id' => $penaId, 'code' => 'PPN11'])->get()->getFirstRow()->id;
+        $warehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+        $writer = new CommercialWriteModel();
+        $profile = [
+            'company_id'           => $penaId,
+            'customer_id'          => $customerId,
+            'reference_name'       => 'Should Not Be Stored',
+            'default_tax_code_id'  => $taxId,
+            'default_warehouse_id' => $warehouseId,
+            'status'               => 'active',
+        ];
+
+        $this->db->table('tax_codes')->where('id', $taxId)->update(['status' => 'inactive']);
+        $this->assertFalse($writer->saveCustomerProfile($profile, $actorId));
+
+        $this->db->table('tax_codes')->where('id', $taxId)->update(['status' => 'active']);
+        $this->db->table('warehouses')->where('id', $warehouseId)->update(['is_active' => false]);
+        $this->assertFalse($writer->saveCustomerProfile($profile, $actorId));
+        $this->dontSeeInDatabase('customer_profiles', ['company_id' => $penaId, 'reference_name' => 'Should Not Be Stored']);
+    }
+
+    public function testPosMasterSeedAndWritesAreTenantScopedAndAudited(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $reader = new PosReadModel();
+        $register = $reader->registers($penaId)[0];
+        $payment = $reader->paymentMethods($penaId)[0];
+        $foreignCustomerId = (int) $this->db->table('customers')->where(['company_id' => $nusaId, 'code' => 'CUS-DEMO'])->get()->getFirstRow()->id;
+        $foreignCashBankId = (int) $this->db->table('cash_bank_accounts')->where(['company_id' => $nusaId, 'code' => 'CASH-MAIN'])->get()->getFirstRow()->id;
+        $writer = new PosWriteModel();
+
+        $this->assertSame(1, $this->db->table('pos_registers')->where(['company_id' => $penaId, 'code' => 'REG-01'])->countAllResults());
+        $this->assertCount(2, $reader->paymentMethods($penaId));
+        $this->seeInDatabase('transaction_codes', ['company_id' => $penaId, 'code' => 'POS', 'module' => 'pos']);
+        $this->assertContains('pos', array_column((new TenantMenuService($this->db))->accessibleMenus($actorId, $penaId), 'code'));
+        $this->assertFalse($writer->createRegister([
+            'company_id'          => $penaId,
+            'branch_id'           => (int) $register['branch_id'],
+            'department_id'       => (int) $register['department_id'],
+            'warehouse_id'        => (int) $register['warehouse_id'],
+            'default_customer_id' => $foreignCustomerId,
+            'currency_id'         => (int) $register['currency_id'],
+            'transaction_code_id' => (int) $register['transaction_code_id'],
+            'code'                => 'BAD-POS',
+            'name'                => 'Invalid Foreign Customer Register',
+            'status'              => 'active',
+        ], $actorId));
+        $this->assertFalse($writer->createPaymentMethod([
+            'company_id'           => $penaId,
+            'register_id'          => (int) $register['id'],
+            'cash_bank_account_id' => $foreignCashBankId,
+            'code'                 => 'BADPAY',
+            'name'                 => 'Invalid Foreign Bank',
+            'payment_type'         => 'transfer',
+            'is_default'           => false,
+            'sort_order'           => 30,
+            'status'               => 'active',
+        ], $actorId));
+        $this->assertTrue($writer->openShift([
+            'company_id'      => $penaId,
+            'register_id'     => (int) $register['id'],
+            'cashier_user_id' => $actorId,
+            'opened_at'       => date('Y-m-d H:i:s'),
+            'opening_cash'    => '100000.0000',
+        ], $actorId));
+        $shift = $reader->shifts($penaId)[0];
+        $this->assertFalse($writer->openShift([
+            'company_id'      => $penaId,
+            'register_id'     => (int) $register['id'],
+            'cashier_user_id' => $actorId,
+            'opened_at'       => date('Y-m-d H:i:s'),
+            'opening_cash'    => '50000.0000',
+        ], $actorId));
+        $this->assertTrue($writer->closeShift($penaId, (int) $shift['id'], '125000.0000', $actorId));
+        $this->assertTrue($writer->updateStatus($penaId, (int) $register['id'], 'inactive', $actorId));
+        $this->assertTrue($writer->updatePaymentStatus($penaId, (int) $payment['id'], 'inactive', $actorId));
+        $this->seeInDatabase('pos_registers', ['id' => $register['id'], 'status' => 'inactive']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $register['id'], 'event_type' => 'POS_REGISTER_STATUS_UPDATED']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $payment['id'], 'event_type' => 'POS_PAYMENT_METHOD_STATUS_UPDATED']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $shift['id'], 'event_type' => 'POS_SHIFT_OPENED']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $shift['id'], 'event_type' => 'POS_SHIFT_CLOSED']);
+    }
+
+    public function testFinanceMasterSeedAndWritesAreTenantScopedAndAudited(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('finance@demo.pena-erp.test');
+        $reader = new FinanceReadModel();
+        $cashBank = $reader->cashBankAccounts($penaId)[0];
+        $foreignCurrency = (int) $this->db->table('currencies')->where(['company_id' => $nusaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+
+        $this->assertCount(3, $reader->accounts($penaId));
+        $this->assertCount(2, $reader->cashBankAccounts($penaId));
+        $this->assertCount(1, $reader->exchangeRates($penaId));
+        $this->assertContains('finance', array_column((new TenantMenuService($this->db))->accessibleMenus($actorId, $penaId), 'code'));
+        $this->assertFalse((new FinanceWriteModel())->createCashBankAccount([
+            'company_id'   => $penaId,
+            'account_id'   => (int) $cashBank['account_id'],
+            'currency_id'  => $foreignCurrency,
+            'code'         => 'FOREIGN',
+            'name'         => 'Foreign tenant reference',
+            'account_type' => 'bank',
+            'status'       => 'active',
+        ], $actorId));
+        $this->assertTrue((new FinanceWriteModel())->updateStatus('cash-bank', $penaId, (int) $cashBank['id'], 'inactive', $actorId));
+        $this->seeInDatabase('audit_logs', ['event_type' => 'CASH_BANK_ACCOUNT_STATUS_UPDATED', 'entity_id' => (int) $cashBank['id']]);
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

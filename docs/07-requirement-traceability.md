@@ -104,6 +104,9 @@ Tahap 15 menambahkan POS Sales Receipt MVP melalui `pos_sales`,
 `pos_sale_items`, dan `pos_sale_payments`: receipt hanya bisa dibuat dari shift
 open milik cashier aktif, memakai item aktif tenant, payment method register
 yang sama, VAT item, Transaction Code receipt, dan audit `POS_SALE_PAID`.
+Tahap 16 menambahkan stock ledger foundation: `stock_balances` dan
+`stock_movements`, opening balance demo untuk item stock, penolakan negative
+stock pada POS, serta posting movement `pos_sale_issue` dari receipt POS.
 
 ## Definition of Ready for Implementation
 

@@ -56,8 +56,10 @@ final class PosReadModel extends Model
     /** @return list<array<string, mixed>> */
     public function sales(int $companyId): array
     {
+        $stockMovements = $this->db->prefixTable('stock_movements');
+
         return $this->db->table('pos_sales s')
-            ->select('s.*, r.code AS register_code, u.username AS cashier_username, i.secret AS cashier_email, c.code AS customer_code, cur.code AS currency_code')
+            ->select("s.*, r.code AS register_code, u.username AS cashier_username, i.secret AS cashier_email, c.code AS customer_code, cur.code AS currency_code, (SELECT COUNT(*) FROM {$stockMovements} m WHERE m.company_id = s.company_id AND m.reference_type = 'pos_sale' AND m.reference_id = s.id) AS stock_movement_count", false)
             ->join('pos_registers r', 'r.id = s.register_id AND r.company_id = s.company_id')
             ->join('pos_shifts sh', 'sh.id = s.shift_id AND sh.company_id = s.company_id')
             ->join('users u', 'u.id = sh.cashier_user_id')

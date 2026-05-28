@@ -90,7 +90,7 @@ $openShiftCount = count(array_filter($shifts, static fn (array $shift): bool => 
 <div class="card"><div class="card-body">
     <h4 class="card-title mb-3">Sales Receipts</h4>
     <div class="table-responsive"><table class="table table-hover align-middle mb-0">
-        <thead><tr><th>Receipt</th><th>Register</th><th>Cashier</th><th>Customer</th><th>Sold At</th><th>Total</th><th>Paid</th><th>Status</th></tr></thead>
+        <thead><tr><th>Receipt</th><th>Register</th><th>Cashier</th><th>Customer</th><th>Sold At</th><th>Total</th><th>Paid</th><th>Stock</th><th>Status</th></tr></thead>
         <tbody>
         <?php foreach ($sales as $sale) : ?><tr>
             <td><strong><?= esc($sale['receipt_no']) ?></strong><br><small><?= esc($sale['currency_code']) ?></small></td>
@@ -100,9 +100,10 @@ $openShiftCount = count(array_filter($shifts, static fn (array $shift): bool => 
             <td><?= esc($sale['sold_at']) ?></td>
             <td><?= esc($sale['total_amount']) ?></td>
             <td><?= esc($sale['paid_amount']) ?></td>
+            <td><?= (int) $sale['stock_movement_count'] > 0 ? 'Posted' : '-' ?></td>
             <td><?= esc($sale['status']) ?></td>
         </tr><?php endforeach; ?>
-        <?php if ($sales === []) : ?><tr><td colspan="8" class="text-muted text-center py-4">Belum ada sales receipt POS.</td></tr><?php endif; ?>
+        <?php if ($sales === []) : ?><tr><td colspan="9" class="text-muted text-center py-4">Belum ada sales receipt POS.</td></tr><?php endif; ?>
         </tbody>
     </table></div>
 </div></div>

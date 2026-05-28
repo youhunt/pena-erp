@@ -54,6 +54,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
 - Tahap 15 dimulai: POS Sales Receipt MVP dapat dibuat dari shift open,
   memakai item aktif, payment method register, VAT item, dan Transaction Code
   receipt tenant.
+- Tahap 16 dimulai: stock ledger foundation menambahkan saldo stok dan
+  movement immutable; POS receipt untuk item stock otomatis posting issue.
 
 ```bash
 composer install

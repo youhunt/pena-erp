@@ -782,6 +782,16 @@ final class FoundationMasterTest extends CIUnitTestCase
             'payment_method_id'  => (int) $payment['id'],
             'payment_amount'     => '100000.0000',
         ], $actorId));
+        $this->assertFalse($writer->createSale([
+            'company_id'         => $penaId,
+            'shift_id'           => (int) $shift['id'],
+            'customer_id'        => null,
+            'product_id'         => $productId,
+            'qty'                => '999.0000',
+            'unit_price'         => '72500.0000',
+            'payment_method_id'  => (int) $payment['id'],
+            'payment_amount'     => '90000000.0000',
+        ], $actorId));
         $this->assertTrue($writer->createSale([
             'company_id'         => $penaId,
             'shift_id'           => (int) $shift['id'],
@@ -797,6 +807,9 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('pos_sales', ['company_id' => $penaId, 'status' => 'paid', 'total_amount' => '80475.0000']);
         $this->seeInDatabase('pos_sale_items', ['company_id' => $penaId, 'pos_sale_id' => (int) $sale['id'], 'product_id' => $productId]);
         $this->seeInDatabase('pos_sale_payments', ['company_id' => $penaId, 'pos_sale_id' => (int) $sale['id'], 'payment_method_id' => (int) $payment['id']]);
+        $this->seeInDatabase('stock_movements', ['company_id' => $penaId, 'reference_type' => 'pos_sale', 'reference_id' => (int) $sale['id'], 'qty' => '-1.0000']);
+        $this->seeInDatabase('stock_balances', ['company_id' => $penaId, 'warehouse_id' => (int) $register['warehouse_id'], 'product_id' => $productId, 'qty_on_hand' => '99.0000']);
+        $this->assertSame(1, (int) $reader->sales($penaId)[0]['stock_movement_count']);
         $this->assertTrue($writer->closeShift($penaId, (int) $shift['id'], '125000.0000', $actorId));
         $this->assertFalse($writer->createSale([
             'company_id'         => $penaId,

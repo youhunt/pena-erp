@@ -376,6 +376,40 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'created_at' => $now,
             ]);
 
+            if (($master['product']['product_type'] ?? '') === 'stock' && $this->db->tableExists('stock_balances')) {
+                $balanceId = $this->relationRecord('stock_balances', [
+                    'company_id'   => $companyId,
+                    'warehouse_id' => $warehouseId,
+                    'product_id'   => $productId,
+                ], [
+                    'bin_id'       => null,
+                    'lot_id'       => null,
+                    'qty_on_hand'  => '100.0000',
+                    'qty_reserved' => '0.0000',
+                    'avg_cost'     => $master['product']['standard_cost'],
+                    'created_at'   => $now,
+                ]);
+
+                if ($this->db->tableExists('stock_movements')) {
+                    $this->relationRecord('stock_movements', [
+                        'company_id'     => $companyId,
+                        'reference_type' => 'opening_balance',
+                        'reference_id'   => $balanceId,
+                    ], [
+                        'warehouse_id'   => $warehouseId,
+                        'bin_id'         => null,
+                        'product_id'     => $productId,
+                        'lot_id'         => null,
+                        'movement_type'  => 'opening_balance',
+                        'reference_no'   => 'OPEN-' . $master['product']['sku'],
+                        'qty'            => '100.0000',
+                        'unit_cost'      => $master['product']['standard_cost'],
+                        'posted_at'      => $now,
+                        'created_at'     => $now,
+                    ]);
+                }
+            }
+
             if ($uomId !== $alternateUomId) {
                 $this->relationRecord('product_uom_conversions', [
                     'company_id'  => $companyId,

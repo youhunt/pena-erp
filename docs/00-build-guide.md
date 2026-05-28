@@ -46,7 +46,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 13 | POS Payment Mapping | Dibuat: metode bayar register -> Cash/Bank Account, 28 Mei 2026 |
 | 14 | POS Shift Foundation | Dibuat: open/close shift kasir, 28 Mei 2026 |
 | 15 | POS Sales Receipt MVP | Dibuat: receipt paid dari shift open, item, VAT, dan payment method, 28 Mei 2026 |
-| 16+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 16 | Stock Ledger Foundation | Dibuat: stock balance/movement dan POS stock issue, 28 Mei 2026 |
+| 17+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -367,9 +368,30 @@ berikutnya baru bisa mulai POS receipt/sale dengan memakai shift open ini.
 
 ### Batas Tahap Ini
 
-Receipt MVP belum membuat stock issue, jurnal GL, settlement cash/bank, retur,
-diskon/promo, multi-line item, atau print struk. Ini sengaja menjadi fondasi
-transaksi pertama yang aman sebelum posting inventory/finance dibuat.
+Receipt MVP belum membuat jurnal GL, settlement cash/bank, retur, diskon/promo,
+multi-line item, atau print struk. Stock issue dibuat pada Tahap 16.
+
+## Tahap 16: Stock Ledger Foundation
+
+### Yang Sudah Dibuat
+
+- Migration `stock_balances` sebagai read model saldo per
+  company/warehouse/product dan `stock_movements` sebagai ledger immutable.
+- Seeder demo memberi opening balance `100.0000` untuk item stock demo PENA
+  dan NUSA, dengan movement `opening_balance`.
+- Saat POS receipt dibuat untuk product `stock`, sistem mengecek saldo warehouse
+  register, menolak negative stock, mengurangi `qty_on_hand`, dan menulis
+  movement `pos_sale_issue`.
+- Grid Sales Receipts menampilkan indikator `Stock Posted` bila movement POS
+  sudah tercatat.
+- Regression test mencakup penolakan qty melebihi stok, pengurangan saldo dari
+  `100.0000` ke `99.0000`, dan movement `-1.0000`.
+
+### Batas Tahap Ini
+
+Stock ledger belum mencakup transfer, stock opname, reservation, costing
+average aktual, lot/bin picking, approval, reversal, atau period close.
+Movement POS masih satu item mengikuti batas MVP receipt Tahap 15.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

@@ -74,7 +74,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Item Master | `products`, `product_categories` | Built |
 | Item UoM Conversion | `product_uom_conversions` | Built |
 | Batch Master | `stock_lots` | Built |
-| Inventory In Out | immutable `stock_movements`, balance projection | Designed |
+| Inventory In Out | immutable `stock_movements`, balance projection | Built foundation; POS issue posted |
 | Inventory Transfer | `stock_transfers`, `stock_transfer_items` | Designed |
 | Inventory Stock Opname | `inventory_adjustments`, detail counted quantity | Designed |
 | Inventory Period Close | `module_period_closes` type `inventory` | Designed |
@@ -134,7 +134,7 @@ tidak bisa dipakai transaksi:
 | M2 Commercial master | Customer/Supplier/profile policy, item profile/effective baseline price, POS register (Built) |
 | M3 Finance master | COA, Cash Bank, Rate (Built foundation); POS payment mapping, shift, dan receipt MVP (Built); GL Book/Column, Cost Type/Item Cost, fiscal close authority (next) |
 | M4 Manufacturing master | BOM, Work Center, Routing, Forecast/MPS/MRP setup |
-| T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting |
+| T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting; stock ledger foundation Built |
 | T2 Financial transactions | AP/AR, payment, cash/bank, GL posting and period close |
 
 Master pada tranche selanjutnya tetap wajib mengikuti aturan yang sudah

@@ -209,6 +209,15 @@ final class PosWriteModel extends Model
         }
 
         $now = date('Y-m-d H:i:s');
+        $stockBalance = null;
+
+        if ($product['product_type'] === 'stock') {
+            $stockBalance = $this->stockBalance($companyId, (int) $register['warehouse_id'], (int) $product['id']);
+
+            if ($stockBalance === null || (float) $stockBalance['qty_on_hand'] < $qty) {
+                return false;
+            }
+        }
 
         $this->db->transStart();
         $receiptNo = $this->nextReceiptNo($companyId, (int) $register['transaction_code_id'], $actorId);
@@ -254,6 +263,9 @@ final class PosWriteModel extends Model
             'created_by'         => $actorId,
             'created_at'         => $now,
         ]);
+        if ($stockBalance !== null) {
+            $this->postStockIssue($companyId, (int) $register['warehouse_id'], (int) $product['id'], $saleId, $receiptNo, $qty, (float) $product['standard_cost'], $actorId, $now, $stockBalance);
+        }
         $this->audit()->record('POS_SALE_PAID', 'pos_sale', $saleId, $companyId, (int) $register['branch_id'], $actorId, $sale);
         $this->complete();
 
@@ -393,6 +405,59 @@ final class PosWriteModel extends Model
     private function money(float $value): string
     {
         return number_format($value, 4, '.', '');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function stockBalance(int $companyId, int $warehouseId, int $productId): ?array
+    {
+        return $this->db->table('stock_balances')
+            ->where([
+                'company_id'   => $companyId,
+                'warehouse_id' => $warehouseId,
+                'product_id'   => $productId,
+            ])
+            ->where('bin_id', null)
+            ->where('lot_id', null)
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+    }
+
+    /** @param array<string, mixed> $stockBalance */
+    private function postStockIssue(
+        int $companyId,
+        int $warehouseId,
+        int $productId,
+        int $saleId,
+        string $receiptNo,
+        float $qty,
+        float $unitCost,
+        int $actorId,
+        string $now,
+        array $stockBalance,
+    ): void {
+        $this->db->table('stock_balances')
+            ->where(['id' => (int) $stockBalance['id'], 'company_id' => $companyId])
+            ->update([
+                'qty_on_hand' => $this->money((float) $stockBalance['qty_on_hand'] - $qty),
+                'updated_by'  => $actorId,
+                'updated_at'  => $now,
+            ]);
+        $this->db->table('stock_movements')->insert([
+            'company_id'     => $companyId,
+            'warehouse_id'   => $warehouseId,
+            'bin_id'         => null,
+            'product_id'     => $productId,
+            'lot_id'         => null,
+            'movement_type'  => 'pos_sale_issue',
+            'reference_type' => 'pos_sale',
+            'reference_id'   => $saleId,
+            'reference_no'   => $receiptNo,
+            'qty'            => $this->money(-1 * $qty),
+            'unit_cost'      => $this->money($unitCost),
+            'posted_at'      => $now,
+            'created_by'     => $actorId,
+            'created_at'     => $now,
+        ]);
     }
 
     /** @return array<string, mixed>|null */

@@ -123,9 +123,9 @@ disalin per company.
 
 Status implementasi master: `units_of_measure`, `product_categories`,
 `products`, `product_profiles`, `product_prices`, `warehouses`, `warehouse_bins`,
-`product_uom_conversions`, `tax_codes`, `product_tax_codes`, dan `stock_lots` telah diwujudkan melalui
-migration aplikasi, model tenant-scoped, seed simulasi, serta audit mutation.
-Tabel ledger stok tetap menjadi kontrak tranche transaksi berikutnya.
+`product_uom_conversions`, `tax_codes`, `product_tax_codes`, `stock_lots`,
+`stock_balances`, dan `stock_movements` telah diwujudkan melalui migration
+aplikasi, model tenant-scoped, seed simulasi, serta audit mutation.
 
 | Table / Function | Columns (besides `T+A`) and Keys | Relations / Index Strategy | Example |
 | --- | --- | --- | --- |
@@ -142,8 +142,8 @@ Tabel ledger stok tetap menjadi kontrak tranche transaksi berikutnya.
 | `warehouses` (department storage) | `id PK`, `branch_id FK branches`, `department_id FK departments`, `code VARCHAR(30)`, `name VARCHAR(120)`, `address TEXT`, `village_id FK villages NULL`, `postal_code VARCHAR(10) NULL`, `is_active BOOLEAN` | `UQ(company_id,branch_id,code)`, `IDX(company_id,branch_id,department_id)`; department harus pada Site yang sama | `JKT / OPS / MAIN` |
 | `warehouse_bins` (Location Master) | `id PK`, `branch_id FK`, `warehouse_id FK`, `code VARCHAR(30)`, `name VARCHAR(80)`, `status VARCHAR(20)` | `UQ(company_id,warehouse_id,code)`, `IDX(company_id,branch_id,status)`; Department diwarisi melalui warehouse | `MAIN / R01-A02` |
 | `stock_lots` (Batch Master/expiry trace) | `id PK`, `product_id FK`, `lot_no VARCHAR(60)`, `expiry_date DATE NULL`, `status VARCHAR(20)` | `UQ(company_id,product_id,lot_no)` | `LOT260501` |
-| `stock_balances` (current balance read model) | `id PK`, `warehouse_id FK`, `bin_id FK NULL`, `product_id FK`, `lot_id FK NULL`, `qty_on_hand DECIMAL(18,4)`, `qty_reserved DECIMAL(18,4)`, `avg_cost DECIMAL(19,4)` | `UQ(company_id,warehouse_id,bin_id,product_id,lot_id)` | `A4 qty=40` |
-| `stock_movements` (immutable stock ledger) | `id PK`, `warehouse_id FK`, `product_id FK`, `lot_id FK NULL`, `movement_type VARCHAR(30)`, `reference_type VARCHAR(40)`, `reference_id BIGINT`, `qty DECIMAL(18,4)`, `unit_cost DECIMAL(19,4)`, `posted_at DATETIME` | `IDX(company_id,product_id,posted_at)`, `IDX(reference_type,reference_id)`; no destructive delete after posting | `GRN +10` |
+| `stock_balances` (current balance read model) | `id PK`, `warehouse_id FK`, `bin_id FK NULL`, `product_id FK`, `lot_id FK NULL`, `qty_on_hand DECIMAL(18,4)`, `qty_reserved DECIMAL(18,4)`, `avg_cost DECIMAL(19,4)` | `UQ(company_id,warehouse_id,bin_id,product_id,lot_id)`, `IDX(company_id,product_id)`; POS menolak issue bila saldo tidak cukup | `A4 qty=99` |
+| `stock_movements` (immutable stock ledger) | `id PK`, `warehouse_id FK`, `bin_id FK NULL`, `product_id FK`, `lot_id FK NULL`, `movement_type VARCHAR(30)`, `reference_type VARCHAR(40)`, `reference_id BIGINT`, `reference_no VARCHAR(50) NULL`, `qty DECIMAL(18,4)`, `unit_cost DECIMAL(19,4)`, `posted_at DATETIME` | `IDX(company_id,product_id,posted_at)`, `IDX(company_id,reference_type,reference_id)`; no destructive delete after posting | `POS -1` |
 | `stock_transfers` (branch/warehouse transfer header) | `id PK`, `transfer_no VARCHAR(50)`, `from_warehouse_id FK`, `to_warehouse_id FK`, `transfer_date DATE`, `status VARCHAR(30)`, `approved_by FK users NULL` | `UQ(company_id,transfer_no)`, `IDX(status)` | `TRF-0001 approved` |
 | `stock_transfer_items` (transfer lines) | `id PK`, `stock_transfer_id FK`, `product_id FK`, `qty DECIMAL(18,4)`, `uom_id FK`, `received_qty DECIMAL(18,4)` | `IDX(company_id,stock_transfer_id)` | `A4 5 REAM` |
 | `inventory_adjustments` (controlled correction) | `id PK`, `adjustment_no VARCHAR(50)`, `warehouse_id FK`, `reason VARCHAR(150)`, `status VARCHAR(30)`, `posted_at DATETIME NULL` | `UQ(company_id,adjustment_no)`, `IDX(status)` | `ADJ-001 counting` |

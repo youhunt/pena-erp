@@ -48,7 +48,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 15 | POS Sales Receipt MVP | Dibuat: receipt paid dari shift open, item, VAT, dan payment method, 28 Mei 2026 |
 | 16 | Stock Ledger Foundation | Dibuat: stock balance/movement dan POS stock issue, 28 Mei 2026 |
 | 17 | Inventory Stock Visibility | Dibuat: grid stock balances dan stock movements di Inventory, 28 Mei 2026 |
-| 18+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 18 | Inventory Stock Opname / Adjustment | Dibuat: draft count, posting adjustment ke stock ledger, 28 Mei 2026 |
+| 19+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -410,6 +411,31 @@ Movement POS masih satu item mengikuti batas MVP receipt Tahap 15.
 Grid ini masih read-only dan mengambil movement terbaru terbatas. Filter per
 warehouse/item/tanggal, export, drilldown dokumen, dan DataTables server-side
 menjadi lanjutan reporting inventory.
+
+## Tahap 18: Inventory Stock Opname / Adjustment
+
+### Yang Sudah Dibuat
+
+- Migration `inventory_adjustments` dan `inventory_adjustment_items` membuat
+  dokumen koreksi stok tenant-scoped dengan nomor adjustment unik per company.
+- `InventoryWriteModel` dapat membuat draft opname satu item dari warehouse
+  aktif, membaca saldo sistem, menghitung variance, lalu mem-posting variance
+  ke `stock_movements` sebagai `adjustment_in` atau `adjustment_out`.
+- Posting adjustment mengubah `stock_balances.qty_on_hand` menjadi counted
+  quantity dan mengunci dokumen menjadi status `posted`.
+- Halaman `/inventory` menambahkan form Stock Opname / Adjustment dan grid
+  draft/posting agar kontrol stok dasar bisa dicoba langsung dari UI.
+- Audit event `INVENTORY_ADJUSTMENT_CREATED` dan
+  `INVENTORY_ADJUSTMENT_POSTED` tercatat.
+- Regression test mencakup penolakan warehouse tenant lain, pembuatan draft,
+  variance `+5`, posting ke ledger, update saldo `105`, dan pencegahan posting
+  ulang dokumen yang sama.
+
+### Batas Tahap Ini
+
+Stock opname masih MVP satu item per dokumen, belum approval workflow,
+multi-item import, lot/bin count, freeze stock, reversal, costing recalculation,
+atau period close. Semua itu menjadi dasar tahap inventory control berikutnya.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

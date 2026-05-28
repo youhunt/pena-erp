@@ -33,6 +33,7 @@ final class Inventory extends BaseController
             'canManage'     => $this->canManage($companyId),
             'products'      => $products,
             'productOptions' => array_values(array_filter($products, static fn (array $product): bool => $product['status'] === 'active')),
+            'stockProductOptions' => array_values(array_filter($products, static fn (array $product): bool => $product['status'] === 'active' && $product['product_type'] === 'stock')),
             'warehouses'    => $warehouses,
             'warehouseOptions' => array_values(array_filter($warehouses, static fn (array $warehouse): bool => (bool) $warehouse['is_active'])),
             'uoms'          => $uoms,
@@ -50,6 +51,7 @@ final class Inventory extends BaseController
             'productPrices' => $model->productPrices($companyId),
             'stockBalances' => $model->stockBalances($companyId),
             'stockMovements' => $model->stockMovements($companyId),
+            'stockAdjustments' => $model->stockAdjustments($companyId),
         ]);
     }
 
@@ -455,6 +457,55 @@ final class Inventory extends BaseController
         }
 
         return $this->completed('Baseline harga item berhasil ditambahkan.');
+    }
+
+    public function createStockAdjustment(): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'       => (int) $context['company_id'],
+            'warehouse_id'     => (int) $this->request->getPost('warehouse_id'),
+            'product_id'       => (int) $this->request->getPost('product_id'),
+            'adjustment_date'  => (string) $this->request->getPost('adjustment_date'),
+            'counted_qty'      => (string) ($this->request->getPost('counted_qty') ?: '0'),
+            'reason'           => trim((string) $this->request->getPost('reason')),
+        ];
+
+        if (! $this->validateData($data, [
+            'warehouse_id'    => 'required|is_natural_no_zero',
+            'product_id'      => 'required|is_natural_no_zero',
+            'adjustment_date' => 'required|valid_date[Y-m-d]',
+            'counted_qty'     => 'required|decimal|greater_than_equal_to[0]',
+            'reason'          => 'required|max_length[150]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new InventoryWriteModel())->createStockAdjustment($data, $this->actorId())) {
+            return $this->invalid(['adjustment' => 'Warehouse atau stock item tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Draft stock opname berhasil dibuat.');
+    }
+
+    public function postStockAdjustment(int $id): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        if (! (new InventoryWriteModel())->postStockAdjustment((int) $context['company_id'], $id, $this->actorId())) {
+            return $this->invalid(['adjustment' => 'Stock opname tidak valid, sudah posted, atau bukan milik company aktif.']);
+        }
+
+        return $this->completed('Stock opname berhasil diposting ke ledger.');
     }
 
     public function updateUnitOfMeasure(int $id): RedirectResponse

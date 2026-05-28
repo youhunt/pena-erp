@@ -63,7 +63,7 @@ Mutation requirements:
 | `GET /inventory/movements` | Ledger drilldown | `inventory.stock.view` |
 | `POST /inventory/transfers` | Transfer draft | `inventory.transfer.create` |
 | `POST /inventory/transfers/{id}/submit` | Workflow submit | `inventory.transfer.submit` |
-| `POST /inventory/adjustments/{id}/post` | Controlled stock posting | `inventory.adjust.post` |
+| `POST /inventory/stock-adjustments`, `/inventory/stock-adjustments/{id}/post` | Stock opname draft dan controlled posting ke stock ledger | `inventory.master.manage` |
 
 ### Purchasing and Sales
 

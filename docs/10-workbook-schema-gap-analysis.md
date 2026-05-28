@@ -86,6 +86,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | Delivered T0.1 | POS shift foundation | `pos_shifts` open/close per register dan cashier | prerequisite receipt POS dan kontrol kasir |
 | Delivered T0.2 | POS sales receipt MVP | `pos_sales`, `pos_sale_items`, `pos_sale_payments` paid dari open shift | belum posting stok/jurnal; dipakai untuk validasi transaksi kasir awal |
 | Delivered T0.3 | Stock ledger foundation | `stock_balances`, `stock_movements`; POS issue dari receipt | negative stock ditolak; transfer/opname/costing lanjutan belum |
+| Delivered T0.5 | Inventory stock opname MVP | `inventory_adjustments`, `inventory_adjustment_items`; variance posting ke stock ledger | single-item count; approval/multi-item/reversal lanjutan |
 | Delivered T0.4 | Inventory stock visibility | `/inventory` grid saldo dan ledger | read-only, filter/reporting lanjutan belum |
 | P1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan address snapshot dan numbering | mulai T1 tanpa kehilangan jejak dokumen |
 | P2 | Organization profile/address | link address/contact untuk company/site/department/warehouse | diperlukan untuk cetak dokumen enterprise |
@@ -103,6 +104,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | T0.2 POS receipt | paid receipt dari open shift, payment method, item dan VAT | Built MVP: `pos_sales`, `pos_sale_items`, `pos_sale_payments` |
 | T0.3 Stock ledger | saldo on hand dan immutable movement untuk issue POS | Built foundation: `stock_balances`, `stock_movements` |
 | T0.4 Stock visibility | saldo dan movement terlihat dari menu Inventory | Built read-only grid |
+| T0.5 Stock opname | hitung fisik, variance dan posting adjustment | Built MVP: single-item draft/posting |
 | T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |
 | T1.2 Fulfilment stock | allocation, delivery, purchase receipt, immutable stock movement | baru dilakukan setelah workflow/locking diuji |
 | M3 Finance lanjutan | GL book, fiscal/posting setup | sebelum invoice/payment/GL posting |

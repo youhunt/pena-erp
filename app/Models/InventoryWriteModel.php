@@ -320,6 +320,138 @@ final class InventoryWriteModel extends Model
         return $this->updateTenantStatus($table, $entity, $event, $companyId, $id, ['status' => $status], null, $actorId);
     }
 
+    /** @param array<string, mixed> $data */
+    public function createStockAdjustment(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        $warehouse = $this->db->table('warehouses')
+            ->where(['id' => (int) $data['warehouse_id'], 'company_id' => $companyId, 'is_active' => true])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+        $product = $this->db->table('products')
+            ->where(['id' => (int) $data['product_id'], 'company_id' => $companyId, 'status' => 'active', 'product_type' => 'stock'])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+
+        if ($warehouse === null || $product === null) {
+            return false;
+        }
+
+        $systemQty = $this->currentStockQty($companyId, (int) $data['warehouse_id'], (int) $data['product_id']);
+        $countedQty = (float) $data['counted_qty'];
+
+        if ($countedQty < 0) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $adjustment = [
+            'company_id'      => $companyId,
+            'warehouse_id'    => (int) $data['warehouse_id'],
+            'adjustment_no'   => $this->nextAdjustmentNo($companyId),
+            'adjustment_date' => (string) $data['adjustment_date'],
+            'reason'          => (string) $data['reason'],
+            'status'          => 'draft',
+            'created_by'      => $actorId,
+            'created_at'      => $now,
+        ];
+        $item = [
+            'company_id'    => $companyId,
+            'product_id'    => (int) $data['product_id'],
+            'uom_id'        => (int) $product['base_uom_id'],
+            'system_qty'    => $this->quantity($systemQty),
+            'counted_qty'   => $this->quantity($countedQty),
+            'variance_qty'  => $this->quantity($countedQty - $systemQty),
+            'unit_cost'     => $this->money((float) $product['standard_cost']),
+            'created_by'    => $actorId,
+            'created_at'    => $now,
+        ];
+
+        $this->db->transStart();
+        $this->db->table('inventory_adjustments')->insert($adjustment);
+        $adjustmentId = (int) $this->db->insertID();
+        $this->db->table('inventory_adjustment_items')->insert($item + ['inventory_adjustment_id' => $adjustmentId]);
+        $this->audit()->record('INVENTORY_ADJUSTMENT_CREATED', 'inventory_adjustment', $adjustmentId, $companyId, (int) $warehouse['branch_id'], $actorId, $adjustment + $item);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    public function postStockAdjustment(int $companyId, int $adjustmentId, int $actorId): bool
+    {
+        $adjustment = $this->db->table('inventory_adjustments')
+            ->where(['id' => $adjustmentId, 'company_id' => $companyId])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+
+        if ($adjustment === null || $adjustment['status'] !== 'draft') {
+            return false;
+        }
+
+        $item = $this->db->table('inventory_adjustment_items')
+            ->where(['inventory_adjustment_id' => $adjustmentId, 'company_id' => $companyId])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+        $warehouse = $this->db->table('warehouses')->where(['id' => (int) $adjustment['warehouse_id'], 'company_id' => $companyId])->get()->getFirstRow('array');
+
+        if ($item === null || $warehouse === null) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $countedQty = (float) $item['counted_qty'];
+        $varianceQty = (float) $item['variance_qty'];
+        $balance = $this->stockBalanceRow($companyId, (int) $adjustment['warehouse_id'], (int) $item['product_id']);
+
+        $this->db->transStart();
+        if ($balance === null) {
+            $this->db->table('stock_balances')->insert([
+                'company_id'    => $companyId,
+                'warehouse_id'  => (int) $adjustment['warehouse_id'],
+                'bin_id'        => null,
+                'product_id'    => (int) $item['product_id'],
+                'lot_id'        => null,
+                'qty_on_hand'   => $this->quantity($countedQty),
+                'qty_reserved'  => '0.0000',
+                'avg_cost'      => $this->money((float) $item['unit_cost']),
+                'created_by'    => $actorId,
+                'created_at'    => $now,
+            ]);
+        } else {
+            $this->db->table('stock_balances')->where(['id' => (int) $balance['id'], 'company_id' => $companyId])->update([
+                'qty_on_hand' => $this->quantity($countedQty),
+                'updated_by'  => $actorId,
+                'updated_at'  => $now,
+            ]);
+        }
+
+        if (abs($varianceQty) > 0.00001) {
+            $this->db->table('stock_movements')->insert([
+                'company_id'     => $companyId,
+                'warehouse_id'   => (int) $adjustment['warehouse_id'],
+                'bin_id'         => null,
+                'product_id'     => (int) $item['product_id'],
+                'lot_id'         => null,
+                'movement_type'  => $varianceQty > 0 ? 'adjustment_in' : 'adjustment_out',
+                'reference_type' => 'inventory_adjustment',
+                'reference_id'   => $adjustmentId,
+                'reference_no'   => (string) $adjustment['adjustment_no'],
+                'qty'            => $this->quantity($varianceQty),
+                'unit_cost'      => $this->money((float) $item['unit_cost']),
+                'posted_at'      => $now,
+                'created_by'     => $actorId,
+                'created_at'     => $now,
+            ]);
+        }
+
+        $changes = ['status' => 'posted', 'posted_at' => $now, 'posted_by' => $actorId, 'updated_by' => $actorId, 'updated_at' => $now];
+        $this->db->table('inventory_adjustments')->where(['id' => $adjustmentId, 'company_id' => $companyId])->update($changes);
+        $this->audit()->record('INVENTORY_ADJUSTMENT_POSTED', 'inventory_adjustment', $adjustmentId, $companyId, (int) $warehouse['branch_id'], $actorId, $changes, $adjustment);
+        $this->completeTransaction();
+
+        return true;
+    }
+
     /**
      * @param array<string, mixed> $data
      */
@@ -348,6 +480,46 @@ final class InventoryWriteModel extends Model
             ->where(['id' => $id, 'company_id' => $companyId, $activeColumn => $activeValue])
             ->where('deleted_at', null)
             ->countAllResults() === 1;
+    }
+
+    private function currentStockQty(int $companyId, int $warehouseId, int $productId): float
+    {
+        $balance = $this->stockBalanceRow($companyId, $warehouseId, $productId);
+
+        return $balance === null ? 0.0 : (float) $balance['qty_on_hand'];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function stockBalanceRow(int $companyId, int $warehouseId, int $productId): ?array
+    {
+        return $this->db->table('stock_balances')
+            ->where(['company_id' => $companyId, 'warehouse_id' => $warehouseId, 'product_id' => $productId])
+            ->where('bin_id', null)
+            ->where('lot_id', null)
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+    }
+
+    private function nextAdjustmentNo(int $companyId): string
+    {
+        $prefix = 'ADJ-' . date('Ymd') . '-';
+        $count = $this->db->table('inventory_adjustments')
+            ->where('company_id', $companyId)
+            ->like('adjustment_no', $prefix, 'after')
+            ->countAllResults();
+
+        return $prefix . str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function quantity(float $value): string
+    {
+        return number_format($value, 4, '.', '');
+    }
+
+    private function money(float $value): string
+    {
+        return number_format($value, 4, '.', '');
     }
 
     /**

@@ -115,6 +115,18 @@
         </div></div>
     </div>
 </div>
+<div class="card"><div class="card-body">
+    <h4 class="card-title mb-3">Stock Opname / Adjustment</h4>
+    <form method="post" action="<?= site_url('inventory/stock-adjustments') ?>" class="row g-2 align-items-end">
+        <?= csrf_field() ?>
+        <div class="col-md-3"><label class="form-label">Warehouse</label><select name="warehouse_id" class="form-select" required><?php foreach ($warehouseOptions as $warehouse) : ?><option value="<?= esc($warehouse['id']) ?>"><?= esc($warehouse['branch_code'] . ' / ' . $warehouse['code']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-3"><label class="form-label">Stock Item</label><select name="product_id" class="form-select" required><?php foreach ($stockProductOptions as $product) : ?><option value="<?= esc($product['id']) ?>"><?= esc($product['sku'] . ' - ' . $product['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><label class="form-label">Tanggal</label><input name="adjustment_date" type="date" value="<?= date('Y-m-d') ?>" class="form-control" required></div>
+        <div class="col-md-2"><label class="form-label">Counted Qty</label><input name="counted_qty" type="number" step="0.0001" min="0" class="form-control" required></div>
+        <div class="col-md-2"><label class="form-label">Reason</label><input name="reason" class="form-control" placeholder="Stock opname" required></div>
+        <div class="col-12"><button class="btn btn-primary" <?= $warehouseOptions === [] || $stockProductOptions === [] ? 'disabled' : '' ?>>Buat Draft Opname</button></div>
+    </form>
+</div></div>
 <div class="row">
     <div class="col-xl-3">
         <div class="card"><div class="card-body">
@@ -264,6 +276,25 @@
         </table></div>
     </div></div></div>
 </div>
+<div class="card"><div class="card-body">
+    <h4 class="card-title mb-3">Stock Opname Drafts</h4>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>No / Date</th><th>Warehouse</th><th>Item</th><th>System</th><th>Counted</th><th>Variance</th><th>Status</th><?php if ($canManage) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
+        <tbody>
+        <?php foreach ($stockAdjustments as $adjustment) : ?><tr>
+            <td><strong><?= esc($adjustment['adjustment_no']) ?></strong><br><small><?= esc($adjustment['adjustment_date']) ?></small></td>
+            <td><?= esc($adjustment['branch_code'] . ' / ' . $adjustment['warehouse_code']) ?></td>
+            <td><?= esc($adjustment['sku'] . ' - ' . $adjustment['product_name']) ?></td>
+            <td><?= esc($adjustment['system_qty'] . ' ' . $adjustment['uom_code']) ?></td>
+            <td><?= esc($adjustment['counted_qty'] . ' ' . $adjustment['uom_code']) ?></td>
+            <td><?= esc($adjustment['variance_qty']) ?></td>
+            <td><?= esc($adjustment['status']) ?></td>
+            <?php if ($canManage) : ?><td class="text-end"><?php if ($adjustment['status'] === 'draft') : ?><form method="post" action="<?= site_url('inventory/stock-adjustments/' . $adjustment['id'] . '/post') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-primary">Post</button></form><?php else : ?>-<?php endif; ?></td><?php endif; ?>
+        </tr><?php endforeach; ?>
+        <?php if ($stockAdjustments === []) : ?><tr><td colspan="<?= $canManage ? '8' : '7' ?>" class="text-muted">Belum ada stock opname.</td></tr><?php endif; ?>
+        </tbody>
+    </table></div>
+</div></div>
 <div class="row">
     <div class="col-xl-3"><div class="card"><div class="card-body">
         <h4 class="card-title mb-3">Locations</h4>

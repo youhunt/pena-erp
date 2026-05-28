@@ -58,6 +58,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   movement immutable; POS receipt untuk item stock otomatis posting issue.
 - Tahap 17 dimulai: menu Inventory menampilkan Stock Balances dan Stock
   Movements agar dampak receipt POS terlihat dari UI.
+- Tahap 18 dimulai: Inventory menambahkan Stock Opname / Adjustment satu item,
+  draft posting ke ledger, update saldo, dan audit adjustment.
 
 ```bash
 composer install

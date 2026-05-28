@@ -109,6 +109,9 @@ Tahap 16 menambahkan stock ledger foundation: `stock_balances` dan
 stock pada POS, serta posting movement `pos_sale_issue` dari receipt POS.
 Tahap 17 menambahkan visibility inventory: `/inventory` membaca dan
 menampilkan saldo `stock_balances` serta ledger `stock_movements`.
+Tahap 18 menambahkan Stock Opname / Adjustment MVP: draft counted quantity,
+posting variance ke `stock_movements`, update `stock_balances`, audit create
+dan post, serta proteksi tenant pada warehouse/product.
 
 ## Definition of Ready for Implementation
 

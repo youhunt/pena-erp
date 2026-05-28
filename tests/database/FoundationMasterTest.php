@@ -350,6 +350,8 @@ final class FoundationMasterTest extends CIUnitTestCase
         $nusaBranchId = (int) $this->db->table('branches')->where(['company_id' => $nusaId, 'code' => 'BDG'])->get()->getFirstRow()->id;
         $nusaDepartmentId = (int) $this->db->table('departments')->where(['company_id' => $nusaId, 'branch_id' => $nusaBranchId])->get()->getFirstRow()->id;
         $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
+        $warehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+        $foreignWarehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $nusaId, 'code' => 'STORE'])->get()->getFirstRow()->id;
         $actorId = $this->demoUserId('owner@demo.pena-erp.test');
         $writer = new InventoryWriteModel();
 
@@ -372,6 +374,46 @@ final class FoundationMasterTest extends CIUnitTestCase
             'name'       => 'Invalid foreign branch',
             'is_active'  => true,
         ], $actorId));
+        $this->assertFalse($writer->createStockAdjustment([
+            'company_id'       => $penaId,
+            'warehouse_id'     => $foreignWarehouseId,
+            'product_id'       => $productId,
+            'adjustment_date'  => '2026-05-28',
+            'counted_qty'      => '105.0000',
+            'reason'           => 'Invalid foreign warehouse',
+        ], $actorId));
+        $this->assertTrue($writer->createStockAdjustment([
+            'company_id'       => $penaId,
+            'warehouse_id'     => $warehouseId,
+            'product_id'       => $productId,
+            'adjustment_date'  => '2026-05-28',
+            'counted_qty'      => '105.0000',
+            'reason'           => 'Physical count test',
+        ], $actorId));
+
+        $adjustment = (new InventoryReadModel())->stockAdjustments($penaId)[0];
+        $this->assertSame('draft', $adjustment['status']);
+        $this->assertSame(5.0, (float) $adjustment['variance_qty']);
+        $this->assertTrue($writer->postStockAdjustment($penaId, (int) $adjustment['id'], $actorId));
+        $this->assertFalse($writer->postStockAdjustment($penaId, (int) $adjustment['id'], $actorId));
+
+        $stockBalance = $this->db->table('stock_balances')->where([
+            'company_id'   => $penaId,
+            'warehouse_id' => $warehouseId,
+            'product_id'   => $productId,
+        ])->get()->getFirstRow('array');
+        $this->assertSame(105.0, (float) $stockBalance['qty_on_hand']);
+        $this->seeInDatabase('stock_movements', [
+            'company_id'      => $penaId,
+            'warehouse_id'    => $warehouseId,
+            'product_id'      => $productId,
+            'reference_type'  => 'inventory_adjustment',
+            'reference_id'    => (int) $adjustment['id'],
+            'movement_type'   => 'adjustment_in',
+        ]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'INVENTORY_ADJUSTMENT_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'INVENTORY_ADJUSTMENT_POSTED', 'company_id' => $penaId]);
+
         $this->assertTrue($writer->updateProductStatus($penaId, $productId, 'inactive', $actorId));
         $this->seeInDatabase('products', ['id' => $productId, 'company_id' => $penaId, 'status' => 'inactive']);
         $this->seeInDatabase('audit_logs', ['event_type' => 'PRODUCT_STATUS_UPDATED', 'entity_id' => $productId, 'company_id' => $penaId]);

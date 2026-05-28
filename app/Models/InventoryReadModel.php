@@ -248,6 +248,27 @@ final class InventoryReadModel extends Model
     /**
      * @return list<array<string, mixed>>
      */
+    public function stockAdjustments(int $companyId): array
+    {
+        return $this->db->table('inventory_adjustments a')
+            ->select('a.*, i.product_id, i.system_qty, i.counted_qty, i.variance_qty, p.sku, p.name AS product_name, u.code AS uom_code, w.code AS warehouse_code, br.code AS branch_code')
+            ->join('inventory_adjustment_items i', 'i.inventory_adjustment_id = a.id AND i.company_id = a.company_id')
+            ->join('products p', 'p.id = i.product_id AND p.company_id = i.company_id')
+            ->join('units_of_measure u', 'u.id = i.uom_id AND u.company_id = i.company_id')
+            ->join('warehouses w', 'w.id = a.warehouse_id AND w.company_id = a.company_id')
+            ->join('branches br', 'br.id = w.branch_id AND br.company_id = w.company_id')
+            ->where('a.company_id', $companyId)
+            ->where('a.deleted_at', null)
+            ->where('i.deleted_at', null)
+            ->orderBy('a.created_at', 'DESC')
+            ->orderBy('a.id', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function taxOptions(int $companyId): array
     {
         return $this->db->table('tax_codes')

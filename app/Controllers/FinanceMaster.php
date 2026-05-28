@@ -35,10 +35,13 @@ final class FinanceMaster extends BaseController
             'glColumns'     => $reader->glColumns($companyId),
             'costTypes'     => $reader->costTypes($companyId),
             'itemCosts'     => $reader->itemCosts($companyId),
+            'fiscalPeriods' => $reader->fiscalPeriods($companyId),
+            'moduleCloses'  => $reader->modulePeriodCloses($companyId),
             'postable'      => $reader->postableAccounts($companyId),
             'currencies'    => $reader->currencies($companyId),
             'branches'      => $reader->branches($companyId),
             'products'      => $reader->products($companyId),
+            'moduleCodes'   => ['sales', 'purchase', 'inventory', 'production', 'ap', 'ar', 'cashbank', 'gl'],
         ]);
     }
 
@@ -309,6 +312,109 @@ final class FinanceMaster extends BaseController
         }
 
         return $this->completed('Item Cost berhasil ditambahkan.');
+    }
+
+    public function createFiscalPeriod(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id' => (int) $context['company_id'],
+            'year'       => (int) $this->request->getPost('year'),
+            'period'     => (int) $this->request->getPost('period'),
+            'starts_on'  => (string) $this->request->getPost('starts_on'),
+            'ends_on'    => (string) $this->request->getPost('ends_on'),
+            'status'     => 'open',
+        ];
+
+        if (! $this->validateData($data, [
+            'year'      => 'required|integer|greater_than_equal_to[2000]|less_than_equal_to[2100]',
+            'period'    => 'required|integer|greater_than_equal_to[1]|less_than_equal_to[13]',
+            'starts_on' => 'required|valid_date[Y-m-d]',
+            'ends_on'   => 'required|valid_date[Y-m-d]',
+        ])) {
+            return $this->invalid();
+        }
+
+        $reader = new FinanceReadModel();
+        if ($reader->fiscalPeriodExists((int) $context['company_id'], (int) $data['year'], (int) $data['period'])) {
+            return $this->invalid(['period' => 'Fiscal period sudah ada untuk tahun/periode tersebut.']);
+        }
+
+        if (! (new FinanceWriteModel())->createFiscalPeriod($data, $this->actorId())) {
+            return $this->invalid(['period' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.']);
+        }
+
+        return $this->completed('Fiscal period berhasil ditambahkan.');
+    }
+
+    public function closeFiscalPeriod(int $id): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        if (! (new FinanceWriteModel())->closeFiscalPeriod((int) $context['company_id'], $id, $this->actorId())) {
+            return $this->invalid(['period' => 'Fiscal period tidak dapat dikunci.']);
+        }
+
+        return $this->completed('Fiscal period berhasil dikunci.');
+    }
+
+    public function reopenFiscalPeriod(int $id): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        if (! (new FinanceWriteModel())->reopenFiscalPeriod((int) $context['company_id'], $id, $this->actorId())) {
+            return $this->invalid(['period' => 'Fiscal period tidak dapat dibuka ulang.']);
+        }
+
+        return $this->completed('Fiscal period berhasil dibuka ulang.');
+    }
+
+    public function closeModulePeriod(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $periodId = (int) $this->request->getPost('fiscal_period_id');
+        $moduleCode = (string) $this->request->getPost('module_code');
+
+        if (! $this->validateData(['fiscal_period_id' => $periodId, 'module_code' => $moduleCode], [
+            'fiscal_period_id' => 'required|is_natural_no_zero',
+            'module_code'      => 'required|in_list[sales,purchase,inventory,production,ap,ar,cashbank,gl]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new FinanceWriteModel())->closeModulePeriod((int) $context['company_id'], $periodId, $moduleCode, $this->actorId())) {
+            return $this->invalid(['period' => 'Module period tidak dapat ditutup.']);
+        }
+
+        return $this->completed('Module period berhasil ditutup.');
+    }
+
+    public function reopenModulePeriod(int $id): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        if (! (new FinanceWriteModel())->reopenModulePeriod((int) $context['company_id'], $id, $this->actorId())) {
+            return $this->invalid(['period' => 'Module period tidak dapat dibuka ulang.']);
+        }
+
+        return $this->completed('Module period berhasil dibuka ulang.');
     }
 
     public function updateStatus(string $master, int $id): RedirectResponse

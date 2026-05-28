@@ -19,6 +19,9 @@
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addGlColumn">GL Column</button>
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addCostType">Cost Type</button>
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addItemCost">Item Cost</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addFiscalPeriod">Fiscal Period</button>
+            <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#closeModulePeriod">Close Module Period</button>
         </div></div>
     <?php else : ?><span class="badge bg-info">Read only</span><?php endif; ?>
 </div>
@@ -31,6 +34,7 @@
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rates">Exchange Rate</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#gl-setup">GL Setup</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#costing">Costing</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#period-close">Period Close</button></li>
 </ul>
 <div class="tab-content">
 <div class="tab-pane fade show active" id="coa"><div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
@@ -78,6 +82,18 @@
         </table></div></div></div></div>
     </div>
 </div>
+<div class="tab-pane fade" id="period-close">
+    <div class="row">
+        <div class="col-xl-6"><div class="card"><div class="card-body"><h4 class="card-title mb-3">Fiscal Periods</h4><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Period</th><th>Date Range</th><th>Status</th><th>Locked At</th><?php if ($canManage) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
+            <tbody><?php foreach ($fiscalPeriods as $period) : ?><tr><td><strong><?= esc($period['year'] . '/' . str_pad((string) $period['period'], 2, '0', STR_PAD_LEFT)) ?></strong></td><td><?= esc($period['starts_on'] . ' - ' . $period['ends_on']) ?></td><td><?= esc($period['status']) ?></td><td><?= esc($period['locked_at'] ?? '-') ?></td><?php if ($canManage) : ?><td class="text-end"><?php if ($period['status'] === 'open') : ?><form method="post" action="<?= site_url('finance/master/fiscal-periods/' . $period['id'] . '/close') ?>"><?= csrf_field() ?><button class="btn btn-outline-danger btn-sm">Lock</button></form><?php else : ?><form method="post" action="<?= site_url('finance/master/fiscal-periods/' . $period['id'] . '/reopen') ?>"><?= csrf_field() ?><button class="btn btn-outline-primary btn-sm">Reopen</button></form><?php endif; ?></td><?php endif; ?></tr><?php endforeach; ?><?php if ($fiscalPeriods === []) : ?><tr><td colspan="<?= $canManage ? '5' : '4' ?>" class="text-center text-muted py-4">Belum ada fiscal period.</td></tr><?php endif; ?></tbody>
+        </table></div></div></div></div>
+        <div class="col-xl-6"><div class="card"><div class="card-body"><h4 class="card-title mb-3">Module Period Close</h4><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead><tr><th>Period</th><th>Module</th><th>Status</th><th>Closed At</th><?php if ($canManage) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
+            <tbody><?php foreach ($moduleCloses as $close) : ?><tr><td><?= esc($close['year'] . '/' . str_pad((string) $close['period'], 2, '0', STR_PAD_LEFT)) ?></td><td><?= esc($close['module_code']) ?></td><td><?= esc($close['status']) ?></td><td><?= esc($close['closed_at'] ?? '-') ?></td><?php if ($canManage) : ?><td class="text-end"><?php if ($close['status'] === 'closed') : ?><form method="post" action="<?= site_url('finance/master/module-periods/' . $close['id'] . '/reopen') ?>"><?= csrf_field() ?><button class="btn btn-outline-primary btn-sm">Reopen</button></form><?php else : ?>-<?php endif; ?></td><?php endif; ?></tr><?php endforeach; ?><?php if ($moduleCloses === []) : ?><tr><td colspan="<?= $canManage ? '5' : '4' ?>" class="text-center text-muted py-4">Belum ada module close.</td></tr><?php endif; ?></tbody>
+        </table></div></div></div></div>
+    </div>
+</div>
 </div>
 
 <?php if ($canManage) : ?>
@@ -109,6 +125,12 @@
 <div class="modal fade" id="addItemCost"><div class="modal-dialog modal-lg"><form class="modal-content" method="post" action="<?= site_url('finance/master/item-costs') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Tambah Item Cost</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2">
 <div class="col-md-4"><label class="form-label">Item</label><select name="product_id" class="form-select" required><?php foreach ($products as $product) : ?><option value="<?= (int) $product['id'] ?>"><?= esc($product['code'] . ' - ' . $product['name']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Cost Type</label><select name="cost_type_id" class="form-select" required><?php foreach ($costTypes as $type) : ?><option value="<?= (int) $type['id'] ?>"><?= esc($type['code']) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Currency</label><select name="currency_id" class="form-select" required><?php foreach ($currencies as $currency) : ?><option value="<?= (int) $currency['id'] ?>"><?= esc($currency['code']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Unit Cost</label><input name="unit_cost" type="number" step="0.0001" min="0" class="form-control" required></div><div class="col-md-4"><label class="form-label">Effective From</label><input name="effective_from" type="date" value="<?= date('Y-m-d') ?>" class="form-control" required></div>
 </div><div class="modal-footer"><button class="btn btn-primary" <?= $products === [] || $costTypes === [] ? 'disabled' : '' ?>>Simpan</button></div></form></div></div>
+<div class="modal fade" id="addFiscalPeriod"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= site_url('finance/master/fiscal-periods') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Tambah Fiscal Period</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2">
+<div class="col-md-6"><label class="form-label">Year</label><input name="year" type="number" min="2000" max="2100" value="<?= date('Y') ?>" class="form-control" required></div><div class="col-md-6"><label class="form-label">Period</label><input name="period" type="number" min="1" max="13" value="<?= date('n') ?>" class="form-control" required></div><div class="col-md-6"><label class="form-label">Starts On</label><input name="starts_on" type="date" class="form-control" required></div><div class="col-md-6"><label class="form-label">Ends On</label><input name="ends_on" type="date" class="form-control" required></div>
+</div><div class="modal-footer"><button class="btn btn-primary">Simpan</button></div></form></div></div>
+<div class="modal fade" id="closeModulePeriod"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= site_url('finance/master/module-periods/close') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Close Module Period</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2">
+<div class="col-md-7"><label class="form-label">Fiscal Period</label><select name="fiscal_period_id" class="form-select" required><?php foreach ($fiscalPeriods as $period) : ?><option value="<?= (int) $period['id'] ?>"><?= esc($period['year'] . '/' . str_pad((string) $period['period'], 2, '0', STR_PAD_LEFT)) ?></option><?php endforeach; ?></select></div><div class="col-md-5"><label class="form-label">Module</label><select name="module_code" class="form-select" required><?php foreach ($moduleCodes as $moduleCode) : ?><option value="<?= esc($moduleCode) ?>"><?= esc(strtoupper($moduleCode)) ?></option><?php endforeach; ?></select></div>
+</div><div class="modal-footer"><button class="btn btn-primary" <?= $fiscalPeriods === [] ? 'disabled' : '' ?>>Close Module</button></div></form></div></div>
 <?php endif; ?>
 <?= $this->endSection() ?>
 

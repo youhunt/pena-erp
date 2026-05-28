@@ -66,6 +66,7 @@ Mutation requirements:
 | `POST /inventory/stock-adjustments`, `/inventory/stock-adjustments/{id}/post` | Stock opname draft dan controlled posting ke stock ledger | `inventory.master.manage` |
 | `POST /inventory/stock-transfers`, `/inventory/stock-transfers/{id}/post` | Inventory transfer draft dan posting transfer out/in ke stock ledger | `inventory.master.manage` |
 | `POST /finance/master/gl-books`, `/gl-columns`, `/cost-types`, `/item-costs` | Finance advanced master untuk ledger book, reporting column dan costing | `finance.master.manage` |
+| `POST /finance/master/fiscal-periods`, `/fiscal-periods/{id}/close`, `/module-periods/close` | Fiscal period dan module period close/reopen foundation | `finance.master.manage` |
 
 ### Purchasing and Sales
 

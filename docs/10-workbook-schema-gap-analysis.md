@@ -91,7 +91,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | Delivered T0.4 | Inventory stock visibility | `/inventory` grid saldo dan ledger | read-only, filter/reporting lanjutan belum |
 | P1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan address snapshot dan numbering | mulai T1 tanpa kehilangan jejak dokumen |
 | P2 | Organization profile/address | link address/contact untuk company/site/department/warehouse | diperlukan untuk cetak dokumen enterprise |
-| P2 | Finance master lanjutan | GL book/column, cost type/item cost, currency rounding policy, fiscal close, posting setup | GL/costing master built; fiscal close/posting setup berikutnya |
+| P2 | Finance master lanjutan | GL book/column, cost type/item cost, currency rounding policy, fiscal close, posting setup | GL/costing master dan fiscal close foundation built; posting policy berikutnya |
 
 ## 5. Recommended Delivery Sequence
 
@@ -109,7 +109,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | T0.6 Stock transfer | pindah stok antar warehouse aktif | Built MVP: single-item transfer posting |
 | T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |
 | T1.2 Fulfilment stock | allocation, delivery, purchase receipt, immutable stock movement | baru dilakukan setelah workflow/locking diuji |
-| M3 Finance lanjutan | GL book/column, cost type/item cost, fiscal/posting setup | GL/costing master built; fiscal/posting setup berikutnya |
+| M3 Finance lanjutan | GL book/column, cost type/item cost, fiscal/posting setup | GL/costing master dan period close foundation built; posting setup berikutnya |
 
 ## 6. Acceptance Rule for Workbook Fields
 

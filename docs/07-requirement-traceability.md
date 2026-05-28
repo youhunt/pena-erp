@@ -118,6 +118,9 @@ saldo source/destination, audit transfer, dan proteksi tenant.
 Tahap 20 menambahkan Finance Advanced Master: `gl_books`, `gl_columns`,
 `cost_types`, dan `item_costs` berikut UI, seeder demo, audit, serta validasi
 referensi tenant untuk pondasi GL/costing.
+Tahap 21 menambahkan Fiscal Period / Period Close Foundation:
+`fiscal_periods` dan `module_period_closes` berikut UI close/reopen, audit,
+dan validasi tenant sebagai basis period lock posting.
 
 ## Definition of Ready for Implementation
 

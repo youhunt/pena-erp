@@ -745,6 +745,24 @@ final class MultiCompanyDemoSeeder extends Seeder
                     'created_at' => $now,
                 ]);
             }
+            $periodId = $this->relationRecord('fiscal_periods', [
+                'company_id' => $companyId,
+                'year'       => 2026,
+                'period'     => 5,
+            ], [
+                'starts_on'  => '2026-05-01',
+                'ends_on'    => '2026-05-31',
+                'status'     => 'open',
+                'created_at' => $now,
+            ]);
+            $this->relationRecord('module_period_closes', [
+                'company_id'        => $companyId,
+                'fiscal_period_id'  => $periodId,
+                'module_code'       => 'gl',
+            ], [
+                'status'     => 'open',
+                'created_at' => $now,
+            ]);
         }
     }
 

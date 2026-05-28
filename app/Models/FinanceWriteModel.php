@@ -124,6 +124,99 @@ final class FinanceWriteModel extends Model
         return true;
     }
 
+    /** @param array<string, mixed> $data */
+    public function createFiscalPeriod(array $data, int $actorId): bool
+    {
+        if (strtotime((string) $data['ends_on']) < strtotime((string) $data['starts_on'])) {
+            return false;
+        }
+
+        $this->create('fiscal_periods', 'FISCAL_PERIOD_CREATED', 'fiscal_period', $data, $actorId);
+
+        return true;
+    }
+
+    public function closeFiscalPeriod(int $companyId, int $periodId, int $actorId): bool
+    {
+        $period = $this->record('fiscal_periods', $companyId, $periodId);
+
+        if ($period === null || $period['status'] !== 'open') {
+            return false;
+        }
+
+        return $this->updateRecord('fiscal_periods', 'FISCAL_PERIOD_CLOSED', 'fiscal_period', $companyId, $periodId, [
+            'status'    => 'closed',
+            'locked_at' => date('Y-m-d H:i:s'),
+            'locked_by' => $actorId,
+        ], $actorId);
+    }
+
+    public function reopenFiscalPeriod(int $companyId, int $periodId, int $actorId): bool
+    {
+        $period = $this->record('fiscal_periods', $companyId, $periodId);
+
+        if ($period === null || $period['status'] !== 'closed') {
+            return false;
+        }
+
+        return $this->updateRecord('fiscal_periods', 'FISCAL_PERIOD_REOPENED', 'fiscal_period', $companyId, $periodId, [
+            'status'    => 'open',
+            'locked_at' => null,
+            'locked_by' => null,
+        ], $actorId);
+    }
+
+    public function closeModulePeriod(int $companyId, int $periodId, string $moduleCode, int $actorId): bool
+    {
+        if (! in_array($moduleCode, $this->moduleCodes(), true) || ! $this->sameTenantRecord('fiscal_periods', $periodId, $companyId)) {
+            return false;
+        }
+
+        $existing = $this->db->table('module_period_closes')->where([
+            'company_id' => $companyId, 'fiscal_period_id' => $periodId, 'module_code' => $moduleCode,
+        ])->where('deleted_at', null)->get()->getFirstRow('array');
+
+        if ($existing !== null && $existing['status'] === 'closed') {
+            return false;
+        }
+
+        $changes = [
+            'status'      => 'closed',
+            'closed_at'   => date('Y-m-d H:i:s'),
+            'closed_by'   => $actorId,
+            'reopened_at' => null,
+            'reopened_by' => null,
+        ];
+
+        if ($existing === null) {
+            $this->create('module_period_closes', 'MODULE_PERIOD_CLOSED', 'module_period_close', [
+                'company_id'        => $companyId,
+                'fiscal_period_id'  => $periodId,
+                'module_code'       => $moduleCode,
+                ...$changes,
+            ], $actorId);
+
+            return true;
+        }
+
+        return $this->updateRecord('module_period_closes', 'MODULE_PERIOD_CLOSED', 'module_period_close', $companyId, (int) $existing['id'], $changes, $actorId);
+    }
+
+    public function reopenModulePeriod(int $companyId, int $closeId, int $actorId): bool
+    {
+        $close = $this->record('module_period_closes', $companyId, $closeId);
+
+        if ($close === null || $close['status'] !== 'closed') {
+            return false;
+        }
+
+        return $this->updateRecord('module_period_closes', 'MODULE_PERIOD_REOPENED', 'module_period_close', $companyId, $closeId, [
+            'status'      => 'open',
+            'reopened_at' => date('Y-m-d H:i:s'),
+            'reopened_by' => $actorId,
+        ], $actorId);
+    }
+
     public function updateStatus(string $master, int $companyId, int $id, string $status, int $actorId): bool
     {
         $map = [
@@ -161,6 +254,25 @@ final class FinanceWriteModel extends Model
     {
         return $this->db->table($table)->where(['id' => $id, 'company_id' => $companyId, 'status' => 'active'])
             ->where('deleted_at', null)->countAllResults() === 1;
+    }
+
+    private function sameTenantRecord(string $table, int $id, int $companyId): bool
+    {
+        return $this->db->table($table)->where(['id' => $id, 'company_id' => $companyId])
+            ->where('deleted_at', null)->countAllResults() === 1;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function record(string $table, int $companyId, int $id): ?array
+    {
+        return $this->db->table($table)->where(['id' => $id, 'company_id' => $companyId])
+            ->where('deleted_at', null)->get()->getFirstRow('array');
+    }
+
+    /** @return list<string> */
+    private function moduleCodes(): array
+    {
+        return ['sales', 'purchase', 'inventory', 'production', 'ap', 'ar', 'cashbank', 'gl'];
     }
 
     /** @param array<string, mixed> $data */

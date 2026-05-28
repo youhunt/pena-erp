@@ -106,6 +106,11 @@ $routes->group('finance/master', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('gl-columns', 'FinanceMaster::createGlColumn');
     $routes->post('cost-types', 'FinanceMaster::createCostType');
     $routes->post('item-costs', 'FinanceMaster::createItemCost');
+    $routes->post('fiscal-periods', 'FinanceMaster::createFiscalPeriod');
+    $routes->post('fiscal-periods/(:num)/close', 'FinanceMaster::closeFiscalPeriod/$1');
+    $routes->post('fiscal-periods/(:num)/reopen', 'FinanceMaster::reopenFiscalPeriod/$1');
+    $routes->post('module-periods/close', 'FinanceMaster::closeModulePeriod');
+    $routes->post('module-periods/(:num)/reopen', 'FinanceMaster::reopenModulePeriod/$1');
     $routes->post('status/(:segment)/(:num)', 'FinanceMaster::updateStatus/$1/$2');
 });
 

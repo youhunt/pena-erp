@@ -941,6 +941,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
         $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
         $costTypeId = (int) $this->db->table('cost_types')->where(['company_id' => $penaId, 'code' => 'STD'])->get()->getFirstRow()->id;
+        $fiscalPeriodId = (int) $this->db->table('fiscal_periods')->where(['company_id' => $penaId, 'year' => 2026, 'period' => 5])->get()->getFirstRow()->id;
 
         $this->assertCount(3, $reader->accounts($penaId));
         $this->assertCount(2, $reader->cashBankAccounts($penaId));
@@ -949,6 +950,8 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertCount(1, $reader->glColumns($penaId));
         $this->assertCount(1, $reader->costTypes($penaId));
         $this->assertCount(1, $reader->itemCosts($penaId));
+        $this->assertCount(1, $reader->fiscalPeriods($penaId));
+        $this->assertCount(1, $reader->modulePeriodCloses($penaId));
         $this->assertContains('finance', array_column((new TenantMenuService($this->db))->accessibleMenus($actorId, $penaId), 'code'));
         $this->assertFalse((new FinanceWriteModel())->createCashBankAccount([
             'company_id'   => $penaId,
@@ -1001,11 +1004,44 @@ final class FoundationMasterTest extends CIUnitTestCase
             'effective_from'  => '2026-06-01',
             'status'          => 'active',
         ], $actorId));
+        $this->assertFalse($writer->createFiscalPeriod([
+            'company_id' => $penaId,
+            'year'       => 2026,
+            'period'     => 6,
+            'starts_on'  => '2026-06-30',
+            'ends_on'    => '2026-06-01',
+            'status'     => 'open',
+        ], $actorId));
+        $this->assertTrue($writer->createFiscalPeriod([
+            'company_id' => $penaId,
+            'year'       => 2026,
+            'period'     => 6,
+            'starts_on'  => '2026-06-01',
+            'ends_on'    => '2026-06-30',
+            'status'     => 'open',
+        ], $actorId));
+        $this->assertTrue($writer->closeModulePeriod($penaId, $fiscalPeriodId, 'inventory', $actorId));
+        $moduleClose = $this->db->table('module_period_closes')->where([
+            'company_id'        => $penaId,
+            'fiscal_period_id'  => $fiscalPeriodId,
+            'module_code'       => 'inventory',
+        ])->get()->getFirstRow('array');
+        $this->assertSame('closed', $moduleClose['status']);
+        $this->assertFalse($writer->closeModulePeriod($penaId, $fiscalPeriodId, 'inventory', $actorId));
+        $this->assertTrue($writer->reopenModulePeriod($penaId, (int) $moduleClose['id'], $actorId));
+        $this->assertTrue($writer->closeFiscalPeriod($penaId, $fiscalPeriodId, $actorId));
+        $this->assertFalse($writer->closeFiscalPeriod($nusaId, $fiscalPeriodId, $actorId));
+        $this->assertTrue($writer->reopenFiscalPeriod($penaId, $fiscalPeriodId, $actorId));
         $this->assertTrue($writer->updateStatus('cash-bank', $penaId, (int) $cashBank['id'], 'inactive', $actorId));
         $this->seeInDatabase('audit_logs', ['event_type' => 'CASH_BANK_ACCOUNT_STATUS_UPDATED', 'entity_id' => (int) $cashBank['id']]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'COST_TYPE_CREATED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'GL_COLUMN_CREATED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'ITEM_COST_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'FISCAL_PERIOD_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'MODULE_PERIOD_CLOSED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'MODULE_PERIOD_REOPENED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'FISCAL_PERIOD_CLOSED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'FISCAL_PERIOD_REOPENED', 'company_id' => $penaId]);
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

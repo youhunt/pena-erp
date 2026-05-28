@@ -64,6 +64,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   warehouse aktif, posting keluar/masuk ke stock ledger, dan audit transfer.
 - Tahap 20 dimulai: Finance Master lanjutan menambahkan GL Book, GL Column,
   Cost Type, dan Item Cost history sebagai pondasi jurnal/costing.
+- Tahap 21 dimulai: Fiscal Period dan Module Period Close tersedia sebagai
+  fondasi period lock sebelum posting transaksi.
 
 ```bash
 composer install

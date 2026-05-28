@@ -56,7 +56,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Sales Order | `sales_orders`, `sales_order_items` | Designed |
 | Allocation Order | `sales_allocations`, `sales_allocation_items`, reserves stock | Designed |
 | Delivery Order | `deliveries`, `delivery_items` | Designed |
-| Sales Period Close | `module_period_closes` type `sales` with `fiscal_periods` | Designed |
+| Sales Period Close | `module_period_closes` type `sales` with `fiscal_periods` | Built foundation |
 | Supplier Master | `suppliers`, `supplier_profiles` | Built; enriched |
 | Supplier Terms | `supplier_terms` | Built |
 | Supplier Promo | `supplier_promotions` / purchase rebate rules awal | Built |
@@ -65,7 +65,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Purchase Intransit | `purchase_intransits`, `purchase_intransit_items` | Designed |
 | Inventory Purchase Receipt | `goods_receipts`, `goods_receipt_items` | Designed |
 | Cost Purchase Receipt | `landed_cost_receipts`, allocation lines | Designed |
-| Purchase Period Close | `module_period_closes` type `purchase` | Designed |
+| Purchase Period Close | `module_period_closes` type `purchase` | Built foundation |
 
 ## 4. Inventory, Planning and Production
 
@@ -77,7 +77,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Inventory In Out | immutable `stock_movements`, balance projection | Built foundation; POS issue posted; balance/movement grid visible |
 | Inventory Transfer | `stock_transfers`, `stock_transfer_items` | Built MVP; one item draft, transfer in/out ledger |
 | Inventory Stock Opname | `inventory_adjustments`, detail counted quantity | Built MVP; one item draft, post to stock ledger |
-| Inventory Period Close | `module_period_closes` type `inventory` | Designed |
+| Inventory Period Close | `module_period_closes` type `inventory` | Built foundation |
 | Forecast | `forecasts`, `forecast_items` | Designed |
 | Planned Released | `planned_orders`, release state/work order or PO proposal | Designed |
 | MPS | `master_production_schedules`, lines | Designed |
@@ -89,7 +89,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Allocate Work Order | `work_order_allocations` | Designed |
 | Work Order In / Out / In Out | production receipt/issue through `stock_movements` references | Designed |
 | Work Order Labor | `work_order_labor_entries` | Designed |
-| Production Period Close | `module_period_closes` type `production` | Designed |
+| Production Period Close | `module_period_closes` type `production` | Built foundation |
 
 ## 5. AP, AR, Costing, Cash Bank and GL
 
@@ -100,14 +100,14 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Inventory Purchase Invoice | `ap_invoices` source `goods_receipt` | Designed |
 | Advanced A/P Invoice | `ap_advances` | Designed |
 | Payment Invoice | `payments`, `payment_allocations` direction payable | Designed |
-| A/P Period Close | `module_period_closes` type `ap` | Designed |
+| A/P Period Close | `module_period_closes` type `ap` | Built foundation |
 | Manual A/R Invoice | `ar_invoices` source `manual` | Designed |
 | Proforma Invoice | `proforma_invoices` | Designed |
 | Sales Invoice | `ar_invoices` source `sales_order` / legacy target `sales_invoices` | Designed |
 | Inventory Sales Invoice | `ar_invoices` source `delivery` | Designed |
 | Advanced A/R Receipt | `ar_advances` | Designed |
 | Payment Receipt | `payments`, `payment_allocations` direction receivable | Designed |
-| A/R Period Close | `module_period_closes` type `ar` | Designed |
+| A/R Period Close | `module_period_closes` type `ar` | Built foundation |
 | Cost Type | `cost_types` | Built |
 | Item Cost | `item_costs` history by type/period | Built |
 | Calculate Cost | `cost_calculation_runs`, result lines | Designed |
@@ -121,7 +121,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Account No. / Chart of Account | `chart_of_accounts` | Built; foundation |
 | Recurring / Recurring Posting | `recurring_journals`, posting runs | Designed |
 | GL Entry | `journal_entries`, `journal_entry_lines` immutable after posting | Designed |
-| GL Period Close | `module_period_closes` type `gl`, locks upstream posting | Designed |
+| GL Period Close | `module_period_closes` type `gl`, locks upstream posting | Built foundation |
 
 ## 6. Delivery Order for Master Data
 
@@ -132,7 +132,7 @@ tidak bisa dipakai transaksi:
 | --- | --- |
 | M1 Foundation master | Transaction Code, Department, Country/Address, Currency, VAT, Location, UoM Conversion, Item VAT, Batch Master |
 | M2 Commercial master | Customer/Supplier/profile policy, item profile/effective baseline price, POS register (Built) |
-| M3 Finance master | COA, Cash Bank, Rate, GL Book/Column, Cost Type/Item Cost (Built); fiscal close authority (next) |
+| M3 Finance master | COA, Cash Bank, Rate, GL Book/Column, Cost Type/Item Cost, fiscal period/close foundation (Built) |
 | M4 Manufacturing master | BOM, Work Center, Routing, Forecast/MPS/MRP setup |
 | T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting; stock ledger foundation Built |
 | T2 Financial transactions | AP/AR, payment, cash/bank, GL posting and period close |

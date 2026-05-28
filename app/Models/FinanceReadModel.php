@@ -82,6 +82,25 @@ final class FinanceReadModel extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function fiscalPeriods(int $companyId): array
+    {
+        return $this->db->table('fiscal_periods')
+            ->where('company_id', $companyId)->where('deleted_at', null)
+            ->orderBy('year', 'DESC')->orderBy('period', 'DESC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function modulePeriodCloses(int $companyId): array
+    {
+        return $this->db->table('module_period_closes c')
+            ->select('c.*, p.year, p.period, p.starts_on, p.ends_on, p.status AS fiscal_status')
+            ->join('fiscal_periods p', 'p.id = c.fiscal_period_id AND p.company_id = c.company_id')
+            ->where('c.company_id', $companyId)->where('c.deleted_at', null)
+            ->orderBy('p.year', 'DESC')->orderBy('p.period', 'DESC')->orderBy('c.module_code', 'ASC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
     public function postableAccounts(int $companyId): array
     {
         return $this->db->table('chart_of_accounts')->select('id, account_code, account_name')
@@ -126,6 +145,13 @@ final class FinanceReadModel extends Model
         }
 
         return $builder->countAllResults() > 0;
+    }
+
+    public function fiscalPeriodExists(int $companyId, int $year, int $period): bool
+    {
+        return $this->db->table('fiscal_periods')
+            ->where(['company_id' => $companyId, 'year' => $year, 'period' => $period])
+            ->where('deleted_at', null)->countAllResults() > 0;
     }
 
     /** @return list<array<string, mixed>> */

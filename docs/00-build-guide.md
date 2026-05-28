@@ -51,7 +51,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 18 | Inventory Stock Opname / Adjustment | Dibuat: draft count, posting adjustment ke stock ledger, 28 Mei 2026 |
 | 19 | Inventory Transfer | Dibuat: draft transfer antar warehouse dan posting transfer in/out, 28 Mei 2026 |
 | 20 | Finance Advanced Master | Dibuat: GL Book, GL Column, Cost Type, Item Cost, 28 Mei 2026 |
-| 21+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 21 | Fiscal Period / Period Close Foundation | Dibuat: fiscal period lock dan module close/reopen, 28 Mei 2026 |
+| 22+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -486,6 +487,31 @@ picking, transfer cost, reversal, print dokumen, atau period close lock.
 Tahap ini belum membuat journal entry, posting GL, costing calculation run,
 inventory valuation, fiscal period, atau period close. Ia hanya menyiapkan
 master yang nanti dipakai oleh AP/AR, POS posting, costing, dan GL.
+
+## Tahap 21: Fiscal Period / Period Close Foundation
+
+### Yang Sudah Dibuat
+
+- Migration `fiscal_periods` dan `module_period_closes` membuat kontrol periode
+  tenant-scoped untuk lock company period dan close per module.
+- Seeder demo membuat fiscal period `2026/05` dan baseline module close `gl`
+  status `open` untuk tiap company.
+- Menu `Finance Master` menambah tab `Period Close`, modal Fiscal Period, dan
+  modal Close Module Period.
+- `FinanceWriteModel` mendukung create fiscal period, close/reopen fiscal
+  period, close/reopen module period, serta menolak company/module yang tidak
+  valid.
+- Audit event `FISCAL_PERIOD_CREATED`, `FISCAL_PERIOD_CLOSED`,
+  `FISCAL_PERIOD_REOPENED`, `MODULE_PERIOD_CLOSED`, dan
+  `MODULE_PERIOD_REOPENED` tercatat.
+- Regression test mencakup seed idempotent, invalid date range, close/reopen
+  module, close/reopen fiscal period, dan penolakan akses lintas-company.
+
+### Batas Tahap Ini
+
+Belum ada policy global yang dipanggil oleh semua posting transaksi. Tahap ini
+menyiapkan data dan UI lock; tahap posting AP/AR/GL/inventory berikutnya wajib
+memanggil period policy sebelum menulis ledger.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

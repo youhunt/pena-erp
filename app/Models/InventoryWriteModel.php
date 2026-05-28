@@ -452,6 +452,158 @@ final class InventoryWriteModel extends Model
         return true;
     }
 
+    /** @param array<string, mixed> $data */
+    public function createStockTransfer(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        $fromWarehouseId = (int) $data['from_warehouse_id'];
+        $toWarehouseId = (int) $data['to_warehouse_id'];
+        $productId = (int) $data['product_id'];
+        $qty = (float) $data['qty'];
+
+        if ($fromWarehouseId === $toWarehouseId || $qty <= 0) {
+            return false;
+        }
+
+        $fromWarehouse = $this->activeWarehouse($companyId, $fromWarehouseId);
+        $toWarehouse = $this->activeWarehouse($companyId, $toWarehouseId);
+        $product = $this->db->table('products')
+            ->where(['id' => $productId, 'company_id' => $companyId, 'status' => 'active', 'product_type' => 'stock'])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+
+        if ($fromWarehouse === null || $toWarehouse === null || $product === null) {
+            return false;
+        }
+
+        if ($this->currentStockQty($companyId, $fromWarehouseId, $productId) < $qty) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $transfer = [
+            'company_id'         => $companyId,
+            'transfer_no'        => $this->nextTransferNo($companyId),
+            'from_warehouse_id'  => $fromWarehouseId,
+            'to_warehouse_id'    => $toWarehouseId,
+            'transfer_date'      => (string) $data['transfer_date'],
+            'status'             => 'draft',
+            'created_by'         => $actorId,
+            'created_at'         => $now,
+        ];
+        $item = [
+            'company_id'  => $companyId,
+            'product_id'  => $productId,
+            'uom_id'      => (int) $product['base_uom_id'],
+            'qty'         => $this->quantity($qty),
+            'unit_cost'   => $this->money((float) $product['standard_cost']),
+            'created_by'  => $actorId,
+            'created_at'  => $now,
+        ];
+
+        $this->db->transStart();
+        $this->db->table('stock_transfers')->insert($transfer);
+        $transferId = (int) $this->db->insertID();
+        $this->db->table('stock_transfer_items')->insert($item + ['stock_transfer_id' => $transferId]);
+        $this->audit()->record('STOCK_TRANSFER_CREATED', 'stock_transfer', $transferId, $companyId, (int) $fromWarehouse['branch_id'], $actorId, $transfer + $item);
+        $this->completeTransaction();
+
+        return true;
+    }
+
+    public function postStockTransfer(int $companyId, int $transferId, int $actorId): bool
+    {
+        $transfer = $this->db->table('stock_transfers')
+            ->where(['id' => $transferId, 'company_id' => $companyId])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+
+        if ($transfer === null || $transfer['status'] !== 'draft') {
+            return false;
+        }
+
+        $item = $this->db->table('stock_transfer_items')
+            ->where(['stock_transfer_id' => $transferId, 'company_id' => $companyId])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+        $fromWarehouse = $this->activeWarehouse($companyId, (int) $transfer['from_warehouse_id']);
+        $toWarehouse = $this->activeWarehouse($companyId, (int) $transfer['to_warehouse_id']);
+
+        if ($item === null || $fromWarehouse === null || $toWarehouse === null) {
+            return false;
+        }
+
+        $qty = (float) $item['qty'];
+        $sourceBalance = $this->stockBalanceRow($companyId, (int) $transfer['from_warehouse_id'], (int) $item['product_id']);
+
+        if ($sourceBalance === null || (float) $sourceBalance['qty_on_hand'] < $qty) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $destinationBalance = $this->stockBalanceRow($companyId, (int) $transfer['to_warehouse_id'], (int) $item['product_id']);
+
+        $this->db->transStart();
+        $this->db->table('stock_balances')->where(['id' => (int) $sourceBalance['id'], 'company_id' => $companyId])->update([
+            'qty_on_hand' => $this->quantity((float) $sourceBalance['qty_on_hand'] - $qty),
+            'updated_by'  => $actorId,
+            'updated_at'  => $now,
+        ]);
+
+        if ($destinationBalance === null) {
+            $this->db->table('stock_balances')->insert([
+                'company_id'    => $companyId,
+                'warehouse_id'  => (int) $transfer['to_warehouse_id'],
+                'bin_id'        => null,
+                'product_id'    => (int) $item['product_id'],
+                'lot_id'        => null,
+                'qty_on_hand'   => $this->quantity($qty),
+                'qty_reserved'  => '0.0000',
+                'avg_cost'      => $this->money((float) $item['unit_cost']),
+                'created_by'    => $actorId,
+                'created_at'    => $now,
+            ]);
+        } else {
+            $this->db->table('stock_balances')->where(['id' => (int) $destinationBalance['id'], 'company_id' => $companyId])->update([
+                'qty_on_hand' => $this->quantity((float) $destinationBalance['qty_on_hand'] + $qty),
+                'updated_by'  => $actorId,
+                'updated_at'  => $now,
+            ]);
+        }
+
+        foreach ([
+            [(int) $transfer['from_warehouse_id'], 'transfer_out', -$qty],
+            [(int) $transfer['to_warehouse_id'], 'transfer_in', $qty],
+        ] as [$warehouseId, $movementType, $movementQty]) {
+            $this->db->table('stock_movements')->insert([
+                'company_id'     => $companyId,
+                'warehouse_id'   => $warehouseId,
+                'bin_id'         => null,
+                'product_id'     => (int) $item['product_id'],
+                'lot_id'         => null,
+                'movement_type'  => $movementType,
+                'reference_type' => 'stock_transfer',
+                'reference_id'   => $transferId,
+                'reference_no'   => (string) $transfer['transfer_no'],
+                'qty'            => $this->quantity((float) $movementQty),
+                'unit_cost'      => $this->money((float) $item['unit_cost']),
+                'posted_at'      => $now,
+                'created_by'     => $actorId,
+                'created_at'     => $now,
+            ]);
+        }
+
+        $changes = ['status' => 'posted', 'posted_at' => $now, 'posted_by' => $actorId, 'updated_by' => $actorId, 'updated_at' => $now];
+        $this->db->table('stock_transfers')->where(['id' => $transferId, 'company_id' => $companyId])->update($changes);
+        $this->audit()->record('STOCK_TRANSFER_POSTED', 'stock_transfer', $transferId, $companyId, (int) $fromWarehouse['branch_id'], $actorId, $changes, $transfer);
+        $this->completeTransaction();
+
+        return true;
+    }
+
     /**
      * @param array<string, mixed> $data
      */
@@ -501,12 +653,33 @@ final class InventoryWriteModel extends Model
             ->getFirstRow('array');
     }
 
+    /** @return array<string, mixed>|null */
+    private function activeWarehouse(int $companyId, int $warehouseId): ?array
+    {
+        return $this->db->table('warehouses')
+            ->where(['id' => $warehouseId, 'company_id' => $companyId, 'is_active' => true])
+            ->where('deleted_at', null)
+            ->get()
+            ->getFirstRow('array');
+    }
+
     private function nextAdjustmentNo(int $companyId): string
     {
         $prefix = 'ADJ-' . date('Ymd') . '-';
         $count = $this->db->table('inventory_adjustments')
             ->where('company_id', $companyId)
             ->like('adjustment_no', $prefix, 'after')
+            ->countAllResults();
+
+        return $prefix . str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function nextTransferNo(int $companyId): string
+    {
+        $prefix = 'TRF-' . date('Ymd') . '-';
+        $count = $this->db->table('stock_transfers')
+            ->where('company_id', $companyId)
+            ->like('transfer_no', $prefix, 'after')
             ->countAllResults();
 
         return $prefix . str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);

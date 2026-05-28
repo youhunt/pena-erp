@@ -347,6 +347,8 @@ final class FoundationMasterTest extends CIUnitTestCase
         $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
         $penaUomId = (int) $this->db->table('units_of_measure')->where(['company_id' => $penaId, 'code' => 'REAM'])->get()->getFirstRow()->id;
         $nusaCategoryId = (int) $this->db->table('product_categories')->where(['company_id' => $nusaId, 'code' => 'RETAIL'])->get()->getFirstRow()->id;
+        $penaBranchId = (int) $this->db->table('branches')->where(['company_id' => $penaId, 'code' => 'JKT'])->get()->getFirstRow()->id;
+        $penaDepartmentId = (int) $this->db->table('departments')->where(['company_id' => $penaId, 'branch_id' => $penaBranchId, 'code' => 'OPS'])->get()->getFirstRow()->id;
         $nusaBranchId = (int) $this->db->table('branches')->where(['company_id' => $nusaId, 'code' => 'BDG'])->get()->getFirstRow()->id;
         $nusaDepartmentId = (int) $this->db->table('departments')->where(['company_id' => $nusaId, 'branch_id' => $nusaBranchId])->get()->getFirstRow()->id;
         $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
@@ -413,6 +415,54 @@ final class FoundationMasterTest extends CIUnitTestCase
         ]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'INVENTORY_ADJUSTMENT_CREATED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'INVENTORY_ADJUSTMENT_POSTED', 'company_id' => $penaId]);
+        $this->assertTrue($writer->createWarehouse([
+            'company_id'    => $penaId,
+            'branch_id'     => $penaBranchId,
+            'department_id' => $penaDepartmentId,
+            'code'          => 'XFER',
+            'name'          => 'Transfer Warehouse',
+            'is_active'     => true,
+        ], $actorId));
+        $destinationWarehouseId = (int) $this->db->table('warehouses')->where(['company_id' => $penaId, 'code' => 'XFER'])->get()->getFirstRow()->id;
+
+        $this->assertFalse($writer->createStockTransfer([
+            'company_id'         => $penaId,
+            'from_warehouse_id'  => $warehouseId,
+            'to_warehouse_id'    => $foreignWarehouseId,
+            'product_id'         => $productId,
+            'transfer_date'      => '2026-05-28',
+            'qty'                => '10.0000',
+        ], $actorId));
+        $this->assertTrue($writer->createStockTransfer([
+            'company_id'         => $penaId,
+            'from_warehouse_id'  => $warehouseId,
+            'to_warehouse_id'    => $destinationWarehouseId,
+            'product_id'         => $productId,
+            'transfer_date'      => '2026-05-28',
+            'qty'                => '10.0000',
+        ], $actorId));
+
+        $transfer = (new InventoryReadModel())->stockTransfers($penaId)[0];
+        $this->assertSame('draft', $transfer['status']);
+        $this->assertTrue($writer->postStockTransfer($penaId, (int) $transfer['id'], $actorId));
+        $this->assertFalse($writer->postStockTransfer($penaId, (int) $transfer['id'], $actorId));
+
+        $sourceBalance = $this->db->table('stock_balances')->where([
+            'company_id'   => $penaId,
+            'warehouse_id' => $warehouseId,
+            'product_id'   => $productId,
+        ])->get()->getFirstRow('array');
+        $destinationBalance = $this->db->table('stock_balances')->where([
+            'company_id'   => $penaId,
+            'warehouse_id' => $destinationWarehouseId,
+            'product_id'   => $productId,
+        ])->get()->getFirstRow('array');
+        $this->assertSame(95.0, (float) $sourceBalance['qty_on_hand']);
+        $this->assertSame(10.0, (float) $destinationBalance['qty_on_hand']);
+        $this->seeInDatabase('stock_movements', ['company_id' => $penaId, 'reference_type' => 'stock_transfer', 'reference_id' => (int) $transfer['id'], 'movement_type' => 'transfer_out']);
+        $this->seeInDatabase('stock_movements', ['company_id' => $penaId, 'reference_type' => 'stock_transfer', 'reference_id' => (int) $transfer['id'], 'movement_type' => 'transfer_in']);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'STOCK_TRANSFER_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'STOCK_TRANSFER_POSTED', 'company_id' => $penaId]);
 
         $this->assertTrue($writer->updateProductStatus($penaId, $productId, 'inactive', $actorId));
         $this->seeInDatabase('products', ['id' => $productId, 'company_id' => $penaId, 'status' => 'inactive']);

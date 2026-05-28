@@ -112,6 +112,9 @@ menampilkan saldo `stock_balances` serta ledger `stock_movements`.
 Tahap 18 menambahkan Stock Opname / Adjustment MVP: draft counted quantity,
 posting variance ke `stock_movements`, update `stock_balances`, audit create
 dan post, serta proteksi tenant pada warehouse/product.
+Tahap 19 menambahkan Inventory Transfer MVP: draft transfer antar warehouse
+aktif, validasi saldo source, posting `transfer_out`/`transfer_in`, update
+saldo source/destination, audit transfer, dan proteksi tenant.
 
 ## Definition of Ready for Implementation
 

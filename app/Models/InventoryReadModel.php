@@ -269,6 +269,29 @@ final class InventoryReadModel extends Model
     /**
      * @return list<array<string, mixed>>
      */
+    public function stockTransfers(int $companyId): array
+    {
+        return $this->db->table('stock_transfers t')
+            ->select('t.*, i.product_id, i.qty, p.sku, p.name AS product_name, u.code AS uom_code, fw.code AS from_warehouse_code, fb.code AS from_branch_code, tw.code AS to_warehouse_code, tb.code AS to_branch_code')
+            ->join('stock_transfer_items i', 'i.stock_transfer_id = t.id AND i.company_id = t.company_id')
+            ->join('products p', 'p.id = i.product_id AND p.company_id = i.company_id')
+            ->join('units_of_measure u', 'u.id = i.uom_id AND u.company_id = i.company_id')
+            ->join('warehouses fw', 'fw.id = t.from_warehouse_id AND fw.company_id = t.company_id')
+            ->join('branches fb', 'fb.id = fw.branch_id AND fb.company_id = fw.company_id')
+            ->join('warehouses tw', 'tw.id = t.to_warehouse_id AND tw.company_id = t.company_id')
+            ->join('branches tb', 'tb.id = tw.branch_id AND tb.company_id = tw.company_id')
+            ->where('t.company_id', $companyId)
+            ->where('t.deleted_at', null)
+            ->where('i.deleted_at', null)
+            ->orderBy('t.created_at', 'DESC')
+            ->orderBy('t.id', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function taxOptions(int $companyId): array
     {
         return $this->db->table('tax_codes')

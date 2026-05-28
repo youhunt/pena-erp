@@ -127,6 +127,18 @@
         <div class="col-12"><button class="btn btn-primary" <?= $warehouseOptions === [] || $stockProductOptions === [] ? 'disabled' : '' ?>>Buat Draft Opname</button></div>
     </form>
 </div></div>
+<div class="card"><div class="card-body">
+    <h4 class="card-title mb-3">Inventory Transfer</h4>
+    <form method="post" action="<?= site_url('inventory/stock-transfers') ?>" class="row g-2 align-items-end">
+        <?= csrf_field() ?>
+        <div class="col-md-3"><label class="form-label">From Warehouse</label><select name="from_warehouse_id" class="form-select" required><?php foreach ($warehouseOptions as $warehouse) : ?><option value="<?= esc($warehouse['id']) ?>"><?= esc($warehouse['branch_code'] . ' / ' . $warehouse['code']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-3"><label class="form-label">To Warehouse</label><select name="to_warehouse_id" class="form-select" required><?php foreach ($warehouseOptions as $warehouse) : ?><option value="<?= esc($warehouse['id']) ?>"><?= esc($warehouse['branch_code'] . ' / ' . $warehouse['code']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-3"><label class="form-label">Stock Item</label><select name="product_id" class="form-select" required><?php foreach ($stockProductOptions as $product) : ?><option value="<?= esc($product['id']) ?>"><?= esc($product['sku'] . ' - ' . $product['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-1"><label class="form-label">Tanggal</label><input name="transfer_date" type="date" value="<?= date('Y-m-d') ?>" class="form-control" required></div>
+        <div class="col-md-2"><label class="form-label">Qty</label><input name="qty" type="number" step="0.0001" min="0.0001" class="form-control" required></div>
+        <div class="col-12"><button class="btn btn-primary" <?= count($warehouseOptions) < 2 || $stockProductOptions === [] ? 'disabled' : '' ?>>Buat Draft Transfer</button><?php if (count($warehouseOptions) < 2) : ?><div class="form-text">Butuh minimal dua warehouse aktif untuk transfer.</div><?php endif; ?></div>
+    </form>
+</div></div>
 <div class="row">
     <div class="col-xl-3">
         <div class="card"><div class="card-body">
@@ -292,6 +304,24 @@
             <?php if ($canManage) : ?><td class="text-end"><?php if ($adjustment['status'] === 'draft') : ?><form method="post" action="<?= site_url('inventory/stock-adjustments/' . $adjustment['id'] . '/post') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-primary">Post</button></form><?php else : ?>-<?php endif; ?></td><?php endif; ?>
         </tr><?php endforeach; ?>
         <?php if ($stockAdjustments === []) : ?><tr><td colspan="<?= $canManage ? '8' : '7' ?>" class="text-muted">Belum ada stock opname.</td></tr><?php endif; ?>
+        </tbody>
+    </table></div>
+</div></div>
+<div class="card"><div class="card-body">
+    <h4 class="card-title mb-3">Inventory Transfer Drafts</h4>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>No / Date</th><th>From</th><th>To</th><th>Item</th><th>Qty</th><th>Status</th><?php if ($canManage) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
+        <tbody>
+        <?php foreach ($stockTransfers as $transfer) : ?><tr>
+            <td><strong><?= esc($transfer['transfer_no']) ?></strong><br><small><?= esc($transfer['transfer_date']) ?></small></td>
+            <td><?= esc($transfer['from_branch_code'] . ' / ' . $transfer['from_warehouse_code']) ?></td>
+            <td><?= esc($transfer['to_branch_code'] . ' / ' . $transfer['to_warehouse_code']) ?></td>
+            <td><?= esc($transfer['sku'] . ' - ' . $transfer['product_name']) ?></td>
+            <td><?= esc($transfer['qty'] . ' ' . $transfer['uom_code']) ?></td>
+            <td><?= esc($transfer['status']) ?></td>
+            <?php if ($canManage) : ?><td class="text-end"><?php if ($transfer['status'] === 'draft') : ?><form method="post" action="<?= site_url('inventory/stock-transfers/' . $transfer['id'] . '/post') ?>"><?= csrf_field() ?><button class="btn btn-sm btn-primary">Post</button></form><?php else : ?>-<?php endif; ?></td><?php endif; ?>
+        </tr><?php endforeach; ?>
+        <?php if ($stockTransfers === []) : ?><tr><td colspan="<?= $canManage ? '7' : '6' ?>" class="text-muted">Belum ada inventory transfer.</td></tr><?php endif; ?>
         </tbody>
     </table></div>
 </div></div>

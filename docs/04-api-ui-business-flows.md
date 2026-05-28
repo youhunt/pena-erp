@@ -64,6 +64,7 @@ Mutation requirements:
 | `POST /inventory/transfers` | Transfer draft | `inventory.transfer.create` |
 | `POST /inventory/transfers/{id}/submit` | Workflow submit | `inventory.transfer.submit` |
 | `POST /inventory/stock-adjustments`, `/inventory/stock-adjustments/{id}/post` | Stock opname draft dan controlled posting ke stock ledger | `inventory.master.manage` |
+| `POST /inventory/stock-transfers`, `/inventory/stock-transfers/{id}/post` | Inventory transfer draft dan posting transfer out/in ke stock ledger | `inventory.master.manage` |
 
 ### Purchasing and Sales
 

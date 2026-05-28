@@ -33,6 +33,8 @@ $routes->group('inventory', ['filter' => ['session', 'sessionsecurity', 'passwor
     $routes->post('product-prices', 'Inventory::createProductPrice');
     $routes->post('stock-adjustments', 'Inventory::createStockAdjustment');
     $routes->post('stock-adjustments/(:num)/post', 'Inventory::postStockAdjustment/$1');
+    $routes->post('stock-transfers', 'Inventory::createStockTransfer');
+    $routes->post('stock-transfers/(:num)/post', 'Inventory::postStockTransfer/$1');
     $routes->post('status/(:segment)/(:num)', 'Inventory::updateMasterStatus/$1/$2');
 });
 

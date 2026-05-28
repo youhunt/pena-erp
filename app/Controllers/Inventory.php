@@ -52,6 +52,7 @@ final class Inventory extends BaseController
             'stockBalances' => $model->stockBalances($companyId),
             'stockMovements' => $model->stockMovements($companyId),
             'stockAdjustments' => $model->stockAdjustments($companyId),
+            'stockTransfers' => $model->stockTransfers($companyId),
         ]);
     }
 
@@ -506,6 +507,55 @@ final class Inventory extends BaseController
         }
 
         return $this->completed('Stock opname berhasil diposting ke ledger.');
+    }
+
+    public function createStockTransfer(): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'         => (int) $context['company_id'],
+            'from_warehouse_id'  => (int) $this->request->getPost('from_warehouse_id'),
+            'to_warehouse_id'    => (int) $this->request->getPost('to_warehouse_id'),
+            'product_id'         => (int) $this->request->getPost('product_id'),
+            'transfer_date'      => (string) $this->request->getPost('transfer_date'),
+            'qty'                => (string) $this->request->getPost('qty'),
+        ];
+
+        if (! $this->validateData($data, [
+            'from_warehouse_id' => 'required|is_natural_no_zero',
+            'to_warehouse_id'   => 'required|is_natural_no_zero',
+            'product_id'        => 'required|is_natural_no_zero',
+            'transfer_date'     => 'required|valid_date[Y-m-d]',
+            'qty'               => 'required|decimal|greater_than[0]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new InventoryWriteModel())->createStockTransfer($data, $this->actorId())) {
+            return $this->invalid(['transfer' => 'Transfer tidak valid atau stok sumber tidak cukup.']);
+        }
+
+        return $this->completed('Draft inventory transfer berhasil dibuat.');
+    }
+
+    public function postStockTransfer(int $id): RedirectResponse
+    {
+        $context = $this->authorizedContext('inventory.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        if (! (new InventoryWriteModel())->postStockTransfer((int) $context['company_id'], $id, $this->actorId())) {
+            return $this->invalid(['transfer' => 'Transfer tidak dapat diposting.']);
+        }
+
+        return $this->completed('Inventory transfer berhasil diposting ke ledger.');
     }
 
     public function updateUnitOfMeasure(int $id): RedirectResponse

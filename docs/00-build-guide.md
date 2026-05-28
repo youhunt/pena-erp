@@ -49,7 +49,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 16 | Stock Ledger Foundation | Dibuat: stock balance/movement dan POS stock issue, 28 Mei 2026 |
 | 17 | Inventory Stock Visibility | Dibuat: grid stock balances dan stock movements di Inventory, 28 Mei 2026 |
 | 18 | Inventory Stock Opname / Adjustment | Dibuat: draft count, posting adjustment ke stock ledger, 28 Mei 2026 |
-| 19+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 19 | Inventory Transfer | Dibuat: draft transfer antar warehouse dan posting transfer in/out, 28 Mei 2026 |
+| 20+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -436,6 +437,31 @@ menjadi lanjutan reporting inventory.
 Stock opname masih MVP satu item per dokumen, belum approval workflow,
 multi-item import, lot/bin count, freeze stock, reversal, costing recalculation,
 atau period close. Semua itu menjadi dasar tahap inventory control berikutnya.
+
+## Tahap 19: Inventory Transfer
+
+### Yang Sudah Dibuat
+
+- Migration `stock_transfers` dan `stock_transfer_items` membuat dokumen
+  transfer antar warehouse tenant-scoped dengan nomor unik per company.
+- `InventoryWriteModel` dapat membuat draft transfer satu item, menolak source
+  dan destination warehouse yang sama, warehouse tenant lain, item non-stock,
+  serta qty melebihi saldo source.
+- Posting transfer mengurangi `stock_balances` source, membuat/menambah saldo
+  destination, dan menulis dua movement immutable: `transfer_out` dan
+  `transfer_in` dengan reference `stock_transfer`.
+- Halaman `/inventory` menambahkan form Inventory Transfer dan grid draft
+  transfer yang dapat diposting dari UI.
+- Audit event `STOCK_TRANSFER_CREATED` dan `STOCK_TRANSFER_POSTED` tercatat.
+- Regression test mencakup penolakan warehouse tenant lain, posting transfer
+  `10` dari saldo `105`, saldo source menjadi `95`, destination menjadi `10`,
+  dua movement ledger, dan pencegahan posting ulang.
+
+### Batas Tahap Ini
+
+Transfer masih MVP satu item dan langsung posted tanpa approval. Belum ada
+workflow submit/approve, receive confirmation, in-transit stock, lot/bin
+picking, transfer cost, reversal, print dokumen, atau period close lock.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

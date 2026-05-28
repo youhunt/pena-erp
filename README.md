@@ -60,6 +60,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   Movements agar dampak receipt POS terlihat dari UI.
 - Tahap 18 dimulai: Inventory menambahkan Stock Opname / Adjustment satu item,
   draft posting ke ledger, update saldo, dan audit adjustment.
+- Tahap 19 dimulai: Inventory Transfer MVP membuat draft transfer antar
+  warehouse aktif, posting keluar/masuk ke stock ledger, dan audit transfer.
 
 ```bash
 composer install

@@ -109,7 +109,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | T0.6 Stock transfer | pindah stok antar warehouse aktif | Built MVP: single-item transfer posting |
 | T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |
 | T1.2 Fulfilment stock | allocation, delivery, purchase receipt, immutable stock movement | baru dilakukan setelah workflow/locking diuji |
-| M3 Finance lanjutan | GL book/column, cost type/item cost, fiscal/posting setup | GL/costing master dan period close foundation built; posting setup berikutnya |
+| M3 Finance lanjutan | GL book/column, cost type/item cost, fiscal/posting setup | GL/costing master, period close, dan manual GL Entry foundation built |
 
 ## 6. Acceptance Rule for Workbook Fields
 

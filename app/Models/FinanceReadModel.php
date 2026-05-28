@@ -101,6 +101,19 @@ final class FinanceReadModel extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function journalEntries(int $companyId): array
+    {
+        return $this->db->table('journal_entries j')
+            ->select('j.*, b.code AS gl_book_code, SUM(l.debit) AS total_debit, SUM(l.credit) AS total_credit')
+            ->join('gl_books b', 'b.id = j.gl_book_id AND b.company_id = j.company_id')
+            ->join('journal_entry_lines l', 'l.journal_entry_id = j.id AND l.company_id = j.company_id')
+            ->where('j.company_id', $companyId)->where('j.deleted_at', null)
+            ->groupBy('j.id, b.code')
+            ->orderBy('j.journal_date', 'DESC')->orderBy('j.id', 'DESC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
     public function postableAccounts(int $companyId): array
     {
         return $this->db->table('chart_of_accounts')->select('id, account_code, account_name')

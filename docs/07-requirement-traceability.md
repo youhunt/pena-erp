@@ -121,6 +121,10 @@ referensi tenant untuk pondasi GL/costing.
 Tahap 21 menambahkan Fiscal Period / Period Close Foundation:
 `fiscal_periods` dan `module_period_closes` berikut UI close/reopen, audit,
 dan validasi tenant sebagai basis period lock posting.
+Tahap 22 menambahkan GL Entry Foundation: `journal_entries` dan
+`journal_entry_lines`, manual journal draft, validasi debit/credit balance,
+posting immutable awal, audit, dan penolakan posting pada period/module `gl`
+yang tertutup.
 
 ## Definition of Ready for Implementation
 

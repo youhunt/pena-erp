@@ -85,8 +85,8 @@ Mutation requirements:
 
 | Method / URI | Purpose | Permission |
 | --- | --- | --- |
-| `GET/POST /accounting/journals` | Draft/manual journal | `finance.journal.*` |
-| `POST /accounting/journals/{id}/post` | Immutable ledger post | `finance.journal.post` |
+| `GET/POST /accounting/journals`, `POST /finance/master/journals` | Draft/manual journal | `finance.journal.*`; web MVP uses `finance.master.manage` |
+| `POST /accounting/journals/{id}/post`, `POST /finance/master/journals/{id}/post` | Immutable ledger post with GL period lock | `finance.journal.post`; web MVP uses `finance.master.manage` |
 | `GET/POST /cash-bank/payments` | Incoming/outgoing payments | `bank.payment.*` |
 | `POST /cash-bank/reconciliations` | Bank reconciliation | `bank.reconcile` |
 | `GET /workflow/tasks`, `POST /workflow/tasks/{id}/act` | Inbox approve/reject | assigned policy |

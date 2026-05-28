@@ -66,6 +66,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   Cost Type, dan Item Cost history sebagai pondasi jurnal/costing.
 - Tahap 21 dimulai: Fiscal Period dan Module Period Close tersedia sebagai
   fondasi period lock sebelum posting transaksi.
+- Tahap 22 dimulai: GL Entry manual journal foundation tersedia dengan draft,
+  balanced lines, posting immutable, dan validasi period lock `gl`.
 
 ```bash
 composer install

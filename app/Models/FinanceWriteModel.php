@@ -217,6 +217,67 @@ final class FinanceWriteModel extends Model
         ], $actorId);
     }
 
+    /**
+     * @param array<string, mixed>        $data
+     * @param list<array<string, mixed>>  $lines
+     */
+    public function createManualJournal(array $data, array $lines, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        if (! $this->active('gl_books', (int) $data['gl_book_id'], $companyId) || ! $this->balancedJournalLines($companyId, $lines)) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->db->transStart();
+        $this->db->table('journal_entries')->insert([
+            'company_id'   => $companyId,
+            'gl_book_id'   => (int) $data['gl_book_id'],
+            'journal_no'   => $this->nextJournalNo($companyId),
+            'journal_date' => (string) $data['journal_date'],
+            'source_type'  => 'manual',
+            'source_id'    => null,
+            'description'  => (string) $data['description'],
+            'status'       => 'draft',
+            'created_by'   => $actorId,
+            'created_at'   => $now,
+        ]);
+        $journalId = (int) $this->db->insertID();
+
+        foreach ($lines as $line) {
+            $this->db->table('journal_entry_lines')->insert([
+                'company_id'        => $companyId,
+                'journal_entry_id'  => $journalId,
+                'account_id'        => (int) $line['account_id'],
+                'description'       => trim((string) ($line['description'] ?? '')) ?: null,
+                'debit'             => $this->money((float) ($line['debit'] ?? 0)),
+                'credit'            => $this->money((float) ($line['credit'] ?? 0)),
+                'created_by'        => $actorId,
+                'created_at'        => $now,
+            ]);
+        }
+
+        (new AuditTrailService($this->db))->record('JOURNAL_ENTRY_CREATED', 'journal_entry', $journalId, $companyId, null, $actorId, $data);
+        $this->complete();
+
+        return true;
+    }
+
+    public function postJournalEntry(int $companyId, int $journalId, int $actorId): bool
+    {
+        $journal = $this->record('journal_entries', $companyId, $journalId);
+
+        if ($journal === null || $journal['status'] !== 'draft' || ! $this->periodOpenForPosting($companyId, 'gl', (string) $journal['journal_date'])) {
+            return false;
+        }
+
+        return $this->updateRecord('journal_entries', 'JOURNAL_ENTRY_POSTED', 'journal_entry', $companyId, $journalId, [
+            'status'    => 'posted',
+            'posted_at' => date('Y-m-d H:i:s'),
+            'posted_by' => $actorId,
+        ], $actorId);
+    }
+
     public function updateStatus(string $master, int $companyId, int $id, string $status, int $actorId): bool
     {
         $map = [
@@ -256,6 +317,64 @@ final class FinanceWriteModel extends Model
             ->where('deleted_at', null)->countAllResults() === 1;
     }
 
+    /**
+     * @param list<array<string, mixed>> $lines
+     */
+    private function balancedJournalLines(int $companyId, array $lines): bool
+    {
+        if (count($lines) < 2) {
+            return false;
+        }
+
+        $debit = 0.0;
+        $credit = 0.0;
+
+        foreach ($lines as $line) {
+            $lineDebit = (float) ($line['debit'] ?? 0);
+            $lineCredit = (float) ($line['credit'] ?? 0);
+
+            if ($lineDebit < 0 || $lineCredit < 0 || ($lineDebit <= 0 && $lineCredit <= 0) || ($lineDebit > 0 && $lineCredit > 0)) {
+                return false;
+            }
+
+            if (! $this->postableAccount((int) $line['account_id'], $companyId)) {
+                return false;
+            }
+
+            $debit += $lineDebit;
+            $credit += $lineCredit;
+        }
+
+        return $debit > 0 && abs($debit - $credit) < 0.00001;
+    }
+
+    private function postableAccount(int $accountId, int $companyId): bool
+    {
+        return $this->db->table('chart_of_accounts')->where([
+            'id' => $accountId, 'company_id' => $companyId, 'status' => 'active', 'is_postable' => true,
+        ])->where('deleted_at', null)->countAllResults() === 1;
+    }
+
+    private function periodOpenForPosting(int $companyId, string $moduleCode, string $date): bool
+    {
+        $period = $this->db->table('fiscal_periods')
+            ->where('company_id', $companyId)
+            ->where('starts_on <=', $date)
+            ->where('ends_on >=', $date)
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+
+        if ($period === null || $period['status'] !== 'open') {
+            return false;
+        }
+
+        $moduleClose = $this->db->table('module_period_closes')->where([
+            'company_id' => $companyId, 'fiscal_period_id' => (int) $period['id'], 'module_code' => $moduleCode,
+        ])->where('deleted_at', null)->get()->getFirstRow('array');
+
+        return $moduleClose === null || $moduleClose['status'] === 'open';
+    }
+
     private function sameTenantRecord(string $table, int $id, int $companyId): bool
     {
         return $this->db->table($table)->where(['id' => $id, 'company_id' => $companyId])
@@ -273,6 +392,22 @@ final class FinanceWriteModel extends Model
     private function moduleCodes(): array
     {
         return ['sales', 'purchase', 'inventory', 'production', 'ap', 'ar', 'cashbank', 'gl'];
+    }
+
+    private function nextJournalNo(int $companyId): string
+    {
+        $prefix = 'JV-' . date('Ymd') . '-';
+        $count = $this->db->table('journal_entries')
+            ->where('company_id', $companyId)
+            ->like('journal_no', $prefix, 'after')
+            ->countAllResults();
+
+        return $prefix . str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function money(float $value): string
+    {
+        return number_format($value, 4, '.', '');
     }
 
     /** @param array<string, mixed> $data */

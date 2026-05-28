@@ -22,6 +22,8 @@
             <div class="dropdown-divider"></div>
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addFiscalPeriod">Fiscal Period</button>
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#closeModulePeriod">Close Module Period</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addJournal">Manual Journal</button>
         </div></div>
     <?php else : ?><span class="badge bg-info">Read only</span><?php endif; ?>
 </div>
@@ -35,6 +37,7 @@
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#gl-setup">GL Setup</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#costing">Costing</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#period-close">Period Close</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#journals">GL Entry</button></li>
 </ul>
 <div class="tab-content">
 <div class="tab-pane fade show active" id="coa"><div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
@@ -94,6 +97,10 @@
         </table></div></div></div></div>
     </div>
 </div>
+<div class="tab-pane fade" id="journals"><div class="card"><div class="card-body"><h4 class="card-title mb-3">GL Entry</h4><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+    <thead><tr><th>No / Date</th><th>Book</th><th>Description</th><th>Debit</th><th>Credit</th><th>Status</th><?php if ($canManage) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
+    <tbody><?php foreach ($journals as $journal) : ?><tr><td><strong><?= esc($journal['journal_no']) ?></strong><br><small><?= esc($journal['journal_date']) ?></small></td><td><?= esc($journal['gl_book_code']) ?></td><td><?= esc($journal['description']) ?></td><td><?= esc(number_format((float) $journal['total_debit'], 2, ',', '.')) ?></td><td><?= esc(number_format((float) $journal['total_credit'], 2, ',', '.')) ?></td><td><?= esc($journal['status']) ?></td><?php if ($canManage) : ?><td class="text-end"><?php if ($journal['status'] === 'draft') : ?><form method="post" action="<?= site_url('finance/master/journals/' . $journal['id'] . '/post') ?>"><?= csrf_field() ?><button class="btn btn-primary btn-sm">Post</button></form><?php else : ?>-<?php endif; ?></td><?php endif; ?></tr><?php endforeach; ?><?php if ($journals === []) : ?><tr><td colspan="<?= $canManage ? '7' : '6' ?>" class="text-center text-muted py-4">Belum ada journal entry.</td></tr><?php endif; ?></tbody>
+</table></div></div></div></div>
 </div>
 
 <?php if ($canManage) : ?>
@@ -131,6 +138,11 @@
 <div class="modal fade" id="closeModulePeriod"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= site_url('finance/master/module-periods/close') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Close Module Period</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2">
 <div class="col-md-7"><label class="form-label">Fiscal Period</label><select name="fiscal_period_id" class="form-select" required><?php foreach ($fiscalPeriods as $period) : ?><option value="<?= (int) $period['id'] ?>"><?= esc($period['year'] . '/' . str_pad((string) $period['period'], 2, '0', STR_PAD_LEFT)) ?></option><?php endforeach; ?></select></div><div class="col-md-5"><label class="form-label">Module</label><select name="module_code" class="form-select" required><?php foreach ($moduleCodes as $moduleCode) : ?><option value="<?= esc($moduleCode) ?>"><?= esc(strtoupper($moduleCode)) ?></option><?php endforeach; ?></select></div>
 </div><div class="modal-footer"><button class="btn btn-primary" <?= $fiscalPeriods === [] ? 'disabled' : '' ?>>Close Module</button></div></form></div></div>
+<div class="modal fade" id="addJournal"><div class="modal-dialog modal-lg"><form class="modal-content" method="post" action="<?= site_url('finance/master/journals') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Tambah Manual Journal</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2">
+<div class="col-md-4"><label class="form-label">GL Book</label><select name="gl_book_id" class="form-select" required><?php foreach ($glBooks as $book) : ?><?php if ($book['status'] === 'active') : ?><option value="<?= (int) $book['id'] ?>"><?= esc($book['code']) ?></option><?php endif; ?><?php endforeach; ?></select></div><div class="col-md-4"><label class="form-label">Journal Date</label><input name="journal_date" type="date" value="<?= date('Y-m-d') ?>" class="form-control" required></div><div class="col-md-4"><label class="form-label">Description</label><input name="description" class="form-control" required></div>
+<div class="col-md-5"><label class="form-label">Debit Account</label><select name="debit_account_id" class="form-select" required><?php foreach ($postable as $account) : ?><option value="<?= (int) $account['id'] ?>"><?= esc($account['account_code'] . ' - ' . $account['account_name']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Debit</label><input name="debit_amount" type="number" step="0.0001" min="0.0001" class="form-control" required></div><div class="col-md-4"><label class="form-label">Line Desc</label><input name="debit_description" class="form-control"></div>
+<div class="col-md-5"><label class="form-label">Credit Account</label><select name="credit_account_id" class="form-select" required><?php foreach ($postable as $account) : ?><option value="<?= (int) $account['id'] ?>"><?= esc($account['account_code'] . ' - ' . $account['account_name']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Credit</label><input name="credit_amount" type="number" step="0.0001" min="0.0001" class="form-control" required></div><div class="col-md-4"><label class="form-label">Line Desc</label><input name="credit_description" class="form-control"></div>
+</div><div class="modal-footer"><button class="btn btn-primary" <?= $glBooks === [] || $postable === [] ? 'disabled' : '' ?>>Simpan Draft</button></div></form></div></div>
 <?php endif; ?>
 <?= $this->endSection() ?>
 

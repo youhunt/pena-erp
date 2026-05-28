@@ -120,7 +120,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | GL Column | `gl_columns` reporting mapping | Built |
 | Account No. / Chart of Account | `chart_of_accounts` | Built; foundation |
 | Recurring / Recurring Posting | `recurring_journals`, posting runs | Designed |
-| GL Entry | `journal_entries`, `journal_entry_lines` immutable after posting | Designed |
+| GL Entry | `journal_entries`, `journal_entry_lines` immutable after posting | Built foundation; manual balanced journal + period lock |
 | GL Period Close | `module_period_closes` type `gl`, locks upstream posting | Built foundation |
 
 ## 6. Delivery Order for Master Data

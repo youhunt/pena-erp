@@ -52,7 +52,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 19 | Inventory Transfer | Dibuat: draft transfer antar warehouse dan posting transfer in/out, 28 Mei 2026 |
 | 20 | Finance Advanced Master | Dibuat: GL Book, GL Column, Cost Type, Item Cost, 28 Mei 2026 |
 | 21 | Fiscal Period / Period Close Foundation | Dibuat: fiscal period lock dan module close/reopen, 28 Mei 2026 |
-| 22+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 22 | GL Entry Foundation | Dibuat: manual journal draft/posting dengan period lock, 28 Mei 2026 |
+| 23+ | Domain transaction lanjutan, AP/AR posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -512,6 +513,31 @@ master yang nanti dipakai oleh AP/AR, POS posting, costing, dan GL.
 Belum ada policy global yang dipanggil oleh semua posting transaksi. Tahap ini
 menyiapkan data dan UI lock; tahap posting AP/AR/GL/inventory berikutnya wajib
 memanggil period policy sebelum menulis ledger.
+
+## Tahap 22: GL Entry Foundation
+
+### Yang Sudah Dibuat
+
+- Migration `journal_entries` dan `journal_entry_lines` membuat ledger journal
+  tenant-scoped dengan header draft/posted dan baris debit/credit.
+- Menu `Finance Master` menambah tab `GL Entry` dan modal Manual Journal dua
+  baris awal untuk debit dan credit.
+- `FinanceWriteModel` membuat draft manual journal hanya jika GL Book aktif,
+  akun posting aktif, minimal dua line, tidak ada line debit+credit sekaligus,
+  dan total debit sama dengan total credit.
+- Posting journal menolak fiscal period tertutup atau module close `gl`
+  berstatus `closed`.
+- Audit event `JOURNAL_ENTRY_CREATED` dan `JOURNAL_ENTRY_POSTED` tercatat.
+- Regression test mencakup journal imbalance ditolak, draft valid dibuat,
+  posting ditolak saat module `gl` closed, posting berhasil setelah reopen,
+  dan posting ulang ditolak.
+
+### Batas Tahap Ini
+
+Manual journal masih dua baris dari UI, belum dynamic multi-line editor,
+reversal journal, recurring journal, source posting dari POS/AP/AR, dan belum
+ada service policy terpisah. Namun perilaku balance dan period lock sudah
+menjadi pola dasar untuk posting transaksi berikutnya.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

@@ -942,6 +942,9 @@ final class FoundationMasterTest extends CIUnitTestCase
         $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
         $costTypeId = (int) $this->db->table('cost_types')->where(['company_id' => $penaId, 'code' => 'STD'])->get()->getFirstRow()->id;
         $fiscalPeriodId = (int) $this->db->table('fiscal_periods')->where(['company_id' => $penaId, 'year' => 2026, 'period' => 5])->get()->getFirstRow()->id;
+        $glBookId = (int) $this->db->table('gl_books')->where(['company_id' => $penaId, 'code' => 'MAIN'])->get()->getFirstRow()->id;
+        $cashAccountId = (int) $this->db->table('chart_of_accounts')->where(['company_id' => $penaId, 'account_code' => '1101'])->get()->getFirstRow()->id;
+        $revenueAccountId = (int) $this->db->table('chart_of_accounts')->where(['company_id' => $penaId, 'account_code' => '4101'])->get()->getFirstRow()->id;
 
         $this->assertCount(3, $reader->accounts($penaId));
         $this->assertCount(2, $reader->cashBankAccounts($penaId));
@@ -952,6 +955,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertCount(1, $reader->itemCosts($penaId));
         $this->assertCount(1, $reader->fiscalPeriods($penaId));
         $this->assertCount(1, $reader->modulePeriodCloses($penaId));
+        $this->assertCount(0, $reader->journalEntries($penaId));
         $this->assertContains('finance', array_column((new TenantMenuService($this->db))->accessibleMenus($actorId, $penaId), 'code'));
         $this->assertFalse((new FinanceWriteModel())->createCashBankAccount([
             'company_id'   => $penaId,
@@ -1032,6 +1036,36 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->assertTrue($writer->closeFiscalPeriod($penaId, $fiscalPeriodId, $actorId));
         $this->assertFalse($writer->closeFiscalPeriod($nusaId, $fiscalPeriodId, $actorId));
         $this->assertTrue($writer->reopenFiscalPeriod($penaId, $fiscalPeriodId, $actorId));
+        $this->assertFalse($writer->createManualJournal([
+            'company_id'   => $penaId,
+            'gl_book_id'   => $glBookId,
+            'journal_date' => '2026-05-15',
+            'description'  => 'Invalid imbalance test',
+        ], [
+            ['account_id' => $cashAccountId, 'debit' => '1000.0000', 'credit' => '0'],
+            ['account_id' => $revenueAccountId, 'debit' => '0', 'credit' => '900.0000'],
+        ], $actorId));
+        $this->assertTrue($writer->createManualJournal([
+            'company_id'   => $penaId,
+            'gl_book_id'   => $glBookId,
+            'journal_date' => '2026-05-15',
+            'description'  => 'Manual journal test',
+        ], [
+            ['account_id' => $cashAccountId, 'description' => 'Cash debit', 'debit' => '1000.0000', 'credit' => '0'],
+            ['account_id' => $revenueAccountId, 'description' => 'Revenue credit', 'debit' => '0', 'credit' => '1000.0000'],
+        ], $actorId));
+        $journal = $reader->journalEntries($penaId)[0];
+        $this->assertSame('draft', $journal['status']);
+        $this->assertTrue($writer->closeModulePeriod($penaId, $fiscalPeriodId, 'gl', $actorId));
+        $this->assertFalse($writer->postJournalEntry($penaId, (int) $journal['id'], $actorId));
+        $glClose = $this->db->table('module_period_closes')->where([
+            'company_id'        => $penaId,
+            'fiscal_period_id'  => $fiscalPeriodId,
+            'module_code'       => 'gl',
+        ])->get()->getFirstRow('array');
+        $this->assertTrue($writer->reopenModulePeriod($penaId, (int) $glClose['id'], $actorId));
+        $this->assertTrue($writer->postJournalEntry($penaId, (int) $journal['id'], $actorId));
+        $this->assertFalse($writer->postJournalEntry($penaId, (int) $journal['id'], $actorId));
         $this->assertTrue($writer->updateStatus('cash-bank', $penaId, (int) $cashBank['id'], 'inactive', $actorId));
         $this->seeInDatabase('audit_logs', ['event_type' => 'CASH_BANK_ACCOUNT_STATUS_UPDATED', 'entity_id' => (int) $cashBank['id']]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'COST_TYPE_CREATED', 'company_id' => $penaId]);
@@ -1042,6 +1076,8 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('audit_logs', ['event_type' => 'MODULE_PERIOD_REOPENED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'FISCAL_PERIOD_CLOSED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'FISCAL_PERIOD_REOPENED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'JOURNAL_ENTRY_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'JOURNAL_ENTRY_POSTED', 'company_id' => $penaId]);
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

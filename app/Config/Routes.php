@@ -111,6 +111,8 @@ $routes->group('finance/master', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('fiscal-periods/(:num)/reopen', 'FinanceMaster::reopenFiscalPeriod/$1');
     $routes->post('module-periods/close', 'FinanceMaster::closeModulePeriod');
     $routes->post('module-periods/(:num)/reopen', 'FinanceMaster::reopenModulePeriod/$1');
+    $routes->post('journals', 'FinanceMaster::createManualJournal');
+    $routes->post('journals/(:num)/post', 'FinanceMaster::postJournal/$1');
     $routes->post('status/(:segment)/(:num)', 'FinanceMaster::updateStatus/$1/$2');
 });
 

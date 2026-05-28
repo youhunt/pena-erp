@@ -37,6 +37,7 @@ final class FinanceMaster extends BaseController
             'itemCosts'     => $reader->itemCosts($companyId),
             'fiscalPeriods' => $reader->fiscalPeriods($companyId),
             'moduleCloses'  => $reader->modulePeriodCloses($companyId),
+            'journals'      => $reader->journalEntries($companyId),
             'postable'      => $reader->postableAccounts($companyId),
             'currencies'    => $reader->currencies($companyId),
             'branches'      => $reader->branches($companyId),
@@ -415,6 +416,72 @@ final class FinanceMaster extends BaseController
         }
 
         return $this->completed('Module period berhasil dibuka ulang.');
+    }
+
+    public function createManualJournal(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'   => (int) $context['company_id'],
+            'gl_book_id'   => (int) $this->request->getPost('gl_book_id'),
+            'journal_date' => (string) $this->request->getPost('journal_date'),
+            'description'  => trim((string) $this->request->getPost('description')),
+        ];
+        $lines = [
+            [
+                'account_id'  => (int) $this->request->getPost('debit_account_id'),
+                'description' => trim((string) $this->request->getPost('debit_description')),
+                'debit'       => (string) $this->request->getPost('debit_amount'),
+                'credit'      => '0',
+            ],
+            [
+                'account_id'  => (int) $this->request->getPost('credit_account_id'),
+                'description' => trim((string) $this->request->getPost('credit_description')),
+                'debit'       => '0',
+                'credit'      => (string) $this->request->getPost('credit_amount'),
+            ],
+        ];
+
+        if (! $this->validateData($data + [
+            'debit_account_id'  => $lines[0]['account_id'],
+            'credit_account_id' => $lines[1]['account_id'],
+            'debit_amount'      => $lines[0]['debit'],
+            'credit_amount'     => $lines[1]['credit'],
+        ], [
+            'gl_book_id'        => 'required|is_natural_no_zero',
+            'journal_date'      => 'required|valid_date[Y-m-d]',
+            'description'       => 'required|max_length[200]',
+            'debit_account_id'  => 'required|is_natural_no_zero',
+            'credit_account_id' => 'required|is_natural_no_zero',
+            'debit_amount'      => 'required|decimal|greater_than[0]',
+            'credit_amount'     => 'required|decimal|greater_than[0]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new FinanceWriteModel())->createManualJournal($data, $lines, $this->actorId())) {
+            return $this->invalid(['journal' => 'Journal harus balance dan memakai GL Book serta akun posting aktif.']);
+        }
+
+        return $this->completed('Manual journal draft berhasil dibuat.');
+    }
+
+    public function postJournal(int $id): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        if (! (new FinanceWriteModel())->postJournalEntry((int) $context['company_id'], $id, $this->actorId())) {
+            return $this->invalid(['journal' => 'Journal tidak dapat diposting. Pastikan draft dan period GL masih open.']);
+        }
+
+        return $this->completed('Journal berhasil diposting.');
     }
 
     public function updateStatus(string $master, int $id): RedirectResponse

@@ -116,6 +116,19 @@ $routes->group('finance/master', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('status/(:segment)/(:num)', 'FinanceMaster::updateStatus/$1/$2');
 });
 
+$routes->group('finance/invoices', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'FinanceInvoice::index');
+    $routes->post('purchase-invoices', 'FinanceInvoice::createPurchaseInvoice');
+    $routes->post('sales-invoices', 'FinanceInvoice::createSalesInvoice');
+    $routes->post('payments', 'FinanceInvoice::createPayment');
+    $routes->post('purchase-invoices/(:num)/post', 'FinanceInvoice::postPurchaseInvoice/$1');
+    $routes->post('sales-invoices/(:num)/post', 'FinanceInvoice::postSalesInvoice/$1');
+    $routes->post('payments/(:num)/post', 'FinanceInvoice::postPayment/$1');
+    $routes->get('payments/(:num)/allocations', 'FinanceInvoice::allocations/$1');
+    $routes->post('payments/(:num)/allocations', 'FinanceInvoice::createAllocation/$1');
+    $routes->post('payments/(:num)/allocations/(:num)/delete', 'FinanceInvoice::deleteAllocation/$1/$2');
+});
+
 $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {
     $routes->get('companies', 'Administration::companies');
     $routes->get('companies/new', 'Administration::newCompany');

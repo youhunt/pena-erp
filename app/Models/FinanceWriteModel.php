@@ -263,6 +263,62 @@ final class FinanceWriteModel extends Model
         return true;
     }
 
+    /** @param array<string, mixed> $data */
+    public function createPurchaseInvoice(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        if (! $this->active('suppliers', (int) $data['supplier_id'], $companyId)
+            || ! $this->active('currencies', (int) $data['currency_id'], $companyId)
+            || $this->documentNoExists('purchase_invoices', $companyId, 'invoice_no', 'supplier_id', (int) $data['supplier_id'], (string) $data['invoice_no'])) {
+            return false;
+        }
+
+        $this->create('purchase_invoices', 'PURCHASE_INVOICE_CREATED', 'purchase_invoice', $data, $actorId);
+
+        return true;
+    }
+
+    /** @param array<string, mixed> $data */
+    public function createSalesInvoice(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        if (! $this->active('customers', (int) $data['customer_id'], $companyId)
+            || ! $this->active('currencies', (int) $data['currency_id'], $companyId)
+            || $this->documentNoExists('sales_invoices', $companyId, 'invoice_no', 'customer_id', (int) $data['customer_id'], (string) $data['invoice_no'])) {
+            return false;
+        }
+
+        $this->create('sales_invoices', 'SALES_INVOICE_CREATED', 'sales_invoice', $data, $actorId);
+
+        return true;
+    }
+
+    /** @param array<string, mixed> $data */
+    public function createPayment(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        $paymentType = (string) $data['payment_type'];
+        $supplierId = $data['supplier_id'] ?? null;
+        $customerId = $data['customer_id'] ?? null;
+        $bankAccountId = $data['bank_account_id'] ?? null;
+        if ($bankAccountId === 0) {
+            $bankAccountId = null;
+        }
+
+        if (! in_array($paymentType, ['incoming', 'outgoing'], true)
+            || ! $this->active('currencies', (int) $data['currency_id'], $companyId)
+            || ($paymentType === 'incoming' && ! $this->active('customers', (int) $customerId, $companyId))
+            || ($paymentType === 'outgoing' && ! $this->active('suppliers', (int) $supplierId, $companyId))
+            || ($bankAccountId !== null && ! $this->active('cash_bank_accounts', (int) $bankAccountId, $companyId))
+            || $this->documentNoExists('payments', $companyId, 'payment_no', null, null, (string) $data['payment_no'])) {
+            return false;
+        }
+
+        $this->create('payments', 'PAYMENT_CREATED', 'payment', $data, $actorId);
+
+        return true;
+    }
+
     public function postJournalEntry(int $companyId, int $journalId, int $actorId): bool
     {
         $journal = $this->record('journal_entries', $companyId, $journalId);
@@ -276,6 +332,442 @@ final class FinanceWriteModel extends Model
             'posted_at' => date('Y-m-d H:i:s'),
             'posted_by' => $actorId,
         ], $actorId);
+    }
+
+    public function postPurchaseInvoice(int $companyId, int $invoiceId, int $actorId): bool
+    {
+        $invoice = $this->record('purchase_invoices', $companyId, $invoiceId);
+
+        if ($invoice === null || $invoice['status'] !== 'draft' || ! $this->periodOpenForPosting($companyId, 'ap', (string) $invoice['invoice_date'])) {
+            return false;
+        }
+
+        if (! $this->updateRecord('purchase_invoices', 'PURCHASE_INVOICE_POSTED', 'purchase_invoice', $companyId, $invoiceId, [
+            'status'    => 'posted',
+            'posted_at' => date('Y-m-d H:i:s'),
+            'posted_by' => $actorId,
+        ], $actorId)) {
+            return false;
+        }
+
+        // Create a posting journal placeholder for later GL lines generation.
+        $this->createPostingJournal('purchase_invoice', $companyId, $invoiceId, (string) $invoice['invoice_date'], 'Auto-post purchase invoice ' . ($invoice['invoice_no'] ?? $invoiceId), $actorId);
+
+        return true;
+    }
+
+    public function postSalesInvoice(int $companyId, int $invoiceId, int $actorId): bool
+    {
+        $invoice = $this->record('sales_invoices', $companyId, $invoiceId);
+
+        if ($invoice === null || $invoice['status'] !== 'draft' || ! $this->periodOpenForPosting($companyId, 'ar', (string) $invoice['invoice_date'])) {
+            return false;
+        }
+
+        if (! $this->updateRecord('sales_invoices', 'SALES_INVOICE_POSTED', 'sales_invoice', $companyId, $invoiceId, [
+            'status'    => 'posted',
+            'posted_at' => date('Y-m-d H:i:s'),
+            'posted_by' => $actorId,
+        ], $actorId)) {
+            return false;
+        }
+
+        $this->createPostingJournal('sales_invoice', $companyId, $invoiceId, (string) $invoice['invoice_date'], 'Auto-post sales invoice ' . ($invoice['invoice_no'] ?? $invoiceId), $actorId);
+
+        return true;
+    }
+
+    public function postPayment(int $companyId, int $paymentId, int $actorId): bool
+    {
+        $payment = $this->record('payments', $companyId, $paymentId);
+
+        if ($payment === null || $payment['status'] !== 'draft' || ! $this->periodOpenForPosting($companyId, 'cashbank', (string) $payment['payment_date'])) {
+            return false;
+        }
+
+        if (! $this->updateRecord('payments', 'PAYMENT_POSTED', 'payment', $companyId, $paymentId, [
+            'status'    => 'posted',
+            'posted_at' => date('Y-m-d H:i:s'),
+            'posted_by' => $actorId,
+        ], $actorId)) {
+            return false;
+        }
+
+        $this->createPostingJournal('payment', $companyId, $paymentId, (string) $payment['payment_date'], 'Auto-post payment ' . ($payment['payment_no'] ?? $paymentId), $actorId);
+
+        // Try a simple automatic allocation: match payment to posted invoices of the same partner
+        try {
+            $this->autoAllocatePaymentToDocuments($companyId, $paymentId, $actorId);
+        } catch (\Throwable $e) {
+            // Allocation failures should not break posting; log and continue
+        }
+
+        return true;
+    }
+
+    private function autoAllocatePaymentToDocuments(int $companyId, int $paymentId, int $actorId): void
+    {
+        $payment = $this->record('payments', $companyId, $paymentId);
+        if ($payment === null) {
+            return;
+        }
+
+        $remaining = (float) ($payment['amount'] ?? 0);
+        if ($remaining <= 0) {
+            return;
+        }
+
+        $partnerField = $payment['payment_type'] === 'incoming' ? 'customer_id' : 'supplier_id';
+        $partnerId = $payment[$partnerField] ?? null;
+        if ($partnerId === null) {
+            return;
+        }
+
+        $docType = $payment['payment_type'] === 'incoming' ? 'sales_invoice' : 'purchase_invoice';
+        $table = $payment['payment_type'] === 'incoming' ? 'sales_invoices' : 'purchase_invoices';
+
+        $invoices = $this->db->table($table)
+            ->where(['company_id' => $companyId, $partnerField => $partnerId, 'status' => 'posted'])
+            ->where('deleted_at', null)
+            ->orderBy('invoice_date', 'ASC')->orderBy('id', 'ASC')
+            ->get()->getResultArray();
+
+        foreach ($invoices as $inv) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $allocated = (float) $this->db->table('payment_allocations')
+                ->select('IFNULL(SUM(allocated_amount),0) AS total')
+                ->where(['company_id' => $companyId, 'document_type' => $docType, 'document_id' => (int) $inv['id']])
+                ->get()->getFirstRow()->total ?? 0;
+
+            $outstanding = (float) $inv['total_amount'] - (float) $allocated;
+            if ($outstanding <= 0) {
+                continue;
+            }
+
+            $alloc = min($remaining, $outstanding);
+
+            $this->db->table('payment_allocations')->insert([
+                'company_id'      => $companyId,
+                'payment_id'      => $paymentId,
+                'document_type'   => $docType,
+                'document_id'     => (int) $inv['id'],
+                'allocated_amount'=> $this->money($alloc),
+                'description'     => 'Auto allocation from payment ' . ($payment['payment_no'] ?? $paymentId),
+                'created_by'      => $actorId,
+                'created_at'      => date('Y-m-d H:i:s'),
+            ]);
+
+            $remaining -= $alloc;
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    public function createPaymentAllocation(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        $payment = $this->record('payments', $companyId, (int) $data['payment_id']);
+        if ($payment === null || $payment['status'] !== 'posted') {
+            return false;
+        }
+
+        $docType = (string) $data['document_type'];
+        $documentId = (int) $data['document_id'];
+
+        $table = $docType === 'sales_invoice' ? 'sales_invoices' : ($docType === 'purchase_invoice' ? 'purchase_invoices' : null);
+        if ($table === null) {
+            return false;
+        }
+
+        $document = $this->record($table, $companyId, $documentId);
+        if ($document === null || $document['status'] !== 'posted') {
+            return false;
+        }
+
+        $allocatedSoFar = (float) $this->db->table('payment_allocations')
+            ->select('IFNULL(SUM(allocated_amount),0) AS total')
+            ->where(['company_id' => $companyId, 'document_type' => $docType, 'document_id' => $documentId])
+            ->get()->getFirstRow()->total ?? 0;
+
+        $amount = (float) $data['allocated_amount'];
+        $outstanding = (float) $document['total_amount'] - $allocatedSoFar;
+        if ($amount <= 0 || $amount > $outstanding + 0.00001) {
+            return false;
+        }
+
+        $this->create('payment_allocations', 'PAYMENT_ALLOCATION_CREATED', 'payment_allocation', $data, $actorId);
+
+        return true;
+    }
+
+    public function deletePaymentAllocation(int $companyId, int $allocationId, int $actorId): bool
+    {
+        $alloc = $this->record('payment_allocations', $companyId, $allocationId);
+        if ($alloc === null) {
+            return false;
+        }
+
+        return $this->updateRecord('payment_allocations', 'PAYMENT_ALLOCATION_DELETED', 'payment_allocation', $companyId, $allocationId, ['deleted_at' => date('Y-m-d H:i:s')], $actorId);
+    }
+
+    /**
+     * Create a lightweight journal entry referencing a source document.
+     * This creates a journal header (status 'posted') as a placeholder for later GL lines.
+     *
+     * @return int Inserted journal id
+     */
+    private function createPostingJournal(string $sourceType, int $companyId, int $sourceId, string $journalDate, string $description, int $actorId): int
+    {
+        $lines = match ($sourceType) {
+            'purchase_invoice' => $this->buildPurchaseInvoicePostingLines($companyId, $sourceId),
+            'sales_invoice'    => $this->buildSalesInvoicePostingLines($companyId, $sourceId),
+            'payment'          => $this->buildPaymentPostingLines($companyId, $sourceId),
+            default            => [],
+        };
+
+        if (! $this->balancedJournalLines($companyId, $lines)) {
+            throw new RuntimeException('Unable to create balanced posting journal lines for ' . $sourceType);
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $glBook = $this->db->table('gl_books')->select('id')->where([
+            'company_id' => $companyId,
+            'status'     => 'active',
+        ])->where('deleted_at', null)->orderBy('id', 'ASC')->get()->getFirstRow('array');
+
+        if ($glBook === null) {
+            throw new RuntimeException('No active GL book configured for company ' . $companyId);
+        }
+
+        $glBookId = (int) $glBook['id'];
+
+        $this->db->table('journal_entries')->insert([
+            'company_id'   => $companyId,
+            'gl_book_id'   => $glBookId,
+            'journal_no'   => $this->nextJournalNo($companyId),
+            'journal_date' => $journalDate,
+            'source_type'  => $sourceType,
+            'source_id'    => $sourceId,
+            'description'  => $description,
+            'status'       => 'posted',
+            'created_by'   => $actorId,
+            'created_at'   => $now,
+            'posted_at'    => $now,
+            'posted_by'    => $actorId,
+        ]);
+
+        $journalId = (int) $this->db->insertID();
+
+        foreach ($lines as $line) {
+            $this->db->table('journal_entry_lines')->insert([
+                'company_id'       => $companyId,
+                'journal_entry_id' => $journalId,
+                'account_id'       => (int) $line['account_id'],
+                'description'      => trim((string) ($line['description'] ?? '')) ?: null,
+                'debit'            => $line['debit'],
+                'credit'           => $line['credit'],
+                'partner_type'     => $line['partner_type'] ?? null,
+                'partner_id'       => $line['partner_id'] ?? null,
+                'created_by'       => $actorId,
+                'created_at'       => $now,
+            ]);
+        }
+
+        (new AuditTrailService($this->db))->record('JOURNAL_ENTRY_CREATED', 'journal_entry', $journalId, $companyId, null, $actorId, ['source' => $sourceType, 'source_id' => $sourceId]);
+
+        return $journalId;
+    }
+
+    private function buildPurchaseInvoicePostingLines(int $companyId, int $invoiceId): array
+    {
+        $invoice = $this->record('purchase_invoices', $companyId, $invoiceId);
+        if ($invoice === null) {
+            return [];
+        }
+
+        $amount = (float) ($invoice['total_amount'] ?? 0);
+        $expenseAccountId = $this->findDefaultAccountId($companyId, 'expense', '5001');
+        $payableAccountId = $this->findDefaultAccountId($companyId, 'liability', '2101');
+
+        if ($expenseAccountId === null || $payableAccountId === null || $amount <= 0) {
+            return [];
+        }
+
+        return [
+            [
+                'account_id'   => $expenseAccountId,
+                'description'  => 'Purchase invoice ' . ($invoice['invoice_no'] ?? $invoiceId),
+                'debit'        => $this->money($amount),
+                'credit'       => '0.0000',
+                'partner_type' => 'supplier',
+                'partner_id'   => $invoice['supplier_id'],
+            ],
+            [
+                'account_id'   => $payableAccountId,
+                'description'  => 'Accounts payable for invoice ' . ($invoice['invoice_no'] ?? $invoiceId),
+                'debit'        => '0.0000',
+                'credit'       => $this->money($amount),
+                'partner_type' => 'supplier',
+                'partner_id'   => $invoice['supplier_id'],
+            ],
+        ];
+    }
+
+    private function buildSalesInvoicePostingLines(int $companyId, int $invoiceId): array
+    {
+        $invoice = $this->record('sales_invoices', $companyId, $invoiceId);
+        if ($invoice === null) {
+            return [];
+        }
+
+        $amount = (float) ($invoice['total_amount'] ?? 0);
+        $receivableAccountId = $this->findDefaultAccountId($companyId, 'asset', '1201', ['1101', '1102']);
+        $revenueAccountId = $this->findDefaultAccountId($companyId, 'revenue', '4101');
+
+        if ($receivableAccountId === null || $revenueAccountId === null || $amount <= 0) {
+            return [];
+        }
+
+        return [
+            [
+                'account_id'   => $receivableAccountId,
+                'description'  => 'Sales invoice ' . ($invoice['invoice_no'] ?? $invoiceId),
+                'debit'        => $this->money($amount),
+                'credit'       => '0.0000',
+                'partner_type' => 'customer',
+                'partner_id'   => $invoice['customer_id'],
+            ],
+            [
+                'account_id'   => $revenueAccountId,
+                'description'  => 'Sales revenue for invoice ' . ($invoice['invoice_no'] ?? $invoiceId),
+                'debit'        => '0.0000',
+                'credit'       => $this->money($amount),
+                'partner_type' => 'customer',
+                'partner_id'   => $invoice['customer_id'],
+            ],
+        ];
+    }
+
+    private function buildPaymentPostingLines(int $companyId, int $paymentId): array
+    {
+        $payment = $this->record('payments', $companyId, $paymentId);
+        if ($payment === null) {
+            return [];
+        }
+
+        $amount = (float) ($payment['amount'] ?? 0);
+        $cashAccountId = $this->resolveCashBankChartAccountId($companyId, $payment['bank_account_id'] ?? null);
+        if ($cashAccountId === null || $amount <= 0) {
+            return [];
+        }
+
+        if (($payment['payment_type'] ?? '') === 'incoming') {
+            $receivableAccountId = $this->findDefaultAccountId($companyId, 'asset', '1201', ['1101', '1102']);
+            if ($receivableAccountId === null) {
+                return [];
+            }
+
+            return [
+                [
+                    'account_id'   => $cashAccountId,
+                    'description'  => 'Payment received ' . ($payment['payment_no'] ?? $paymentId),
+                    'debit'        => $this->money($amount),
+                    'credit'       => '0.0000',
+                    'partner_type' => 'customer',
+                    'partner_id'   => $payment['customer_id'],
+                ],
+                [
+                    'account_id'   => $receivableAccountId,
+                    'description'  => 'Receipt for payment ' . ($payment['payment_no'] ?? $paymentId),
+                    'debit'        => '0.0000',
+                    'credit'       => $this->money($amount),
+                    'partner_type' => 'customer',
+                    'partner_id'   => $payment['customer_id'],
+                ],
+            ];
+        }
+
+        $payableAccountId = $this->findDefaultAccountId($companyId, 'liability', '2101');
+        if ($payableAccountId === null) {
+            return [];
+        }
+
+        return [
+            [
+                'account_id'   => $payableAccountId,
+                'description'  => 'Payment made ' . ($payment['payment_no'] ?? $paymentId),
+                'debit'        => $this->money($amount),
+                'credit'       => '0.0000',
+                'partner_type' => 'supplier',
+                'partner_id'   => $payment['supplier_id'],
+            ],
+            [
+                'account_id'   => $cashAccountId,
+                'description'  => 'Cash payment ' . ($payment['payment_no'] ?? $paymentId),
+                'debit'        => '0.0000',
+                'credit'       => $this->money($amount),
+                'partner_type' => 'supplier',
+                'partner_id'   => $payment['supplier_id'],
+            ],
+        ];
+    }
+
+    private function resolveCashBankChartAccountId(int $companyId, ?int $bankAccountId): ?int
+    {
+        if ($bankAccountId !== null) {
+            $cashBank = $this->db->table('cash_bank_accounts')->select('account_id')->where([
+                'company_id' => $companyId,
+                'id'         => $bankAccountId,
+                'status'     => 'active',
+            ])->where('deleted_at', null)->get()->getFirstRow('array');
+
+            if ($cashBank !== null && $this->postableAccount((int) $cashBank['account_id'], $companyId)) {
+                return (int) $cashBank['account_id'];
+            }
+        }
+
+        $account = $this->db->table('chart_of_accounts')->select('id')->where([
+            'company_id'  => $companyId,
+            'status'      => 'active',
+            'is_postable' => true,
+        ])->whereIn('account_code', ['1102', '1101'])->orderBy('account_code', 'ASC')->get()->getFirstRow('array');
+
+        return $account['id'] ?? null;
+    }
+
+    private function findDefaultAccountId(int $companyId, string $accountType, ?string $preferredCode = null, array $excludeCodes = []): ?int
+    {
+        if ($preferredCode !== null) {
+            $preferred = $this->db->table('chart_of_accounts')->select('id')->where([
+                'company_id'  => $companyId,
+                'account_code' => $preferredCode,
+                'status'      => 'active',
+                'is_postable' => true,
+                'account_type' => $accountType,
+            ])->where('deleted_at', null)->get()->getFirstRow('array');
+
+            if ($preferred !== null) {
+                return (int) $preferred['id'];
+            }
+        }
+
+        $builder = $this->db->table('chart_of_accounts')->select('id')->where([
+            'company_id'   => $companyId,
+            'account_type' => $accountType,
+            'status'       => 'active',
+            'is_postable'  => true,
+        ])->where('deleted_at', null);
+
+        if ($excludeCodes !== []) {
+            $builder->whereNotIn('account_code', $excludeCodes);
+        }
+
+        $account = $builder->orderBy('account_code', 'ASC')->limit(1)->get()->getFirstRow('array');
+
+        return $account['id'] ?? null;
     }
 
     public function updateStatus(string $master, int $companyId, int $id, string $status, int $actorId): bool
@@ -379,6 +871,17 @@ final class FinanceWriteModel extends Model
     {
         return $this->db->table($table)->where(['id' => $id, 'company_id' => $companyId])
             ->where('deleted_at', null)->countAllResults() === 1;
+    }
+
+    private function documentNoExists(string $table, int $companyId, string $numberColumn, ?string $partnerColumn, ?int $partnerId, string $documentNo): bool
+    {
+        $builder = $this->db->table($table)->where(['company_id' => $companyId, $numberColumn => $documentNo])->where('deleted_at', null);
+
+        if ($partnerColumn !== null && $partnerId !== null) {
+            $builder->where($partnerColumn, $partnerId);
+        }
+
+        return $builder->countAllResults() > 0;
     }
 
     /** @return array<string, mixed>|null */

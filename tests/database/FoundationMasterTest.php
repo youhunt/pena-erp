@@ -946,7 +946,8 @@ final class FoundationMasterTest extends CIUnitTestCase
         $cashAccountId = (int) $this->db->table('chart_of_accounts')->where(['company_id' => $penaId, 'account_code' => '1101'])->get()->getFirstRow()->id;
         $revenueAccountId = (int) $this->db->table('chart_of_accounts')->where(['company_id' => $penaId, 'account_code' => '4101'])->get()->getFirstRow()->id;
 
-        $this->assertCount(3, $reader->accounts($penaId));
+        // Seed now provisions additional default accounts (cash, bank, AR, AP, purchases, revenue)
+        $this->assertCount(6, $reader->accounts($penaId));
         $this->assertCount(2, $reader->cashBankAccounts($penaId));
         $this->assertCount(1, $reader->exchangeRates($penaId));
         $this->assertCount(1, $reader->glBooks($penaId));
@@ -1078,6 +1079,199 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('audit_logs', ['event_type' => 'FISCAL_PERIOD_REOPENED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'JOURNAL_ENTRY_CREATED', 'company_id' => $penaId]);
         $this->seeInDatabase('audit_logs', ['event_type' => 'JOURNAL_ENTRY_POSTED', 'company_id' => $penaId]);
+    }
+
+    public function testFinanceInvoiceAndPaymentDraftCreationIsTenantScoped(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('finance@demo.pena-erp.test');
+        $reader = new FinanceReadModel();
+        $writer = new FinanceWriteModel();
+        $supplier = $reader->suppliers($penaId)[0];
+        $customer = $reader->customers($penaId)[0];
+        $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+
+        $this->assertTrue($writer->createPurchaseInvoice([
+            'company_id'      => $penaId,
+            'supplier_id'     => (int) $supplier['id'],
+            'purchase_order_id' => null,
+            'invoice_no'      => 'PI-TEST-001',
+            'invoice_date'    => '2026-05-15',
+            'due_date'        => '2026-06-15',
+            'currency_id'     => $currencyId,
+            'subtotal'        => '100000.0000',
+            'tax_amount'      => '10000.0000',
+            'total_amount'    => '110000.0000',
+        ], $actorId));
+        $this->seeInDatabase('purchase_invoices', ['company_id' => $penaId, 'invoice_no' => 'PI-TEST-001', 'status' => 'draft']);
+
+        $this->assertTrue($writer->createSalesInvoice([
+            'company_id'      => $penaId,
+            'customer_id'     => (int) $customer['id'],
+            'sales_order_id'  => null,
+            'invoice_no'      => 'SI-TEST-001',
+            'invoice_date'    => '2026-05-15',
+            'due_date'        => '2026-06-15',
+            'currency_id'     => $currencyId,
+            'subtotal'        => '200000.0000',
+            'tax_amount'      => '20000.0000',
+            'total_amount'    => '220000.0000',
+        ], $actorId));
+        $this->seeInDatabase('sales_invoices', ['company_id' => $penaId, 'invoice_no' => 'SI-TEST-001', 'status' => 'draft']);
+
+        $this->assertTrue($writer->createPayment([
+            'company_id'      => $penaId,
+            'payment_no'      => 'PM-TEST-001',
+            'payment_type'    => 'outgoing',
+            'supplier_id'     => (int) $supplier['id'],
+            'customer_id'     => null,
+            'payment_date'    => '2026-05-15',
+            'currency_id'     => $currencyId,
+            'bank_account_id' => null,
+            'amount'          => '50000.0000',
+        ], $actorId));
+        $this->seeInDatabase('payments', ['company_id' => $penaId, 'payment_no' => 'PM-TEST-001', 'status' => 'draft']);
+    }
+
+    public function testFinanceInvoiceAndPaymentPostingCreatesJournalEntries(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('finance@demo.pena-erp.test');
+        $reader = new FinanceReadModel();
+        $writer = new FinanceWriteModel();
+        $supplier = $reader->suppliers($penaId)[0];
+        $customer = $reader->customers($penaId)[0];
+        $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+
+        $this->assertTrue($writer->createPurchaseInvoice([
+            'company_id'      => $penaId,
+            'supplier_id'     => (int) $supplier['id'],
+            'purchase_order_id' => null,
+            'invoice_no'      => 'PI-POST-001',
+            'invoice_date'    => '2026-05-15',
+            'due_date'        => '2026-06-15',
+            'currency_id'     => $currencyId,
+            'subtotal'        => '100000.0000',
+            'tax_amount'      => '10000.0000',
+            'total_amount'    => '110000.0000',
+        ], $actorId));
+
+        $this->assertTrue($writer->createSalesInvoice([
+            'company_id'      => $penaId,
+            'customer_id'     => (int) $customer['id'],
+            'sales_order_id'  => null,
+            'invoice_no'      => 'SI-POST-001',
+            'invoice_date'    => '2026-05-15',
+            'due_date'        => '2026-06-15',
+            'currency_id'     => $currencyId,
+            'subtotal'        => '200000.0000',
+            'tax_amount'      => '20000.0000',
+            'total_amount'    => '220000.0000',
+        ], $actorId));
+
+        $this->assertTrue($writer->createPayment([
+            'company_id'      => $penaId,
+            'payment_no'      => 'PM-POST-001',
+            'payment_type'    => 'outgoing',
+            'supplier_id'     => (int) $supplier['id'],
+            'customer_id'     => null,
+            'payment_date'    => '2026-05-15',
+            'currency_id'     => $currencyId,
+            'bank_account_id' => null,
+            'amount'          => '50000.0000',
+        ], $actorId));
+
+        $purchaseInvoiceId = (int) $this->db->table('purchase_invoices')->where(['company_id' => $penaId, 'invoice_no' => 'PI-POST-001'])->get()->getFirstRow()->id;
+        $salesInvoiceId = (int) $this->db->table('sales_invoices')->where(['company_id' => $penaId, 'invoice_no' => 'SI-POST-001'])->get()->getFirstRow()->id;
+        $paymentId = (int) $this->db->table('payments')->where(['company_id' => $penaId, 'payment_no' => 'PM-POST-001'])->get()->getFirstRow()->id;
+
+        $this->assertTrue($writer->postPurchaseInvoice($penaId, $purchaseInvoiceId, $actorId));
+        $this->assertTrue($writer->postSalesInvoice($penaId, $salesInvoiceId, $actorId));
+        $this->assertTrue($writer->postPayment($penaId, $paymentId, $actorId));
+
+        $this->seeInDatabase('purchase_invoices', ['company_id' => $penaId, 'id' => $purchaseInvoiceId, 'status' => 'posted']);
+        $this->seeInDatabase('sales_invoices', ['company_id' => $penaId, 'id' => $salesInvoiceId, 'status' => 'posted']);
+        $this->seeInDatabase('payments', ['company_id' => $penaId, 'id' => $paymentId, 'status' => 'posted']);
+
+        $journalCount = $this->db->table('journal_entries')->where(['company_id' => $penaId])->countAllResults();
+        $this->assertSame(3, $journalCount);
+
+        $purchaseJournal = $this->db->table('journal_entries')->where(['company_id' => $penaId, 'source_type' => 'purchase_invoice', 'source_id' => $purchaseInvoiceId])->get()->getFirstRow('array');
+        $this->assertNotNull($purchaseJournal);
+        $this->assertSame(2, (int) $this->db->table('journal_entry_lines')->where(['company_id' => $penaId, 'journal_entry_id' => (int) $purchaseJournal['id']])->countAllResults());
+
+        $paymentJournal = $this->db->table('journal_entries')->where(['company_id' => $penaId, 'source_type' => 'payment', 'source_id' => $paymentId])->get()->getFirstRow('array');
+        $this->assertNotNull($paymentJournal);
+        $this->assertSame(2, (int) $this->db->table('journal_entry_lines')->where(['company_id' => $penaId, 'journal_entry_id' => (int) $paymentJournal['id']])->countAllResults());
+    }
+
+    public function testPaymentAllocationCreateAndDelete(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('finance@demo.pena-erp.test');
+        $reader = new FinanceReadModel();
+        $writer = new FinanceWriteModel();
+        $customer = $reader->customers($penaId)[0];
+        $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+
+        // create and post a sales invoice
+        $this->assertTrue($writer->createSalesInvoice([
+            'company_id'      => $penaId,
+            'customer_id'     => (int) $customer['id'],
+            'sales_order_id'  => null,
+            'invoice_no'      => 'SI-ALLOC-001',
+            'invoice_date'    => '2026-05-10',
+            'due_date'        => '2026-06-10',
+            'currency_id'     => $currencyId,
+            'subtotal'        => '100000.0000',
+            'tax_amount'      => '10000.0000',
+            'total_amount'    => '110000.0000',
+        ], $actorId));
+
+        $salesInvoiceId = (int) $this->db->table('sales_invoices')->where(['company_id' => $penaId, 'invoice_no' => 'SI-ALLOC-001'])->get()->getFirstRow()->id;
+        $this->assertTrue($writer->postSalesInvoice($penaId, $salesInvoiceId, $actorId));
+
+        // create and post an incoming payment for same customer
+        $this->assertTrue($writer->createPayment([
+            'company_id'      => $penaId,
+            'payment_no'      => 'PM-ALLOC-001',
+            'payment_type'    => 'incoming',
+            'supplier_id'     => null,
+            'customer_id'     => (int) $customer['id'],
+            'payment_date'    => '2026-05-11',
+            'currency_id'     => $currencyId,
+            'bank_account_id' => null,
+            'amount'          => '50000.0000',
+        ], $actorId));
+
+        $paymentId = (int) $this->db->table('payments')->where(['company_id' => $penaId, 'payment_no' => 'PM-ALLOC-001'])->get()->getFirstRow()->id;
+        $this->assertTrue($writer->postPayment($penaId, $paymentId, $actorId));
+
+        // manual allocation: allocate 50k to the invoice (partial)
+        $this->assertTrue($writer->createPaymentAllocation([
+            'company_id'      => $penaId,
+            'payment_id'      => $paymentId,
+            'document_type'   => 'sales_invoice',
+            'document_id'     => $salesInvoiceId,
+            'allocated_amount'=> '50000.0000',
+            'description'     => 'Partial allocation test',
+        ], $actorId));
+
+        $this->seeInDatabase('payment_allocations', ['company_id' => $penaId, 'payment_id' => $paymentId, 'document_type' => 'sales_invoice', 'document_id' => $salesInvoiceId]);
+
+        $alloc = $this->db->table('payment_allocations')->where(['company_id' => $penaId, 'payment_id' => $paymentId])->get()->getFirstRow('array');
+        $this->assertNotNull($alloc);
+
+        $this->assertTrue($writer->deletePaymentAllocation($penaId, (int) $alloc['id'], $actorId));
+        $deleted = $this->db->table('payment_allocations')->where(['company_id' => $penaId, 'id' => (int) $alloc['id']])->get()->getFirstRow('array');
+        $this->assertNotNull($deleted);
+        $this->assertNotNull($deleted['deleted_at']);
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

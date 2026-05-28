@@ -114,6 +114,96 @@ final class FinanceReadModel extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function purchaseInvoices(int $companyId): array
+    {
+        return $this->db->table('purchase_invoices i')
+            ->select('i.*, s.code AS supplier_code, s.name AS supplier_name')
+            ->join('suppliers s', 's.id = i.supplier_id AND s.company_id = i.company_id', 'left')
+            ->where('i.company_id', $companyId)->where('i.deleted_at', null)
+            ->orderBy('i.invoice_date', 'DESC')->orderBy('i.id', 'DESC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function salesInvoices(int $companyId): array
+    {
+        return $this->db->table('sales_invoices i')
+            ->select('i.*, c.code AS customer_code, c.name AS customer_name')
+            ->join('customers c', 'c.id = i.customer_id AND c.company_id = i.company_id', 'left')
+            ->where('i.company_id', $companyId)->where('i.deleted_at', null)
+            ->orderBy('i.invoice_date', 'DESC')->orderBy('i.id', 'DESC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function payments(int $companyId): array
+    {
+        return $this->db->table('payments p')
+            ->select('p.*, s.code AS supplier_code, s.name AS supplier_name, c.code AS customer_code, c.name AS customer_name')
+            ->join('suppliers s', 's.id = p.supplier_id AND s.company_id = p.company_id', 'left')
+            ->join('customers c', 'c.id = p.customer_id AND c.company_id = p.company_id', 'left')
+            ->where('p.company_id', $companyId)->where('p.deleted_at', null)
+            ->orderBy('p.payment_date', 'DESC')->orderBy('p.id', 'DESC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function paymentAllocations(int $companyId, int $paymentId): array
+    {
+        return $this->db->table('payment_allocations a')
+            ->select('a.*, p.payment_no, p.payment_type, i.invoice_no AS document_no')
+            ->join('payments p', 'p.id = a.payment_id AND p.company_id = a.company_id', 'left')
+            ->join('sales_invoices i', "i.id = a.document_id AND a.document_type = 'sales_invoice' AND i.company_id = a.company_id", 'left')
+            ->where('a.company_id', $companyId)->where('a.payment_id', $paymentId)->where('a.deleted_at', null)
+            ->orderBy('a.id', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function paymentAllocationCandidates(int $companyId, int $paymentId): array
+    {
+        $payment = $this->db->table('payments')->where(['company_id' => $companyId, 'id' => $paymentId, 'deleted_at' => null])->get()->getFirstRow();
+        if (! $payment) {
+            return [];
+        }
+
+        if (! empty($payment->customer_id)) {
+            // customer payment -> sales invoices
+            return $this->db->table('sales_invoices i')
+                ->select("i.id, i.invoice_no, i.invoice_date, i.total_amount, COALESCE(SUM(a.allocated_amount), 0) AS allocated_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount),0)) AS outstanding_amount, 'sales_invoice' AS document_type")
+                ->join('payment_allocations a', "a.document_type = 'sales_invoice' AND a.document_id = i.id AND a.deleted_at IS NULL", 'left')
+                ->where('i.company_id', $companyId)->where('i.customer_id', $payment->customer_id)->where('i.status', 'posted')
+                ->groupBy('i.id')
+                ->having('outstanding_amount >', 0)
+                ->orderBy('i.invoice_date', 'ASC')->get()->getResultArray();
+        }
+
+        if (! empty($payment->supplier_id)) {
+            // supplier payment -> purchase invoices
+            return $this->db->table('purchase_invoices i')
+                ->select("i.id, i.invoice_no, i.invoice_date, i.total_amount, COALESCE(SUM(a.allocated_amount), 0) AS allocated_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount),0)) AS outstanding_amount, 'purchase_invoice' AS document_type")
+                ->join('payment_allocations a', "a.document_type = 'purchase_invoice' AND a.document_id = i.id AND a.deleted_at IS NULL", 'left')
+                ->where('i.company_id', $companyId)->where('i.supplier_id', $payment->supplier_id)->where('i.status', 'posted')
+                ->groupBy('i.id')
+                ->having('outstanding_amount >', 0)
+                ->orderBy('i.invoice_date', 'ASC')->get()->getResultArray();
+        }
+
+        return [];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function suppliers(int $companyId): array
+    {
+        return $this->activeOptions('suppliers', $companyId);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function customers(int $companyId): array
+    {
+        return $this->activeOptions('customers', $companyId);
+    }
+
+    /** @return list<array<string, mixed>> */
     public function postableAccounts(int $companyId): array
     {
         return $this->db->table('chart_of_accounts')->select('id, account_code, account_name')

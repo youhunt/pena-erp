@@ -152,6 +152,7 @@ final class MultiCompanyDemoSeeder extends Seeder
             'finance.master.view'    => ['Lihat Finance Master', 'finance'],
             'finance.master.manage'  => ['Kelola Finance Master', 'finance'],
             'finance.invoice.view'   => ['Lihat Invoice Finance', 'finance'],
+            'finance.invoice.manage' => ['Kelola Invoice Finance', 'finance'],
             'cashbank.view'          => ['Lihat Cash dan Bank', 'cashbank'],
             'reports.view'           => ['Lihat Reporting', 'reports'],
             'documents.upload'       => ['Upload Dokumen AI/OCR', 'documents'],
@@ -182,8 +183,8 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
-            'finance'    => ['company.dashboard.view', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'finance'    => ['company.dashboard.view', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
             'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
             'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
             'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view'],
@@ -660,6 +661,33 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'account_code'   => '1102',
                 'account_name'   => 'Cash in Bank',
                 'account_type'   => 'asset',
+                'normal_balance' => 'D',
+                'is_postable'    => true,
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $this->inventoryRecord('chart_of_accounts', $companyId, 'account_code', '1201', [
+                'account_code'   => '1201',
+                'account_name'   => 'Accounts Receivable',
+                'account_type'   => 'asset',
+                'normal_balance' => 'D',
+                'is_postable'    => true,
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $this->inventoryRecord('chart_of_accounts', $companyId, 'account_code', '2101', [
+                'account_code'   => '2101',
+                'account_name'   => 'Accounts Payable',
+                'account_type'   => 'liability',
+                'normal_balance' => 'C',
+                'is_postable'    => true,
+                'status'         => 'active',
+                'created_at'     => $now,
+            ]);
+            $this->inventoryRecord('chart_of_accounts', $companyId, 'account_code', '5001', [
+                'account_code'   => '5001',
+                'account_name'   => 'Purchases',
+                'account_type'   => 'expense',
                 'normal_balance' => 'D',
                 'is_postable'    => true,
                 'status'         => 'active',

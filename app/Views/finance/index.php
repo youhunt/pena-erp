@@ -24,6 +24,7 @@
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#closeModulePeriod">Close Module Period</button>
             <div class="dropdown-divider"></div>
             <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addJournal">Manual Journal</button>
+            <a class="dropdown-item" href="<?= site_url('finance/invoices') ?>">Invoice / Payment</a>
         </div></div>
     <?php else : ?><span class="badge bg-info">Read only</span><?php endif; ?>
 </div>

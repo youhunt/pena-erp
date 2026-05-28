@@ -53,7 +53,7 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 20 | Finance Advanced Master | Dibuat: GL Book, GL Column, Cost Type, Item Cost, 28 Mei 2026 |
 | 21 | Fiscal Period / Period Close Foundation | Dibuat: fiscal period lock dan module close/reopen, 28 Mei 2026 |
 | 22 | GL Entry Foundation | Dibuat: manual journal draft/posting dengan period lock, 28 Mei 2026 |
-| 23+ | Domain transaction lanjutan, AP/AR posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 23 | AP/AR/payment transaction foundation | Berjalan: create/post draft invoice & payment | 
 
 ## Tahap 1: Bootstrap CI4
 

@@ -115,6 +115,9 @@ dan post, serta proteksi tenant pada warehouse/product.
 Tahap 19 menambahkan Inventory Transfer MVP: draft transfer antar warehouse
 aktif, validasi saldo source, posting `transfer_out`/`transfer_in`, update
 saldo source/destination, audit transfer, dan proteksi tenant.
+Tahap 20 menambahkan Finance Advanced Master: `gl_books`, `gl_columns`,
+`cost_types`, dan `item_costs` berikut UI, seeder demo, audit, serta validasi
+referensi tenant untuk pondasi GL/costing.
 
 ## Definition of Ready for Implementation
 

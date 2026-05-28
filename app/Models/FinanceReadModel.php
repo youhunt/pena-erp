@@ -43,6 +43,45 @@ final class FinanceReadModel extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function glBooks(int $companyId): array
+    {
+        return $this->db->table('gl_books b')
+            ->select('b.*, c.code AS currency_code, a.account_code AS retained_earnings_code')
+            ->join('currencies c', 'c.id = b.currency_id AND c.company_id = b.company_id')
+            ->join('chart_of_accounts a', 'a.id = b.retained_earnings_account_id AND a.company_id = b.company_id', 'left')
+            ->where('b.company_id', $companyId)->where('b.deleted_at', null)
+            ->orderBy('b.code', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function glColumns(int $companyId): array
+    {
+        return $this->db->table('gl_columns')
+            ->where('company_id', $companyId)->where('deleted_at', null)
+            ->orderBy('sequence_no', 'ASC')->orderBy('code', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function costTypes(int $companyId): array
+    {
+        return $this->db->table('cost_types')
+            ->where('company_id', $companyId)->where('deleted_at', null)
+            ->orderBy('code', 'ASC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function itemCosts(int $companyId): array
+    {
+        return $this->db->table('item_costs i')
+            ->select('i.*, p.sku, p.name AS product_name, t.code AS cost_type_code, c.code AS currency_code')
+            ->join('products p', 'p.id = i.product_id AND p.company_id = i.company_id')
+            ->join('cost_types t', 't.id = i.cost_type_id AND t.company_id = i.company_id')
+            ->join('currencies c', 'c.id = i.currency_id AND c.company_id = i.company_id')
+            ->where('i.company_id', $companyId)->where('i.deleted_at', null)
+            ->orderBy('p.sku', 'ASC')->orderBy('i.effective_from', 'DESC')->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
     public function postableAccounts(int $companyId): array
     {
         return $this->db->table('chart_of_accounts')->select('id, account_code, account_name')
@@ -54,6 +93,14 @@ final class FinanceReadModel extends Model
     public function currencies(int $companyId): array
     {
         return $this->activeOptions('currencies', $companyId);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function products(int $companyId): array
+    {
+        return $this->db->table('products')->select('id, sku AS code, name')
+            ->where(['company_id' => $companyId, 'status' => 'active', 'product_type' => 'stock'])
+            ->where('deleted_at', null)->orderBy('sku', 'ASC')->get()->getResultArray();
     }
 
     /** @return list<array<string, mixed>> */

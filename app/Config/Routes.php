@@ -102,6 +102,10 @@ $routes->group('finance/master', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('cash-bank-accounts/(:num)', 'FinanceMaster::updateCashBank/$1');
     $routes->post('exchange-rates', 'FinanceMaster::createExchangeRate');
     $routes->post('exchange-rates/(:num)', 'FinanceMaster::updateExchangeRate/$1');
+    $routes->post('gl-books', 'FinanceMaster::createGlBook');
+    $routes->post('gl-columns', 'FinanceMaster::createGlColumn');
+    $routes->post('cost-types', 'FinanceMaster::createCostType');
+    $routes->post('item-costs', 'FinanceMaster::createItemCost');
     $routes->post('status/(:segment)/(:num)', 'FinanceMaster::updateStatus/$1/$2');
 });
 

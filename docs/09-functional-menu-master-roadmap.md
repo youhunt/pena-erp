@@ -108,16 +108,16 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Advanced A/R Receipt | `ar_advances` | Designed |
 | Payment Receipt | `payments`, `payment_allocations` direction receivable | Designed |
 | A/R Period Close | `module_period_closes` type `ar` | Designed |
-| Cost Type | `cost_types` | Designed |
-| Item Cost | `item_costs` history by type/period | Designed |
+| Cost Type | `cost_types` | Built |
+| Item Cost | `item_costs` history by type/period | Built |
 | Calculate Cost | `cost_calculation_runs`, result lines | Designed |
 | Cash Bank ID | `cash_bank_accounts` linked COA/currency | Built; foundation |
 | Currency / Rate Master | `currencies`, `exchange_rates` | Built; foundation |
 | Employee ID | `employees`, usable sebagai custodian/advance requester | Designed |
 | Cash Entry / Bank Entry | `cash_bank_entries`, lines | Designed |
 | Bank Reconcile | `bank_reconciliations`, matching lines | Designed |
-| GL Book | `gl_books` | Designed |
-| GL Column | `gl_columns` reporting mapping | Designed |
+| GL Book | `gl_books` | Built |
+| GL Column | `gl_columns` reporting mapping | Built |
 | Account No. / Chart of Account | `chart_of_accounts` | Built; foundation |
 | Recurring / Recurring Posting | `recurring_journals`, posting runs | Designed |
 | GL Entry | `journal_entries`, `journal_entry_lines` immutable after posting | Designed |
@@ -132,7 +132,7 @@ tidak bisa dipakai transaksi:
 | --- | --- |
 | M1 Foundation master | Transaction Code, Department, Country/Address, Currency, VAT, Location, UoM Conversion, Item VAT, Batch Master |
 | M2 Commercial master | Customer/Supplier/profile policy, item profile/effective baseline price, POS register (Built) |
-| M3 Finance master | COA, Cash Bank, Rate (Built foundation); POS payment mapping, shift, dan receipt MVP (Built); GL Book/Column, Cost Type/Item Cost, fiscal close authority (next) |
+| M3 Finance master | COA, Cash Bank, Rate, GL Book/Column, Cost Type/Item Cost (Built); fiscal close authority (next) |
 | M4 Manufacturing master | BOM, Work Center, Routing, Forecast/MPS/MRP setup |
 | T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting; stock ledger foundation Built |
 | T2 Financial transactions | AP/AR, payment, cash/bank, GL posting and period close |

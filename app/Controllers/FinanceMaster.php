@@ -31,9 +31,14 @@ final class FinanceMaster extends BaseController
             'accounts'      => $reader->accounts($companyId),
             'cashBanks'     => $reader->cashBankAccounts($companyId),
             'rates'         => $reader->exchangeRates($companyId),
+            'glBooks'       => $reader->glBooks($companyId),
+            'glColumns'     => $reader->glColumns($companyId),
+            'costTypes'     => $reader->costTypes($companyId),
+            'itemCosts'     => $reader->itemCosts($companyId),
             'postable'      => $reader->postableAccounts($companyId),
             'currencies'    => $reader->currencies($companyId),
             'branches'      => $reader->branches($companyId),
+            'products'      => $reader->products($companyId),
         ]);
     }
 
@@ -166,6 +171,144 @@ final class FinanceMaster extends BaseController
         }
 
         return $this->completed('Exchange Rate berhasil diperbarui.');
+    }
+
+    public function createGlBook(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $retained = (int) $this->request->getPost('retained_earnings_account_id');
+        $data = [
+            'company_id'                    => (int) $context['company_id'],
+            'currency_id'                   => (int) $this->request->getPost('currency_id'),
+            'retained_earnings_account_id'  => $retained > 0 ? $retained : null,
+            'code'                          => strtoupper(trim((string) $this->request->getPost('code'))),
+            'name'                          => trim((string) $this->request->getPost('name')),
+            'book_type'                     => (string) $this->request->getPost('book_type'),
+            'status'                        => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'currency_id' => 'required|is_natural_no_zero',
+            'code'        => 'required|alpha_dash|max_length[30]',
+            'name'        => 'required|max_length[120]',
+            'book_type'   => 'required|in_list[primary,local,tax,management]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if ((new FinanceReadModel())->codeExists('gl_books', (int) $context['company_id'], (string) $data['code'])) {
+            return $this->invalid(['code' => 'Kode GL Book sudah digunakan.']);
+        }
+
+        if (! (new FinanceWriteModel())->createGlBook($data, $this->actorId())) {
+            return $this->invalid(['reference' => 'Currency atau retained earnings account tidak valid.']);
+        }
+
+        return $this->completed('GL Book berhasil ditambahkan.');
+    }
+
+    public function createGlColumn(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'   => (int) $context['company_id'],
+            'code'         => strtoupper(trim((string) $this->request->getPost('code'))),
+            'name'         => trim((string) $this->request->getPost('name')),
+            'column_type'  => (string) $this->request->getPost('column_type'),
+            'sequence_no'  => (int) $this->request->getPost('sequence_no'),
+            'status'       => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'code'        => 'required|alpha_dash|max_length[30]',
+            'name'        => 'required|max_length[120]',
+            'column_type' => 'required|in_list[actual,budget,variance]',
+            'sequence_no' => 'required|integer|greater_than_equal_to[1]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if ((new FinanceReadModel())->codeExists('gl_columns', (int) $context['company_id'], (string) $data['code'])) {
+            return $this->invalid(['code' => 'Kode GL Column sudah digunakan.']);
+        }
+
+        (new FinanceWriteModel())->createGlColumn($data, $this->actorId());
+
+        return $this->completed('GL Column berhasil ditambahkan.');
+    }
+
+    public function createCostType(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'        => (int) $context['company_id'],
+            'code'              => strtoupper(trim((string) $this->request->getPost('code'))),
+            'name'              => trim((string) $this->request->getPost('name')),
+            'valuation_method'  => (string) $this->request->getPost('valuation_method'),
+            'status'            => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'code'             => 'required|alpha_dash|max_length[30]',
+            'name'             => 'required|max_length[120]',
+            'valuation_method' => 'required|in_list[standard,moving_average,fifo]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if ((new FinanceReadModel())->codeExists('cost_types', (int) $context['company_id'], (string) $data['code'])) {
+            return $this->invalid(['code' => 'Kode Cost Type sudah digunakan.']);
+        }
+
+        (new FinanceWriteModel())->createCostType($data, $this->actorId());
+
+        return $this->completed('Cost Type berhasil ditambahkan.');
+    }
+
+    public function createItemCost(): RedirectResponse
+    {
+        $context = $this->context('finance.master.manage');
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $data = [
+            'company_id'      => (int) $context['company_id'],
+            'product_id'      => (int) $this->request->getPost('product_id'),
+            'cost_type_id'    => (int) $this->request->getPost('cost_type_id'),
+            'currency_id'     => (int) $this->request->getPost('currency_id'),
+            'unit_cost'       => (string) $this->request->getPost('unit_cost'),
+            'effective_from'  => (string) $this->request->getPost('effective_from'),
+            'status'          => 'active',
+        ];
+
+        if (! $this->validateData($data, [
+            'product_id'     => 'required|is_natural_no_zero',
+            'cost_type_id'   => 'required|is_natural_no_zero',
+            'currency_id'    => 'required|is_natural_no_zero',
+            'unit_cost'      => 'required|decimal|greater_than_equal_to[0]',
+            'effective_from' => 'required|valid_date[Y-m-d]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new FinanceWriteModel())->createItemCost($data, $this->actorId())) {
+            return $this->invalid(['reference' => 'Item, cost type, atau currency tidak valid untuk company aktif.']);
+        }
+
+        return $this->completed('Item Cost berhasil ditambahkan.');
     }
 
     public function updateStatus(string $master, int $id): RedirectResponse

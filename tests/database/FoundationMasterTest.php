@@ -938,10 +938,17 @@ final class FoundationMasterTest extends CIUnitTestCase
         $reader = new FinanceReadModel();
         $cashBank = $reader->cashBankAccounts($penaId)[0];
         $foreignCurrency = (int) $this->db->table('currencies')->where(['company_id' => $nusaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+        $currencyId = (int) $this->db->table('currencies')->where(['company_id' => $penaId, 'code' => 'IDR'])->get()->getFirstRow()->id;
+        $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
+        $costTypeId = (int) $this->db->table('cost_types')->where(['company_id' => $penaId, 'code' => 'STD'])->get()->getFirstRow()->id;
 
         $this->assertCount(3, $reader->accounts($penaId));
         $this->assertCount(2, $reader->cashBankAccounts($penaId));
         $this->assertCount(1, $reader->exchangeRates($penaId));
+        $this->assertCount(1, $reader->glBooks($penaId));
+        $this->assertCount(1, $reader->glColumns($penaId));
+        $this->assertCount(1, $reader->costTypes($penaId));
+        $this->assertCount(1, $reader->itemCosts($penaId));
         $this->assertContains('finance', array_column((new TenantMenuService($this->db))->accessibleMenus($actorId, $penaId), 'code'));
         $this->assertFalse((new FinanceWriteModel())->createCashBankAccount([
             'company_id'   => $penaId,
@@ -952,8 +959,53 @@ final class FoundationMasterTest extends CIUnitTestCase
             'account_type' => 'bank',
             'status'       => 'active',
         ], $actorId));
-        $this->assertTrue((new FinanceWriteModel())->updateStatus('cash-bank', $penaId, (int) $cashBank['id'], 'inactive', $actorId));
+        $writer = new FinanceWriteModel();
+        $this->assertFalse($writer->createGlBook([
+            'company_id'   => $penaId,
+            'currency_id'  => $foreignCurrency,
+            'code'         => 'BAD',
+            'name'         => 'Bad Foreign Book',
+            'book_type'    => 'primary',
+            'status'       => 'active',
+        ], $actorId));
+        $writer->createCostType([
+            'company_id'        => $penaId,
+            'code'              => 'AVG',
+            'name'              => 'Moving Average Cost',
+            'valuation_method'  => 'moving_average',
+            'status'            => 'active',
+        ], $actorId);
+        $writer->createGlColumn([
+            'company_id'  => $penaId,
+            'code'        => 'BUDGET',
+            'name'        => 'Budget',
+            'column_type' => 'budget',
+            'sequence_no' => 20,
+            'status'      => 'active',
+        ], $actorId);
+        $this->assertFalse($writer->createItemCost([
+            'company_id'      => $penaId,
+            'product_id'      => $productId,
+            'cost_type_id'    => $costTypeId,
+            'currency_id'     => $foreignCurrency,
+            'unit_cost'       => '52000.0000',
+            'effective_from'  => '2026-06-01',
+            'status'          => 'active',
+        ], $actorId));
+        $this->assertTrue($writer->createItemCost([
+            'company_id'      => $penaId,
+            'product_id'      => $productId,
+            'cost_type_id'    => $costTypeId,
+            'currency_id'     => $currencyId,
+            'unit_cost'       => '52000.0000',
+            'effective_from'  => '2026-06-01',
+            'status'          => 'active',
+        ], $actorId));
+        $this->assertTrue($writer->updateStatus('cash-bank', $penaId, (int) $cashBank['id'], 'inactive', $actorId));
         $this->seeInDatabase('audit_logs', ['event_type' => 'CASH_BANK_ACCOUNT_STATUS_UPDATED', 'entity_id' => (int) $cashBank['id']]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'COST_TYPE_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'GL_COLUMN_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'ITEM_COST_CREATED', 'company_id' => $penaId]);
     }
 
     public function testRevokingRolePermissionRemovesMenuAndWritesAuditEvent(): void

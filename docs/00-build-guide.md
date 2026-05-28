@@ -50,7 +50,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 17 | Inventory Stock Visibility | Dibuat: grid stock balances dan stock movements di Inventory, 28 Mei 2026 |
 | 18 | Inventory Stock Opname / Adjustment | Dibuat: draft count, posting adjustment ke stock ledger, 28 Mei 2026 |
 | 19 | Inventory Transfer | Dibuat: draft transfer antar warehouse dan posting transfer in/out, 28 Mei 2026 |
-| 20+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 20 | Finance Advanced Master | Dibuat: GL Book, GL Column, Cost Type, Item Cost, 28 Mei 2026 |
+| 21+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -462,6 +463,29 @@ atau period close. Semua itu menjadi dasar tahap inventory control berikutnya.
 Transfer masih MVP satu item dan langsung posted tanpa approval. Belum ada
 workflow submit/approve, receive confirmation, in-transit stock, lot/bin
 picking, transfer cost, reversal, print dokumen, atau period close lock.
+
+## Tahap 20: Finance Advanced Master
+
+### Yang Sudah Dibuat
+
+- Migration `gl_books`, `gl_columns`, `cost_types`, dan `item_costs` membuat
+  master lanjutan finance/costing tenant-scoped.
+- Seeder demo mengisi GL Book `MAIN`, GL Column `ACTUAL`, Cost Type `STD`,
+  dan satu Item Cost awal per company berdasarkan stock item demo.
+- Menu `Finance Master` menambah tab `GL Setup` dan `Costing`, serta modal
+  tambah untuk GL Book, GL Column, Cost Type, dan Item Cost.
+- `FinanceWriteModel` memvalidasi currency, COA, product, dan cost type tetap
+  pada company aktif; referensi lintas-company ditolak.
+- Status master lanjutan dapat diaktif/nonaktifkan lewat jalur status finance
+  yang sama dengan COA/kas-bank/kurs.
+- Regression test mencakup seed idempotent, penolakan currency tenant lain,
+  create GL Column, Cost Type, Item Cost, dan audit event master lanjutan.
+
+### Batas Tahap Ini
+
+Tahap ini belum membuat journal entry, posting GL, costing calculation run,
+inventory valuation, fiscal period, atau period close. Ia hanya menyiapkan
+master yang nanti dipakai oleh AP/AR, POS posting, costing, dan GL.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

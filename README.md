@@ -62,6 +62,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   draft posting ke ledger, update saldo, dan audit adjustment.
 - Tahap 19 dimulai: Inventory Transfer MVP membuat draft transfer antar
   warehouse aktif, posting keluar/masuk ke stock ledger, dan audit transfer.
+- Tahap 20 dimulai: Finance Master lanjutan menambahkan GL Book, GL Column,
+  Cost Type, dan Item Cost history sebagai pondasi jurnal/costing.
 
 ```bash
 composer install

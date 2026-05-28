@@ -79,12 +79,61 @@ final class FinanceWriteModel extends Model
         return $this->updateRecord('exchange_rates', 'EXCHANGE_RATE_UPDATED', 'exchange_rate', $companyId, $id, $data, $actorId);
     }
 
+    /** @param array<string, mixed> $data */
+    public function createGlBook(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        if (! $this->active('currencies', (int) $data['currency_id'], $companyId)
+            || (($data['retained_earnings_account_id'] ?? null) !== null && ! $this->active('chart_of_accounts', (int) $data['retained_earnings_account_id'], $companyId))) {
+            return false;
+        }
+
+        $this->create('gl_books', 'GL_BOOK_CREATED', 'gl_book', $data, $actorId);
+
+        return true;
+    }
+
+    /** @param array<string, mixed> $data */
+    public function createGlColumn(array $data, int $actorId): void
+    {
+        $this->create('gl_columns', 'GL_COLUMN_CREATED', 'gl_column', $data, $actorId);
+    }
+
+    /** @param array<string, mixed> $data */
+    public function createCostType(array $data, int $actorId): void
+    {
+        $this->create('cost_types', 'COST_TYPE_CREATED', 'cost_type', $data, $actorId);
+    }
+
+    /** @param array<string, mixed> $data */
+    public function createItemCost(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        $product = $this->db->table('products')->where([
+            'id' => (int) $data['product_id'], 'company_id' => $companyId, 'status' => 'active', 'product_type' => 'stock',
+        ])->where('deleted_at', null)->countAllResults() === 1;
+
+        if (! $product
+            || ! $this->active('cost_types', (int) $data['cost_type_id'], $companyId)
+            || ! $this->active('currencies', (int) $data['currency_id'], $companyId)) {
+            return false;
+        }
+
+        $this->create('item_costs', 'ITEM_COST_CREATED', 'item_cost', $data, $actorId);
+
+        return true;
+    }
+
     public function updateStatus(string $master, int $companyId, int $id, string $status, int $actorId): bool
     {
         $map = [
             'account'       => ['chart_of_accounts', 'chart_account'],
             'cash-bank'     => ['cash_bank_accounts', 'cash_bank_account'],
             'exchange-rate' => ['exchange_rates', 'exchange_rate'],
+            'gl-book'       => ['gl_books', 'gl_book'],
+            'gl-column'     => ['gl_columns', 'gl_column'],
+            'cost-type'     => ['cost_types', 'cost_type'],
+            'item-cost'     => ['item_costs', 'item_cost'],
         ];
 
         if (! isset($map[$master]) || ! in_array($status, ['active', 'inactive'], true)) {

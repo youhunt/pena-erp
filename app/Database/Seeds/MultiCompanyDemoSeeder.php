@@ -706,6 +706,45 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'status'       => 'active',
                 'created_at'   => $now,
             ]);
+            $glBookId = $this->inventoryRecord('gl_books', $companyId, 'code', 'MAIN', [
+                'currency_id'                  => (int) $currency['id'],
+                'retained_earnings_account_id' => null,
+                'code'                         => 'MAIN',
+                'name'                         => 'Primary Ledger',
+                'book_type'                    => 'primary',
+                'status'                       => 'active',
+                'created_at'                   => $now,
+            ]);
+            unset($glBookId);
+            $this->inventoryRecord('gl_columns', $companyId, 'code', 'ACTUAL', [
+                'code'        => 'ACTUAL',
+                'name'        => 'Actual',
+                'column_type' => 'actual',
+                'sequence_no' => 10,
+                'status'      => 'active',
+                'created_at'  => $now,
+            ]);
+            $standardCostTypeId = $this->inventoryRecord('cost_types', $companyId, 'code', 'STD', [
+                'code'             => 'STD',
+                'name'             => 'Standard Cost',
+                'valuation_method' => 'standard',
+                'status'           => 'active',
+                'created_at'       => $now,
+            ]);
+            $product = $this->db->table('products')->where(['company_id' => $companyId, 'product_type' => 'stock'])->orderBy('id', 'ASC')->get()->getFirstRow('array');
+            if ($product !== null) {
+                $this->relationRecord('item_costs', [
+                    'company_id'      => $companyId,
+                    'product_id'      => (int) $product['id'],
+                    'cost_type_id'    => $standardCostTypeId,
+                    'currency_id'     => (int) $currency['id'],
+                    'effective_from'  => '2026-05-26',
+                ], [
+                    'unit_cost'  => $product['standard_cost'] ?? '0.0000',
+                    'status'     => 'active',
+                    'created_at' => $now,
+                ]);
+            }
         }
     }
 

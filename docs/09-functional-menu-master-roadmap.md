@@ -38,6 +38,7 @@ masih diselaraskan bertahap.
 | Item VAT | `product_tax_codes` | Built |
 | Address Master | `addresses`, reusable tenant address reference | Built |
 | POS Master | `pos_registers`, `pos_payment_methods`, `pos_shifts`, hierarchy/default customer/currency/numbering/payment register | Built; register + payment + shift foundation |
+| POS System | `pos_sales`, `pos_sale_items`, `pos_sale_payments` | Built MVP; receipt paid satu item dari open shift |
 
 UI Setup Master menggunakan pola grid/list utama dengan modal tambah dan
 edit. Transaction Code, Department, Currency, VAT, dan Address Master
@@ -131,7 +132,7 @@ tidak bisa dipakai transaksi:
 | --- | --- |
 | M1 Foundation master | Transaction Code, Department, Country/Address, Currency, VAT, Location, UoM Conversion, Item VAT, Batch Master |
 | M2 Commercial master | Customer/Supplier/profile policy, item profile/effective baseline price, POS register (Built) |
-| M3 Finance master | COA, Cash Bank, Rate (Built foundation); POS payment mapping and shift foundation (Built); GL Book/Column, Cost Type/Item Cost, fiscal close authority (next) |
+| M3 Finance master | COA, Cash Bank, Rate (Built foundation); POS payment mapping, shift, dan receipt MVP (Built); GL Book/Column, Cost Type/Item Cost, fiscal close authority (next) |
 | M4 Manufacturing master | BOM, Work Center, Routing, Forecast/MPS/MRP setup |
 | T1 Transactions | Purchase, Sales, Inventory movements with approval and immutable posting |
 | T2 Financial transactions | AP/AR, payment, cash/bank, GL posting and period close |

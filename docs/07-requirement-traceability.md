@@ -100,6 +100,10 @@ kelanjutan.
 Tahap 14 menambahkan `pos_shifts` sebagai fondasi transaksi kasir: open/close
 shift per register, validasi membership site cashier, proteksi shift open
 ganda, UI pada POS Master, dan audit open/close.
+Tahap 15 menambahkan POS Sales Receipt MVP melalui `pos_sales`,
+`pos_sale_items`, dan `pos_sale_payments`: receipt hanya bisa dibuat dari shift
+open milik cashier aktif, memakai item aktif tenant, payment method register
+yang sama, VAT item, Transaction Code receipt, dan audit `POS_SALE_PAID`.
 
 ## Definition of Ready for Implementation
 

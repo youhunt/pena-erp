@@ -168,6 +168,99 @@ final class PosWriteModel extends Model
     }
 
     /** @param array<string, mixed> $data */
+    public function createSale(array $data, int $actorId): bool
+    {
+        $companyId = (int) $data['company_id'];
+        $shift = $this->shiftRow($companyId, (int) $data['shift_id']);
+
+        if ($shift === null || $shift['status'] !== 'open' || (int) $shift['cashier_user_id'] !== $actorId) {
+            return false;
+        }
+
+        $register = $this->row($companyId, (int) $shift['register_id']);
+        $payment = $this->paymentMethodForSale($companyId, (int) $data['payment_method_id'], (int) $shift['register_id']);
+        $product = $this->productForSale($companyId, (int) $data['product_id']);
+
+        if ($register === null || $register['status'] !== 'active' || $payment === null || $product === null) {
+            return false;
+        }
+
+        $customerId = (int) ($data['customer_id'] ?: ($register['default_customer_id'] ?? 0));
+        if ($customerId > 0 && ! $this->active('customers', $customerId, $companyId)) {
+            return false;
+        }
+
+        $qty = (float) $data['qty'];
+        $unitPrice = (float) $data['unit_price'];
+        $paidAmount = (float) $data['payment_amount'];
+
+        if ($qty <= 0 || $unitPrice < 0 || $paidAmount < 0) {
+            return false;
+        }
+
+        $tax = $this->taxForProduct($companyId, (int) $product['id']);
+        $taxRate = $tax === null ? 0.0 : (float) $tax['rate'];
+        $subtotal = round($qty * $unitPrice, 4);
+        $taxAmount = round($subtotal * $taxRate, 4);
+        $totalAmount = round($subtotal + $taxAmount, 4);
+
+        if ($paidAmount < $totalAmount) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->transStart();
+        $receiptNo = $this->nextReceiptNo($companyId, (int) $register['transaction_code_id'], $actorId);
+        $sale = [
+            'company_id'     => $companyId,
+            'shift_id'       => (int) $shift['id'],
+            'register_id'    => (int) $register['id'],
+            'customer_id'    => $customerId > 0 ? $customerId : null,
+            'currency_id'    => (int) $register['currency_id'],
+            'receipt_no'     => $receiptNo,
+            'sold_at'        => $now,
+            'subtotal'       => $this->money($subtotal),
+            'tax_amount'     => $this->money($taxAmount),
+            'total_amount'   => $this->money($totalAmount),
+            'paid_amount'    => $this->money($paidAmount),
+            'change_amount'  => $this->money($paidAmount - $totalAmount),
+            'status'         => 'paid',
+            'created_by'     => $actorId,
+            'created_at'     => $now,
+        ];
+        $this->db->table('pos_sales')->insert($sale);
+        $saleId = (int) $this->db->insertID();
+
+        $this->db->table('pos_sale_items')->insert([
+            'company_id'   => $companyId,
+            'pos_sale_id'  => $saleId,
+            'product_id'   => (int) $product['id'],
+            'uom_id'       => (int) $product['base_uom_id'],
+            'tax_code_id'  => $tax === null ? null : (int) $tax['id'],
+            'qty'          => $this->money($qty),
+            'unit_price'   => $this->money($unitPrice),
+            'tax_rate'     => number_format($taxRate, 6, '.', ''),
+            'tax_amount'   => $this->money($taxAmount),
+            'line_total'   => $this->money($subtotal),
+            'created_by'   => $actorId,
+            'created_at'   => $now,
+        ]);
+        $this->db->table('pos_sale_payments')->insert([
+            'company_id'         => $companyId,
+            'pos_sale_id'        => $saleId,
+            'payment_method_id'  => (int) $payment['id'],
+            'amount'             => $this->money($paidAmount),
+            'created_by'         => $actorId,
+            'created_at'         => $now,
+        ]);
+        $this->audit()->record('POS_SALE_PAID', 'pos_sale', $saleId, $companyId, (int) $register['branch_id'], $actorId, $sale);
+        $this->complete();
+
+        return true;
+    }
+
+    /** @param array<string, mixed> $data */
     private function referencesAreActive(array $data): bool
     {
         $companyId = (int) $data['company_id'];
@@ -238,6 +331,68 @@ final class PosWriteModel extends Model
             ->where(['company_id' => $companyId, 'status' => 'open'])
             ->groupStart()->where('register_id', $registerId)->orWhere('cashier_user_id', $cashierUserId)->groupEnd()
             ->where('deleted_at', null)->countAllResults() > 0;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function paymentMethodForSale(int $companyId, int $id, int $registerId): ?array
+    {
+        return $this->db->table('pos_payment_methods')
+            ->where([
+                'company_id'  => $companyId,
+                'id'          => $id,
+                'register_id' => $registerId,
+                'status'      => 'active',
+            ])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function productForSale(int $companyId, int $id): ?array
+    {
+        return $this->db->table('products')
+            ->where(['company_id' => $companyId, 'id' => $id, 'status' => 'active'])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+    }
+
+    /** @return array<string, mixed>|null */
+    private function taxForProduct(int $companyId, int $productId): ?array
+    {
+        return $this->db->table('product_tax_codes pt')
+            ->select('tc.id, tc.rate')
+            ->join('tax_codes tc', 'tc.id = pt.tax_code_id AND tc.company_id = pt.company_id')
+            ->where(['pt.company_id' => $companyId, 'pt.product_id' => $productId, 'pt.status' => 'active', 'tc.status' => 'active'])
+            ->whereIn('pt.usage_type', ['sales', 'both'])
+            ->where('pt.deleted_at', null)
+            ->where('tc.deleted_at', null)
+            ->orderBy('pt.usage_type', 'DESC')
+            ->get()->getFirstRow('array');
+    }
+
+    private function nextReceiptNo(int $companyId, int $transactionCodeId, int $actorId): string
+    {
+        $row = $this->db->table('transaction_codes')
+            ->where(['company_id' => $companyId, 'id' => $transactionCodeId, 'status' => 'active'])
+            ->where('deleted_at', null)
+            ->get()->getFirstRow('array');
+
+        if ($row === null) {
+            throw new RuntimeException('Transaction Code POS tidak valid.');
+        }
+
+        $number = (int) $row['next_number'];
+        $receiptNo = (string) $row['prefix'] . str_pad((string) $number, (int) $row['number_length'], '0', STR_PAD_LEFT);
+        $this->db->table('transaction_codes')
+            ->where(['company_id' => $companyId, 'id' => $transactionCodeId])
+            ->update(['next_number' => $number + 1, 'updated_by' => $actorId, 'updated_at' => date('Y-m-d H:i:s')]);
+
+        return $receiptNo;
+    }
+
+    private function money(float $value): string
+    {
+        return number_format($value, 4, '.', '');
     }
 
     /** @return array<string, mixed>|null */

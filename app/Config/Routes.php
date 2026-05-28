@@ -87,6 +87,7 @@ $routes->group('pos/master', ['filter' => ['session', 'sessionsecurity', 'passwo
     $routes->post('payment-methods/(:num)/status', 'PosMaster::updatePaymentStatus/$1');
     $routes->post('shifts/open', 'PosMaster::openShift');
     $routes->post('shifts/(:num)/close', 'PosMaster::closeShift/$1');
+    $routes->post('sales', 'PosMaster::createSale');
 });
 
 $routes->group('finance/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {

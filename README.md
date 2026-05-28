@@ -51,6 +51,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   register ke Cash/Bank Account aktif per company/site.
 - Tahap 14 dimulai: POS shift kasir dapat dibuka/ditutup dari POS Master
   sebagai fondasi sebelum receipt penjualan.
+- Tahap 15 dimulai: POS Sales Receipt MVP dapat dibuat dari shift open,
+  memakai item aktif, payment method register, VAT item, dan Transaction Code
+  receipt tenant.
 
 ```bash
 composer install

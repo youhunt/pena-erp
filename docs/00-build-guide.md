@@ -45,7 +45,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 12 | Finance Master Foundation | Dibuat: COA, Cash/Bank, Exchange Rate + grid CRUD/status, 26 Mei 2026 |
 | 13 | POS Payment Mapping | Dibuat: metode bayar register -> Cash/Bank Account, 28 Mei 2026 |
 | 14 | POS Shift Foundation | Dibuat: open/close shift kasir, 28 Mei 2026 |
-| 15+ | Domain transaction, finance lanjutan, workflow, AI/OCR, deploy | Belum dimulai |
+| 15 | POS Sales Receipt MVP | Dibuat: receipt paid dari shift open, item, VAT, dan payment method, 28 Mei 2026 |
+| 16+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -345,6 +346,30 @@ GL. Ia baru menjadi referensi aman untuk transaksi POS berikutnya.
 
 Shift belum membuat receipt, pembayaran, stock movement, atau jurnal. Tahap
 berikutnya baru bisa mulai POS receipt/sale dengan memakai shift open ini.
+
+## Tahap 15: POS Sales Receipt MVP
+
+### Yang Sudah Dibuat
+
+- Migration `pos_sales`, `pos_sale_items`, dan `pos_sale_payments` untuk
+  menyimpan receipt POS tenant-scoped.
+- Write model membuat receipt `paid` hanya dari shift `open` milik cashier
+  aktif, memakai register dan payment method register yang sama.
+- Nomor receipt memakai `transaction_codes` pada register dan menaikkan
+  `next_number`.
+- Item aktif dibaca dari `products`; VAT diambil dari `product_tax_codes`
+  untuk `sales`/`both`, lalu subtotal, pajak, total, paid, dan change dihitung
+  server-side.
+- Halaman `/pos/master` menampilkan grid Sales Receipts dan modal input
+  receipt sederhana satu item.
+- Audit event `POS_SALE_PAID` tercatat dan regression test mencakup penolakan
+  produk lintas-company serta penolakan transaksi pada shift closed.
+
+### Batas Tahap Ini
+
+Receipt MVP belum membuat stock issue, jurnal GL, settlement cash/bank, retur,
+diskon/promo, multi-line item, atau print struk. Ini sengaja menjadi fondasi
+transaksi pertama yang aman sebelum posting inventory/finance dibuat.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

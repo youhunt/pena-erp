@@ -3,13 +3,16 @@
 <?= $this->section('title') ?>POS Master<?= $this->endSection() ?>
 
 <?= $this->section('content') ?>
-<?php $nextStatus = static fn (string $status): string => $status === 'active' ? 'inactive' : 'active'; ?>
+<?php
+$nextStatus = static fn (string $status): string => $status === 'active' ? 'inactive' : 'active';
+$openShiftCount = count(array_filter($shifts, static fn (array $shift): bool => $shift['status'] === 'open' && (int) $shift['cashier_user_id'] === (int) auth()->id()));
+?>
 <div class="page-title-box d-flex align-items-center justify-content-between">
     <div>
         <h4 class="mb-sm-0 font-size-18">POS Master</h4>
         <p class="text-muted mb-0"><?= esc($tenantContext['company_name']) ?> / Register kasir dan default operasional</p>
     </div>
-    <?php if ($canManage) : ?><div class="dropdown"><button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">Tambah Data</button><div class="dropdown-menu"><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#openShift">Open Shift</button><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addRegister">Register POS</button><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addPayment">Payment Method</button></div></div><?php else : ?><span class="badge bg-info">Read only</span><?php endif; ?>
+    <?php if ($canManage) : ?><div class="dropdown"><button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">Tambah Data</button><div class="dropdown-menu"><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addSale">Sales Receipt</button><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#openShift">Open Shift</button><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addRegister">Register POS</button><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#addPayment">Payment Method</button></div></div><?php else : ?><span class="badge bg-info">Read only</span><?php endif; ?>
 </div>
 <?php if (session('message') !== null) : ?><div class="alert alert-success"><?= esc(session('message')) ?></div><?php endif; ?>
 <?php if (session('errors') !== null) : ?><div class="alert alert-danger"><?php foreach ((array) session('errors') as $error) : ?><div><?= esc($error) ?></div><?php endforeach; ?></div><?php endif; ?>
@@ -84,6 +87,26 @@
     </table></div>
 </div></div>
 
+<div class="card"><div class="card-body">
+    <h4 class="card-title mb-3">Sales Receipts</h4>
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Receipt</th><th>Register</th><th>Cashier</th><th>Customer</th><th>Sold At</th><th>Total</th><th>Paid</th><th>Status</th></tr></thead>
+        <tbody>
+        <?php foreach ($sales as $sale) : ?><tr>
+            <td><strong><?= esc($sale['receipt_no']) ?></strong><br><small><?= esc($sale['currency_code']) ?></small></td>
+            <td><?= esc($sale['register_code']) ?></td>
+            <td><?= esc($sale['cashier_email'] ?? $sale['cashier_username']) ?></td>
+            <td><?= esc($sale['customer_code'] ?? '-') ?></td>
+            <td><?= esc($sale['sold_at']) ?></td>
+            <td><?= esc($sale['total_amount']) ?></td>
+            <td><?= esc($sale['paid_amount']) ?></td>
+            <td><?= esc($sale['status']) ?></td>
+        </tr><?php endforeach; ?>
+        <?php if ($sales === []) : ?><tr><td colspan="8" class="text-muted text-center py-4">Belum ada sales receipt POS.</td></tr><?php endif; ?>
+        </tbody>
+    </table></div>
+</div></div>
+
 <?php if ($canManage) : ?>
 <?php $fields = static function (bool $edit) use ($branches, $departments, $warehouses, $customers, $currencies, $transactionCodes): void { ?>
     <div class="col-md-3"><label class="form-label">Code</label><input name="<?= $edit ? '' : 'code' ?>" data-field="code" class="form-control" <?= $edit ? 'readonly' : 'required' ?>></div>
@@ -111,6 +134,15 @@
 <div class="modal fade" id="editPayment"><div class="modal-dialog modal-lg"><form class="modal-content js-payment-form" method="post" data-action="<?= site_url('pos/master/payment-methods') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Edit Payment Method</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2"><?php $paymentFields(true); ?></div><div class="modal-footer"><button class="btn btn-primary">Simpan Perubahan</button></div></form></div></div>
 <div class="modal fade" id="openShift"><div class="modal-dialog"><form class="modal-content" method="post" action="<?= site_url('pos/master/shifts/open') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Open Shift</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2"><div class="col-12"><label class="form-label">Register</label><select name="register_id" class="form-select" required><?php foreach ($registers as $register) : ?><option value="<?= (int) $register['id'] ?>"><?= esc($register['code'] . ' - ' . $register['name']) ?></option><?php endforeach; ?></select></div><div class="col-12"><label class="form-label">Opening Cash</label><input name="opening_cash" value="0" class="form-control" required></div></div><div class="modal-footer"><button class="btn btn-primary" <?= $registers === [] ? 'disabled' : '' ?>>Open Shift</button></div></form></div></div>
 <div class="modal fade" id="closeShift"><div class="modal-dialog"><form class="modal-content js-close-shift-form" method="post" data-action="<?= site_url('pos/master/shifts') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Close Shift</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2"><div class="col-12"><div class="alert alert-info mb-2">Register <strong data-field="register"></strong>, opening cash <strong data-field="opening"></strong>.</div></div><div class="col-12"><label class="form-label">Closing Cash</label><input name="closing_cash" value="0" class="form-control" required></div></div><div class="modal-footer"><button class="btn btn-primary">Close Shift</button></div></form></div></div>
+<div class="modal fade" id="addSale"><div class="modal-dialog modal-lg"><form class="modal-content js-sale-form" method="post" action="<?= site_url('pos/master/sales') ?>"><?= csrf_field() ?><div class="modal-header"><h5 class="modal-title">Tambah Sales Receipt</h5><button class="btn-close" type="button" data-bs-dismiss="modal"></button></div><div class="modal-body row g-2">
+    <div class="col-md-6"><label class="form-label">Open Shift</label><select name="shift_id" data-field="shift" class="form-select" required><?php foreach ($shifts as $shift) : ?><?php if ($shift['status'] === 'open' && (int) $shift['cashier_user_id'] === (int) auth()->id()) : ?><option data-register="<?= (int) $shift['register_id'] ?>" value="<?= (int) $shift['id'] ?>"><?= esc($shift['register_code'] . ' / ' . $shift['opened_at']) ?></option><?php endif; ?><?php endforeach; ?></select></div>
+    <div class="col-md-6"><label class="form-label">Customer</label><select name="customer_id" class="form-select"><option value="">Default register customer</option><?php foreach ($customers as $customer) : ?><option value="<?= (int) $customer['id'] ?>"><?= esc($customer['code'] . ' - ' . $customer['name']) ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-6"><label class="form-label">Item</label><select name="product_id" data-field="product" class="form-select" required><?php foreach ($saleProducts as $product) : ?><option data-price="<?= esc($product['unit_price'], 'attr') ?>" data-tax="<?= esc($product['tax_rate'], 'attr') ?>" value="<?= (int) $product['id'] ?>"><?= esc($product['sku'] . ' - ' . $product['name'] . ' (' . $product['uom_code'] . ')') ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-2"><label class="form-label">Qty</label><input name="qty" data-field="qty" value="1" class="form-control" required></div>
+    <div class="col-md-4"><label class="form-label">Unit Price</label><input name="unit_price" data-field="unit_price" class="form-control" required></div>
+    <div class="col-md-6"><label class="form-label">Payment Method</label><select name="payment_method_id" data-field="payment" class="form-select" required><?php foreach ($paymentMethods as $payment) : ?><?php if ($payment['status'] === 'active') : ?><option data-register="<?= (int) $payment['register_id'] ?>" value="<?= (int) $payment['id'] ?>"><?= esc($payment['register_code'] . ' / ' . $payment['code'] . ' - ' . $payment['name']) ?></option><?php endif; ?><?php endforeach; ?></select></div>
+    <div class="col-md-6"><label class="form-label">Payment Amount</label><input name="payment_amount" data-field="payment_amount" class="form-control" required><small class="text-muted">Nominal harus cukup untuk subtotal + VAT server.</small></div>
+</div><div class="modal-footer"><button class="btn btn-primary" <?= $openShiftCount === 0 || $saleProducts === [] || $paymentMethods === [] ? 'disabled' : '' ?>>Simpan Receipt</button></div></form></div></div>
 <?php endif; ?>
 <?= $this->endSection() ?>
 
@@ -171,6 +203,27 @@ document.querySelectorAll('.js-close-shift').forEach(function (button) { button.
     form.querySelector('[data-field="register"]').textContent = button.dataset.register;
     form.querySelector('[data-field="opening"]').textContent = button.dataset.opening;
 }); });
+function updateSaleForm(form) {
+    var shift = form.querySelector('[data-field="shift"]');
+    var product = form.querySelector('[data-field="product"]');
+    var payment = form.querySelector('[data-field="payment"]');
+    var unitPrice = form.querySelector('[data-field="unit_price"]');
+    var amount = form.querySelector('[data-field="payment_amount"]');
+    var qty = parseFloat(form.querySelector('[data-field="qty"]').value || '1');
+    var register = shift.selectedOptions[0]?.dataset.register || '';
+    Array.prototype.forEach.call(payment.options, function (option) { option.hidden = option.dataset.register !== register; option.disabled = option.hidden; });
+    if (!payment.selectedOptions[0] || payment.selectedOptions[0].disabled) { payment.value = Array.prototype.find.call(payment.options, function (option) { return !option.disabled; })?.value || ''; }
+    if (product.selectedOptions[0] && unitPrice.value === '') { unitPrice.value = product.selectedOptions[0].dataset.price || '0.0000'; }
+    var price = parseFloat(unitPrice.value || '0');
+    var tax = parseFloat(product.selectedOptions[0]?.dataset.tax || '0');
+    if (amount.value === '' && price >= 0 && qty > 0) { amount.value = (price * qty * (1 + tax)).toFixed(4); }
+}
+document.querySelectorAll('.js-sale-form').forEach(function (form) {
+    ['shift', 'product', 'qty', 'unit_price'].forEach(function (key) {
+        form.querySelector('[data-field="' + key + '"]').addEventListener('change', function () { updateSaleForm(form); });
+    });
+    updateSaleForm(form);
+});
 </script>
 <?= $this->endSection() ?>
 <?php endif; ?>

@@ -770,7 +770,44 @@ final class FoundationMasterTest extends CIUnitTestCase
             'opened_at'       => date('Y-m-d H:i:s'),
             'opening_cash'    => '50000.0000',
         ], $actorId));
+        $productId = (int) $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->get()->getFirstRow()->id;
+        $foreignProductId = (int) $this->db->table('products')->where(['company_id' => $nusaId])->get()->getFirstRow()->id;
+        $this->assertFalse($writer->createSale([
+            'company_id'         => $penaId,
+            'shift_id'           => (int) $shift['id'],
+            'customer_id'        => null,
+            'product_id'         => $foreignProductId,
+            'qty'                => '1.0000',
+            'unit_price'         => '72500.0000',
+            'payment_method_id'  => (int) $payment['id'],
+            'payment_amount'     => '100000.0000',
+        ], $actorId));
+        $this->assertTrue($writer->createSale([
+            'company_id'         => $penaId,
+            'shift_id'           => (int) $shift['id'],
+            'customer_id'        => null,
+            'product_id'         => $productId,
+            'qty'                => '1.0000',
+            'unit_price'         => '72500.0000',
+            'payment_method_id'  => (int) $payment['id'],
+            'payment_amount'     => '100000.0000',
+        ], $actorId));
+        $sale = $reader->sales($penaId)[0];
+        $this->assertStringStartsWith('JKT-POS-', (string) $sale['receipt_no']);
+        $this->seeInDatabase('pos_sales', ['company_id' => $penaId, 'status' => 'paid', 'total_amount' => '80475.0000']);
+        $this->seeInDatabase('pos_sale_items', ['company_id' => $penaId, 'pos_sale_id' => (int) $sale['id'], 'product_id' => $productId]);
+        $this->seeInDatabase('pos_sale_payments', ['company_id' => $penaId, 'pos_sale_id' => (int) $sale['id'], 'payment_method_id' => (int) $payment['id']]);
         $this->assertTrue($writer->closeShift($penaId, (int) $shift['id'], '125000.0000', $actorId));
+        $this->assertFalse($writer->createSale([
+            'company_id'         => $penaId,
+            'shift_id'           => (int) $shift['id'],
+            'customer_id'        => null,
+            'product_id'         => $productId,
+            'qty'                => '1.0000',
+            'unit_price'         => '72500.0000',
+            'payment_method_id'  => (int) $payment['id'],
+            'payment_amount'     => '100000.0000',
+        ], $actorId));
         $this->assertTrue($writer->updateStatus($penaId, (int) $register['id'], 'inactive', $actorId));
         $this->assertTrue($writer->updatePaymentStatus($penaId, (int) $payment['id'], 'inactive', $actorId));
         $this->seeInDatabase('pos_registers', ['id' => $register['id'], 'status' => 'inactive']);
@@ -778,6 +815,7 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $payment['id'], 'event_type' => 'POS_PAYMENT_METHOD_STATUS_UPDATED']);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $shift['id'], 'event_type' => 'POS_SHIFT_OPENED']);
         $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => $shift['id'], 'event_type' => 'POS_SHIFT_CLOSED']);
+        $this->seeInDatabase('audit_logs', ['company_id' => $penaId, 'entity_id' => (int) $sale['id'], 'event_type' => 'POS_SALE_PAID']);
     }
 
     public function testFinanceMasterSeedAndWritesAreTenantScopedAndAudited(): void

@@ -76,7 +76,7 @@ Mutation requirements:
 | `GET/POST /sales/orders` | SO | `sales.order.*` |
 | `POST /sales/orders/{id}/deliveries` | Delivery/stock issue | `sales.delivery.create` |
 | `POST /sales/invoices/{id}/post` | AR/accounting post | `sales.invoice.post` |
-| `POST /pos/shifts`, `/pos/sales` | Cashier operation | `pos.*` |
+| `POST /pos/master/shifts/open`, `/pos/master/shifts/{id}/close`, `/pos/master/sales` | Cashier shift and receipt MVP operation | `pos.master.manage` |
 
 ### Finance, Workflow and Reports
 

@@ -84,6 +84,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | Delivered M3.1 | Finance master foundation | `chart_of_accounts`, `cash_bank_accounts`, `exchange_rates` | membuka referensi payment/GL berikutnya secara tenant-scoped |
 | Delivered M3.2 | POS payment mapping | `pos_payment_methods` linked register ke `cash_bank_accounts` | POS punya rekening penerimaan default sebelum transaksi kasir |
 | Delivered T0.1 | POS shift foundation | `pos_shifts` open/close per register dan cashier | prerequisite receipt POS dan kontrol kasir |
+| Delivered T0.2 | POS sales receipt MVP | `pos_sales`, `pos_sale_items`, `pos_sale_payments` paid dari open shift | belum posting stok/jurnal; dipakai untuk validasi transaksi kasir awal |
 | P1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan address snapshot dan numbering | mulai T1 tanpa kehilangan jejak dokumen |
 | P2 | Organization profile/address | link address/contact untuk company/site/department/warehouse | diperlukan untuk cetak dokumen enterprise |
 | P2 | Finance master lanjutan | GL book, currency rounding policy, fiscal close, posting setup | prerequisite posting AP/AR dan POS |
@@ -97,6 +98,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | M2.3 POS Master | register, default warehouse/customer, currency, transaction code; payment account setelah M3 | Built: `pos_registers`, `pos_payment_methods` |
 | M3.1 Finance foundation | COA, cash bank, exchange rates | Built: grid CRUD/status dan validation tenant |
 | T0.1 POS shift | open/close shift kasir | Built: `pos_shifts` |
+| T0.2 POS receipt | paid receipt dari open shift, payment method, item dan VAT | Built MVP: `pos_sales`, `pos_sale_items`, `pos_sale_payments` |
 | T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |
 | T1.2 Fulfilment stock | allocation, delivery, purchase receipt, immutable stock movement | baru dilakukan setelah workflow/locking diuji |
 | M3 Finance lanjutan | GL book, fiscal/posting setup | sebelum invoice/payment/GL posting |

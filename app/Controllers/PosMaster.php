@@ -38,6 +38,8 @@ final class PosMaster extends BaseController
             'paymentMethods'   => $reader->paymentMethods($companyId),
             'cashBanks'        => $reader->cashBankAccounts($companyId),
             'shifts'           => $reader->shifts($companyId),
+            'sales'            => $reader->sales($companyId),
+            'saleProducts'     => $reader->saleProducts($companyId),
         ]);
     }
 
@@ -213,6 +215,44 @@ final class PosMaster extends BaseController
         }
 
         return $this->completed('Shift POS berhasil ditutup.');
+    }
+
+    public function createSale(): RedirectResponse
+    {
+        $context = $this->context('pos.master.manage');
+
+        if ($context === null) {
+            return $this->denied();
+        }
+
+        $customerId = (int) $this->request->getPost('customer_id');
+        $data = [
+            'company_id'        => (int) $context['company_id'],
+            'shift_id'          => (int) $this->request->getPost('shift_id'),
+            'customer_id'       => $customerId > 0 ? $customerId : null,
+            'product_id'        => (int) $this->request->getPost('product_id'),
+            'qty'               => (string) ($this->request->getPost('qty') ?: '0'),
+            'unit_price'        => (string) ($this->request->getPost('unit_price') ?: '0'),
+            'payment_method_id' => (int) $this->request->getPost('payment_method_id'),
+            'payment_amount'    => (string) ($this->request->getPost('payment_amount') ?: '0'),
+        ];
+
+        if (! $this->validateData($data, [
+            'shift_id'          => 'required|is_natural_no_zero',
+            'product_id'        => 'required|is_natural_no_zero',
+            'qty'               => 'required|decimal|greater_than[0]',
+            'unit_price'        => 'required|decimal|greater_than_equal_to[0]',
+            'payment_method_id' => 'required|is_natural_no_zero',
+            'payment_amount'    => 'required|decimal|greater_than_equal_to[0]',
+        ])) {
+            return $this->invalid();
+        }
+
+        if (! (new PosWriteModel())->createSale($data, $this->actorId())) {
+            return $this->invalid(['sale' => 'Receipt tidak valid: shift harus open milik cashier aktif, payment harus sesuai register, item aktif, dan nominal bayar harus cukup.']);
+        }
+
+        return $this->completed('Receipt POS berhasil dibuat.');
     }
 
     /** @return array<string, mixed> */

@@ -54,6 +54,38 @@ final class PosReadModel extends Model
     }
 
     /** @return list<array<string, mixed>> */
+    public function sales(int $companyId): array
+    {
+        return $this->db->table('pos_sales s')
+            ->select('s.*, r.code AS register_code, u.username AS cashier_username, i.secret AS cashier_email, c.code AS customer_code, cur.code AS currency_code')
+            ->join('pos_registers r', 'r.id = s.register_id AND r.company_id = s.company_id')
+            ->join('pos_shifts sh', 'sh.id = s.shift_id AND sh.company_id = s.company_id')
+            ->join('users u', 'u.id = sh.cashier_user_id')
+            ->join('auth_identities i', "i.user_id = u.id AND i.type = 'email_password'", 'left')
+            ->join('customers c', 'c.id = s.customer_id AND c.company_id = s.company_id', 'left')
+            ->join('currencies cur', 'cur.id = s.currency_id AND cur.company_id = s.company_id')
+            ->where('s.company_id', $companyId)->where('s.deleted_at', null)
+            ->orderBy('s.sold_at', 'DESC')->orderBy('s.id', 'DESC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function saleProducts(int $companyId): array
+    {
+        return $this->db->table('products p')
+            ->select('p.id, p.sku, p.name, p.base_uom_id, u.code AS uom_code, COALESCE(pp.unit_price, p.standard_cost) AS unit_price, COALESCE(MAX(tc.rate), 0) AS tax_rate')
+            ->join('units_of_measure u', 'u.id = p.base_uom_id AND u.company_id = p.company_id')
+            ->join('product_prices pp', "pp.product_id = p.id AND pp.company_id = p.company_id AND pp.uom_id = p.base_uom_id AND pp.price_type = 'sales' AND pp.status = 'active' AND pp.deleted_at IS NULL", 'left')
+            ->join('product_tax_codes pt', "pt.product_id = p.id AND pt.company_id = p.company_id AND pt.status = 'active' AND pt.deleted_at IS NULL AND pt.usage_type IN ('sales', 'both')", 'left')
+            ->join('tax_codes tc', "tc.id = pt.tax_code_id AND tc.company_id = pt.company_id AND tc.status = 'active' AND tc.deleted_at IS NULL", 'left')
+            ->where(['p.company_id' => $companyId, 'p.status' => 'active'])
+            ->where('p.deleted_at', null)
+            ->groupBy('p.id, p.sku, p.name, p.base_uom_id, u.code, pp.unit_price, p.standard_cost')
+            ->orderBy('p.sku', 'ASC')
+            ->get()->getResultArray();
+    }
+
+    /** @return list<array<string, mixed>> */
     public function branches(int $companyId): array
     {
         return $this->options('branches', $companyId, 'code, name');

@@ -53,7 +53,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Customer Terms | `customer_terms`, linked default pada customer/order | Built |
 | Customer Promo | `customer_promotions`, date/customer eligibility awal | Built |
 | Customer Address | `customer_addresses` linking `addresses`, including `mailing` | Built; enriched |
-| Sales Order | `sales_orders`, `sales_order_items` | Designed |
+| Sales Order | `sales_orders`, `sales_order_items` | Built MVP; draft satu item + numbering |
 | Allocation Order | `sales_allocations`, `sales_allocation_items`, reserves stock | Designed |
 | Delivery Order | `deliveries`, `delivery_items` | Designed |
 | Sales Period Close | `module_period_closes` type `sales` with `fiscal_periods` | Built foundation |
@@ -61,7 +61,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Supplier Terms | `supplier_terms` | Built |
 | Supplier Promo | `supplier_promotions` / purchase rebate rules awal | Built |
 | Supplier Address | `supplier_addresses` linking `addresses`, including `mailing` | Built; enriched |
-| Purchase Order | `purchase_orders`, `purchase_order_items` | Designed |
+| Purchase Order | `purchase_orders`, `purchase_order_items` | Built MVP; draft satu item + numbering |
 | Purchase Intransit | `purchase_intransits`, `purchase_intransit_items` | Designed |
 | Inventory Purchase Receipt | `goods_receipts`, `goods_receipt_items` | Designed |
 | Cost Purchase Receipt | `landed_cost_receipts`, allocation lines | Designed |

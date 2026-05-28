@@ -72,11 +72,11 @@ Mutation requirements:
 
 | Method / URI | Purpose | Permission |
 | --- | --- | --- |
-| `GET/POST /purchasing/purchase-orders` | PO list/create | `purchasing.po.*` |
+| `GET/POST /purchasing/orders` | PO draft list/create MVP | `purchasing.po.view/manage` |
 | `POST /purchasing/purchase-orders/{id}/submit` | Start approval | `purchasing.po.submit` |
 | `POST /purchasing/goods-receipts` | Receive goods and pending stock post | `purchasing.grn.create` |
 | `GET/POST /purchasing/invoices` | AP invoice/draft | `purchasing.invoice.*` |
-| `GET/POST /sales/orders` | SO | `sales.order.*` |
+| `GET/POST /sales/orders` | SO draft list/create MVP | `sales.order.view/manage` |
 | `POST /sales/orders/{id}/deliveries` | Delivery/stock issue | `sales.delivery.create` |
 | `POST /sales/invoices/{id}/post` | AR/accounting post | `sales.invoice.post` |
 | `POST /pos/master/shifts/open`, `/pos/master/shifts/{id}/close`, `/pos/master/sales` | Cashier shift and receipt MVP operation; stock item posts `pos_sale_issue` | `pos.master.manage` |

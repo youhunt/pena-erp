@@ -14,6 +14,8 @@ use App\Services\UserSessionSecurityService;
 use App\Models\AdministrationReadModel;
 use App\Models\AdministrationWriteModel;
 use App\Models\CommercialReadModel;
+use App\Models\CommercialOrderReadModel;
+use App\Models\CommercialOrderWriteModel;
 use App\Models\CommercialWriteModel;
 use App\Models\FinanceReadModel;
 use App\Models\FinanceWriteModel;
@@ -1133,6 +1135,83 @@ final class FoundationMasterTest extends CIUnitTestCase
             'amount'          => '50000.0000',
         ], $actorId));
         $this->seeInDatabase('payments', ['company_id' => $penaId, 'payment_no' => 'PM-TEST-001', 'status' => 'draft']);
+    }
+
+    public function testCommercialOrderDraftCreationIsTenantScopedAndNumbered(): void
+    {
+        $this->seed(MultiCompanyDemoSeeder::class);
+
+        $penaId = (int) $this->db->table('companies')->where('code', 'PENA')->get()->getFirstRow()->id;
+        $nusaId = (int) $this->db->table('companies')->where('code', 'NUSA')->get()->getFirstRow()->id;
+        $actorId = $this->demoUserId('owner@demo.pena-erp.test');
+        $reader = new CommercialOrderReadModel();
+        $writer = new CommercialOrderWriteModel();
+        $customer = $reader->customers($penaId)[0];
+        $supplier = $reader->suppliers($penaId)[0];
+        $warehouse = $reader->warehouses($penaId)[0];
+        $currency = $reader->currencies($penaId)[0];
+        $salesProduct = $reader->products($penaId, 'sales')[0];
+        $purchaseProduct = $reader->products($penaId, 'purchase')[0];
+        $salesCode = $reader->transactionCodes($penaId, 'sales')[0];
+        $purchaseCode = $reader->transactionCodes($penaId, 'purchasing')[0];
+        $foreignProduct = $reader->products($nusaId, 'sales')[0];
+
+        $this->assertFalse($writer->createSalesOrder([
+            'company_id'          => $penaId,
+            'customer_id'         => (int) $customer['id'],
+            'warehouse_id'        => (int) $warehouse['id'],
+            'currency_id'         => (int) $currency['id'],
+            'term_id'             => (int) ($customer['default_term_id'] ?? 0),
+            'transaction_code_id' => (int) $salesCode['id'],
+            'order_date'          => '2026-05-29',
+            'requested_ship_date' => '2026-05-30',
+            'customer_po_no'      => 'EXT-PO-001',
+        ], [
+            'product_id' => (int) $foreignProduct['id'],
+            'qty'        => '2.0000',
+            'unit_price' => '10000.0000',
+        ], $actorId));
+
+        $this->assertTrue($writer->createSalesOrder([
+            'company_id'          => $penaId,
+            'customer_id'         => (int) $customer['id'],
+            'warehouse_id'        => (int) $warehouse['id'],
+            'currency_id'         => (int) $currency['id'],
+            'term_id'             => (int) ($customer['default_term_id'] ?? 0),
+            'transaction_code_id' => (int) $salesCode['id'],
+            'order_date'          => '2026-05-29',
+            'requested_ship_date' => '2026-05-30',
+            'customer_po_no'      => 'EXT-PO-001',
+        ], [
+            'product_id' => (int) $salesProduct['id'],
+            'qty'        => '2.0000',
+            'unit_price' => '10000.0000',
+        ], $actorId));
+        $salesOrder = $this->db->table('sales_orders')->where(['company_id' => $penaId, 'customer_po_no' => 'EXT-PO-001'])->get()->getFirstRow('array');
+        $this->assertStringStartsWith((string) $salesCode['prefix'], $salesOrder['order_no']);
+        $this->assertSame('22200.0000', $salesOrder['total_amount']);
+        $this->seeInDatabase('sales_order_items', ['company_id' => $penaId, 'sales_order_id' => (int) $salesOrder['id'], 'qty' => '2.0000']);
+
+        $this->assertTrue($writer->createPurchaseOrder([
+            'company_id'             => $penaId,
+            'supplier_id'            => (int) $supplier['id'],
+            'warehouse_id'           => (int) $warehouse['id'],
+            'currency_id'            => (int) $currency['id'],
+            'term_id'                => (int) ($supplier['default_term_id'] ?? 0),
+            'transaction_code_id'    => (int) $purchaseCode['id'],
+            'order_date'             => '2026-05-29',
+            'expected_receipt_date'  => '2026-06-01',
+            'supplier_ref_no'        => 'SUP-REF-001',
+        ], [
+            'product_id' => (int) $purchaseProduct['id'],
+            'qty'        => '1.0000',
+            'unit_price' => '50000.0000',
+        ], $actorId));
+        $purchaseOrder = $this->db->table('purchase_orders')->where(['company_id' => $penaId, 'supplier_ref_no' => 'SUP-REF-001'])->get()->getFirstRow('array');
+        $this->assertStringStartsWith((string) $purchaseCode['prefix'], $purchaseOrder['po_no']);
+        $this->assertSame('55500.0000', $purchaseOrder['total_amount']);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'SALES_ORDER_CREATED', 'company_id' => $penaId]);
+        $this->seeInDatabase('audit_logs', ['event_type' => 'PURCHASE_ORDER_CREATED', 'company_id' => $penaId]);
     }
 
     public function testFinanceInvoiceAndPaymentPostingCreatesJournalEntries(): void

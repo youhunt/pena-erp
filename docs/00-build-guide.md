@@ -54,6 +54,7 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 21 | Fiscal Period / Period Close Foundation | Dibuat: fiscal period lock dan module close/reopen, 28 Mei 2026 |
 | 22 | GL Entry Foundation | Dibuat: manual journal draft/posting dengan period lock, 28 Mei 2026 |
 | 23 | AP/AR/payment transaction foundation | Berjalan: create/post draft invoice & payment | 
+| 24 | Sales/Purchase Order Draft MVP | Dibuat: SO/PO draft satu line, numbering, menu, permission, 29 Mei 2026 |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -538,6 +539,39 @@ Manual journal masih dua baris dari UI, belum dynamic multi-line editor,
 reversal journal, recurring journal, source posting dari POS/AP/AR, dan belum
 ada service policy terpisah. Namun perilaku balance dan period lock sudah
 menjadi pola dasar untuk posting transaksi berikutnya.
+
+## Tahap 24: Sales/Purchase Order Draft MVP
+
+### Yang Sudah Dibuat
+
+- Migration `CreateCommercialOrderTables` membuat `sales_orders`,
+  `sales_order_items`, `purchase_orders`, dan `purchase_order_items`.
+- Menu baru `/sales/orders` dan `/purchasing/orders` menampilkan grid draft
+  order dengan tombol tambah data.
+- Form draft membuat satu line item awal, mengambil customer/supplier,
+  warehouse, currency, terms, product, harga, VAT, dan transaction code dari
+  company aktif.
+- `CommercialOrderWriteModel` memvalidasi semua FK tenant, memastikan warehouse
+  menentukan branch dokumen, membuat nomor SO/PO dari `transaction_codes`, dan
+  mencatat audit `SALES_ORDER_CREATED` / `PURCHASE_ORDER_CREATED`.
+- Seeder demo menambah permission `sales.order.manage` dan
+  `purchasing.po.manage`, menu Sales Order/Purchase Order, transaction code
+  PO per Site, purchase price baseline, serta VAT item yang berlaku `both`.
+
+### Batas Tahap Ini
+
+Order masih draft satu item. Belum ada edit/hapus soft delete, approval,
+multi-line editor, allocation/reservation, delivery, goods receipt, invoice
+link otomatis, posting stok, atau posting GL.
+
+### Verifikasi Tahap 24
+
+```bash
+php spark migrate --all
+php spark db:seed App\Database\Seeds\MultiCompanyDemoSeeder
+php spark routes
+php -d extension=sqlite3 vendor/bin/phpunit --no-coverage --no-logging --do-not-cache-result
+```
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

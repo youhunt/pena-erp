@@ -142,9 +142,11 @@ final class MultiCompanyDemoSeeder extends Seeder
             'inventory.stock.view'   => ['Lihat Stok', 'inventory'],
             'inventory.master.manage' => ['Kelola Master Inventory', 'inventory'],
             'purchasing.po.view'     => ['Lihat Purchase Order', 'purchasing'],
+            'purchasing.po.manage'   => ['Kelola Purchase Order', 'purchasing'],
             'purchasing.master.view' => ['Lihat Purchasing Master', 'purchasing'],
             'purchasing.master.manage' => ['Kelola Purchasing Master', 'purchasing'],
             'sales.order.view'       => ['Lihat Sales Order', 'sales'],
+            'sales.order.manage'     => ['Kelola Sales Order', 'sales'],
             'sales.master.view'      => ['Lihat Sales Master', 'sales'],
             'sales.master.manage'    => ['Kelola Sales Master', 'sales'],
             'pos.master.view'        => ['Lihat POS Master', 'pos'],
@@ -167,8 +169,10 @@ final class MultiCompanyDemoSeeder extends Seeder
             'dashboard'  => ['Dashboard Workspace', 'workspace', 'bx bx-grid-alt', 10, 'company.dashboard.view'],
             'setup'      => ['Setup Master', 'setup', 'bx bx-cog', 15, 'setup.master.view'],
             'inventory'  => ['Inventory', 'inventory', 'bx bx-package', 20, 'inventory.stock.view'],
-            'purchasing' => ['Purchasing Master', 'purchasing/master', 'bx bx-cart', 30, 'purchasing.master.view'],
-            'sales'      => ['Sales Master', 'sales/master', 'bx bx-receipt', 40, 'sales.master.view'],
+            'purchase-order' => ['Purchase Order', 'purchasing/orders', 'bx bx-cart-download', 30, 'purchasing.po.view'],
+            'purchasing' => ['Purchasing Master', 'purchasing/master', 'bx bx-cart', 32, 'purchasing.master.view'],
+            'sales-order' => ['Sales Order', 'sales/orders', 'bx bx-receipt', 40, 'sales.order.view'],
+            'sales'      => ['Sales Master', 'sales/master', 'bx bx-user-pin', 42, 'sales.master.view'],
             'pos'        => ['POS Master', 'pos/master', 'bx bx-store', 45, 'pos.master.view'],
             'finance'    => ['Accounting & Finance', 'finance/master', 'bx bx-calculator', 50, 'finance.master.view'],
             'cashbank'   => ['Cash & Bank', 'workspace/modules/cashbank', 'bx bx-wallet', 60, 'cashbank.view'],
@@ -183,12 +187,12 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.po.manage', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.order.manage', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
             'finance'    => ['company.dashboard.view', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
-            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
+            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.po.manage', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
             'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
-            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.master.view', 'sales.master.manage', 'pos.master.view'],
-            'cashier'    => ['company.dashboard.view', 'sales.order.view', 'pos.master.view', 'pos.master.manage', 'cashbank.view'],
+            'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.order.manage', 'sales.master.view', 'sales.master.manage', 'pos.master.view'],
+            'cashier'    => ['company.dashboard.view', 'sales.order.view', 'sales.order.manage', 'pos.master.view', 'pos.master.manage', 'cashbank.view'],
         ];
 
         foreach ($roleGrants as $roleCode => $grants) {
@@ -251,26 +255,8 @@ final class MultiCompanyDemoSeeder extends Seeder
             ]);
 
             foreach ($branchIds[$code] as $branchCode => $branchId) {
-                $existing = $this->db->table('transaction_codes')->where([
-                    'company_id' => $companyId,
-                    'branch_id'  => $branchId,
-                    'code'       => 'SO',
-                ])->get()->getFirstRow('array');
-
-                if ($existing === null) {
-                    $this->db->table('transaction_codes')->insert([
-                        'company_id'    => $companyId,
-                        'branch_id'     => $branchId,
-                        'module'        => 'sales',
-                        'code'          => 'SO',
-                        'prefix'        => $branchCode . '-SO-',
-                        'next_number'   => 1,
-                        'number_length' => 6,
-                        'reset_rule'    => 'yearly',
-                        'status'        => 'active',
-                        'created_at'    => $now,
-                    ]);
-                }
+                $this->transactionCode($companyId, $branchId, 'sales', 'SO', $branchCode . '-SO-', 'yearly', $now);
+                $this->transactionCode($companyId, $branchId, 'purchasing', 'PO', $branchCode . '-PO-', 'yearly', $now);
             }
         }
     }
@@ -347,7 +333,7 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'company_id'  => $companyId,
                 'product_id'  => $productId,
                 'tax_code_id' => $taxId,
-                'usage_type'  => 'sales',
+                'usage_type'  => 'both',
             ], ['status' => 'active', 'created_at' => $now]);
             $this->relationRecord('warehouse_bins', [
                 'company_id'   => $companyId,
@@ -373,6 +359,18 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'effective_from' => '2026-05-26',
             ], [
                 'unit_price' => $master['price'],
+                'status'     => 'active',
+                'created_at' => $now,
+            ]);
+            $this->relationRecord('product_prices', [
+                'company_id'     => $companyId,
+                'product_id'     => $productId,
+                'price_type'     => 'purchase',
+                'currency_id'    => $currencyId,
+                'uom_id'         => $uomId,
+                'effective_from' => '2026-05-26',
+            ], [
+                'unit_price' => $master['product']['standard_cost'],
                 'status'     => 'active',
                 'created_at' => $now,
             ]);
@@ -898,6 +896,35 @@ final class MultiCompanyDemoSeeder extends Seeder
             'code'          => $code,
             'name'          => $name,
             'is_active'     => true,
+            'created_at'    => $now,
+        ]);
+
+        return (int) $this->db->insertID();
+    }
+
+    private function transactionCode(int $companyId, int $branchId, string $module, string $code, string $prefix, string $resetRule, string $now): int
+    {
+        $existing = $this->db->table('transaction_codes')->where([
+            'company_id' => $companyId,
+            'branch_id'  => $branchId,
+            'module'     => $module,
+            'code'       => $code,
+        ])->get()->getFirstRow('array');
+
+        if ($existing !== null) {
+            return (int) $existing['id'];
+        }
+
+        $this->db->table('transaction_codes')->insert([
+            'company_id'    => $companyId,
+            'branch_id'     => $branchId,
+            'module'        => $module,
+            'code'          => $code,
+            'prefix'        => $prefix,
+            'next_number'   => 1,
+            'number_length' => 6,
+            'reset_rule'    => $resetRule,
+            'status'        => 'active',
             'created_at'    => $now,
         ]);
 

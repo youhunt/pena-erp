@@ -67,8 +67,8 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | --- | --- | --- | --- |
 | `item_master` | code/name aliases, shelf life, stock/purchase/selling UoM, warehouse, price, VAT, dimension, classification | `products`, `product_profiles`, `product_prices`, `product_categories`, `product_uom_conversions`, `product_tax_codes`, `stock_lots` | deeper classification dan advanced price-list policy |
 | `pos_master` | company, site, department, warehouse, customer, transaction code, banks, currency | `pos_registers`, `pos_payment_methods` | register/default hierarchy dan payment account mapping Built |
-| `purchaseorder` | PO date/revision, numbering, site, supplier, address snapshot, terms, discount, total | dirancang `purchase_orders` | T1 setelah master policy siap |
-| `salesorder` | order/ref/customer/currency/terms, PO ref, address snapshot, warehouse, discount, total | dirancang `sales_orders` | T1 setelah master policy siap |
+| `purchaseorder` | PO date/revision, numbering, site, supplier, address snapshot, terms, discount, total | `purchase_orders`, `purchase_order_items` Built MVP | draft satu item, numbering, VAT; address snapshot/approval menyusul |
+| `salesorder` | order/ref/customer/currency/terms, PO ref, address snapshot, warehouse, discount, total | `sales_orders`, `sales_order_items` Built MVP | draft satu item, numbering, VAT; address snapshot/approval menyusul |
 | `allocationorder` | allocation no/date, customer, ship date, warehouse | dirancang `sales_allocations` | T1 bersama stock reservation |
 | `delivery` | delivery header/line reference | dirancang `deliveries` | T1 setelah allocation dan stock movement |
 | `chart_of_account` | book type, company, site, code, remarks | `chart_of_accounts` | COA/postable Built foundation; GL book dan posting policy lanjutan |
@@ -89,7 +89,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | Delivered T0.5 | Inventory stock opname MVP | `inventory_adjustments`, `inventory_adjustment_items`; variance posting ke stock ledger | single-item count; approval/multi-item/reversal lanjutan |
 | Delivered T0.6 | Inventory transfer MVP | `stock_transfers`, `stock_transfer_items`; `transfer_out`/`transfer_in` movement | single-item transfer; in-transit/approval/reversal lanjutan |
 | Delivered T0.4 | Inventory stock visibility | `/inventory` grid saldo dan ledger | read-only, filter/reporting lanjutan belum |
-| P1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan address snapshot dan numbering | mulai T1 tanpa kehilangan jejak dokumen |
+| Delivered T1.1 | Commercial transaction foundation | `purchase_orders`, `sales_orders`, line tables dengan numbering dan draft status | SO/PO draft satu item tersedia; address snapshot/multi-line/approval menyusul |
 | P2 | Organization profile/address | link address/contact untuk company/site/department/warehouse | diperlukan untuk cetak dokumen enterprise |
 | P2 | Finance master lanjutan | GL book/column, cost type/item cost, currency rounding policy, fiscal close, posting setup | GL/costing master dan fiscal close foundation built; posting policy berikutnya |
 
@@ -107,7 +107,7 @@ alamat berulang pada partner. UI saat ini mendukung tipe `office`, `billing`,
 | T0.4 Stock visibility | saldo dan movement terlihat dari menu Inventory | Built read-only grid |
 | T0.5 Stock opname | hitung fisik, variance dan posting adjustment | Built MVP: single-item draft/posting |
 | T0.6 Stock transfer | pindah stok antar warehouse aktif | Built MVP: single-item transfer posting |
-| T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, address snapshot, approval draft | belum posting stok/GL |
+| T1.1 Sales/Purchase draft | PO/SO header/lines, numbering, draft status | Built MVP: belum address snapshot, approval, stok, invoice, atau GL |
 | T1.2 Fulfilment stock | allocation, delivery, purchase receipt, immutable stock movement | baru dilakukan setelah workflow/locking diuji |
 | M3 Finance lanjutan | GL book/column, cost type/item cost, fiscal/posting setup | GL/costing master, period close, dan manual GL Entry foundation built |
 

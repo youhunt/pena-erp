@@ -68,6 +68,9 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   fondasi period lock sebelum posting transaksi.
 - Tahap 22 dimulai: GL Entry manual journal foundation tersedia dengan draft,
   balanced lines, posting immutable, dan validasi period lock `gl`.
+- Tahap 24 dimulai: Sales Order dan Purchase Order draft MVP tersedia dengan
+  grid, tombol tambah data, numbering tenant/site, validasi FK company aktif,
+  item satu line, VAT, dan audit create.
 
 ```bash
 composer install

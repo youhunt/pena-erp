@@ -67,6 +67,11 @@ $routes->group('sales/master', ['filter' => ['session', 'sessionsecurity', 'pass
     $routes->post('status/(:segment)/(:num)', 'CommercialMaster::updateSalesStatus/$1/$2');
 });
 
+$routes->group('sales/orders', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'CommercialOrder::sales');
+    $routes->post('', 'CommercialOrder::createSalesOrder');
+});
+
 $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'CommercialMaster::purchasing');
     $routes->post('terms', 'CommercialMaster::createSupplierTerm');
@@ -79,6 +84,11 @@ $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 
     $routes->post('promotions', 'CommercialMaster::createSupplierPromotion');
     $routes->post('promotions/(:num)', 'CommercialMaster::updateSupplierPromotion/$1');
     $routes->post('status/(:segment)/(:num)', 'CommercialMaster::updatePurchasingStatus/$1/$2');
+});
+
+$routes->group('purchasing/orders', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'CommercialOrder::purchasing');
+    $routes->post('', 'CommercialOrder::createPurchaseOrder');
 });
 
 $routes->group('pos/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {

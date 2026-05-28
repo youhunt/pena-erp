@@ -56,6 +56,8 @@ integrasi Skote, worker OCR/AI, dan deployment production.
   receipt tenant.
 - Tahap 16 dimulai: stock ledger foundation menambahkan saldo stok dan
   movement immutable; POS receipt untuk item stock otomatis posting issue.
+- Tahap 17 dimulai: menu Inventory menampilkan Stock Balances dan Stock
+  Movements agar dampak receipt POS terlihat dari UI.
 
 ```bash
 composer install

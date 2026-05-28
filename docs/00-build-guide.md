@@ -47,7 +47,8 @@ mengisi secret secara lokal menurut `08-multi-laptop-development-guide.md`.
 | 14 | POS Shift Foundation | Dibuat: open/close shift kasir, 28 Mei 2026 |
 | 15 | POS Sales Receipt MVP | Dibuat: receipt paid dari shift open, item, VAT, dan payment method, 28 Mei 2026 |
 | 16 | Stock Ledger Foundation | Dibuat: stock balance/movement dan POS stock issue, 28 Mei 2026 |
-| 17+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
+| 17 | Inventory Stock Visibility | Dibuat: grid stock balances dan stock movements di Inventory, 28 Mei 2026 |
+| 18+ | Domain transaction lanjutan, finance posting, workflow, AI/OCR, deploy | Belum dimulai |
 
 ## Tahap 1: Bootstrap CI4
 
@@ -392,6 +393,23 @@ multi-line item, atau print struk. Stock issue dibuat pada Tahap 16.
 Stock ledger belum mencakup transfer, stock opname, reservation, costing
 average aktual, lot/bin picking, approval, reversal, atau period close.
 Movement POS masih satu item mengikuti batas MVP receipt Tahap 15.
+
+## Tahap 17: Inventory Stock Visibility
+
+### Yang Sudah Dibuat
+
+- `InventoryReadModel` menambahkan pembacaan `stockBalances()` dan
+  `stockMovements()`.
+- Halaman `/inventory` menampilkan grid Stock Balances dan Stock Movements,
+  sehingga receipt POS yang mem-posting `pos_sale_issue` bisa dicek dari UI.
+- Regression test memastikan seeder demo menghasilkan saldo opening dan
+  movement `opening_balance` yang terbaca tenant-scoped.
+
+### Batas Tahap Ini
+
+Grid ini masih read-only dan mengambil movement terbaru terbatas. Filter per
+warehouse/item/tanggal, export, drilldown dokumen, dan DataTables server-side
+menjadi lanjutan reporting inventory.
 
 Migration foundation dan audit telah dijalankan pada `pena_erp` dan tampilan
 administrasi dan workspace berizin telah diverifikasi melalui login

@@ -74,7 +74,7 @@ tersebut dapat sudah direferensikan dokumen dan audit log.
 | Item Master | `products`, `product_categories` | Built |
 | Item UoM Conversion | `product_uom_conversions` | Built |
 | Batch Master | `stock_lots` | Built |
-| Inventory In Out | immutable `stock_movements`, balance projection | Built foundation; POS issue posted |
+| Inventory In Out | immutable `stock_movements`, balance projection | Built foundation; POS issue posted; balance/movement grid visible |
 | Inventory Transfer | `stock_transfers`, `stock_transfer_items` | Designed |
 | Inventory Stock Opname | `inventory_adjustments`, detail counted quantity | Designed |
 | Inventory Period Close | `module_period_closes` type `inventory` | Designed |

@@ -107,6 +107,8 @@ yang sama, VAT item, Transaction Code receipt, dan audit `POS_SALE_PAID`.
 Tahap 16 menambahkan stock ledger foundation: `stock_balances` dan
 `stock_movements`, opening balance demo untuk item stock, penolakan negative
 stock pada POS, serta posting movement `pos_sale_issue` dari receipt POS.
+Tahap 17 menambahkan visibility inventory: `/inventory` membaca dan
+menampilkan saldo `stock_balances` serta ledger `stock_movements`.
 
 ## Definition of Ready for Implementation
 

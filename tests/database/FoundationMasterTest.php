@@ -329,7 +329,11 @@ final class FoundationMasterTest extends CIUnitTestCase
         $this->seeInDatabase('product_prices', ['company_id' => $penaId, 'price_type' => 'sales', 'unit_price' => '72500.0000']);
         $this->assertCount(1, $reader->products($penaId));
         $this->assertCount(1, $reader->products($nusaId));
+        $this->assertCount(1, $reader->stockBalances($penaId));
+        $this->assertNotSame([], $reader->stockMovements($penaId));
         $this->assertSame('ATK-A4-80', $reader->products($penaId)[0]['sku']);
+        $this->assertSame(100.0, (float) $reader->stockBalances($penaId)[0]['qty_on_hand']);
+        $this->assertSame('opening_balance', $reader->stockMovements($penaId)[0]['movement_type']);
         $this->assertSame('RTL-SNACK-01', $reader->products($nusaId)[0]['sku']);
         $this->assertSame(1, $this->db->table('products')->where(['company_id' => $penaId, 'sku' => 'ATK-A4-80'])->countAllResults());
         $this->assertTrue((new TenantAuthorizationService())->can($warehouseUserId, $penaId, 'inventory.master.manage'));

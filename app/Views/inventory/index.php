@@ -243,6 +243,28 @@
     </div>
 </div>
 <div class="row">
+    <div class="col-xl-5"><div class="card"><div class="card-body">
+        <h4 class="card-title mb-3">Stock Balances</h4>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Item</th><th>Warehouse</th><th>On Hand</th><th>Reserved</th><th>Avg Cost</th></tr></thead>
+            <tbody>
+            <?php foreach ($stockBalances as $balance) : ?><tr><td><strong><?= esc($balance['sku']) ?></strong><br><small><?= esc($balance['product_name']) ?></small></td><td><?= esc($balance['branch_code'] . ' / ' . $balance['warehouse_code']) ?><br><small><?= esc($balance['location_code'] ?? 'Default') ?></small></td><td><?= esc($balance['qty_on_hand'] . ' ' . $balance['uom_code']) ?></td><td><?= esc($balance['qty_reserved']) ?></td><td><?= esc($balance['avg_cost']) ?></td></tr><?php endforeach; ?>
+            <?php if ($stockBalances === []) : ?><tr><td colspan="5" class="text-muted">Belum ada saldo stok.</td></tr><?php endif; ?>
+            </tbody>
+        </table></div>
+    </div></div></div>
+    <div class="col-xl-7"><div class="card"><div class="card-body">
+        <h4 class="card-title mb-3">Stock Movements</h4>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Posted</th><th>Item</th><th>Warehouse</th><th>Movement</th><th>Reference</th><th>Qty</th></tr></thead>
+            <tbody>
+            <?php foreach ($stockMovements as $movement) : ?><tr><td><?= esc($movement['posted_at']) ?></td><td><strong><?= esc($movement['sku']) ?></strong><br><small><?= esc($movement['product_name']) ?></small></td><td><?= esc($movement['branch_code'] . ' / ' . $movement['warehouse_code']) ?></td><td><?= esc($movement['movement_type']) ?></td><td><?= esc($movement['reference_type'] . ' / ' . ($movement['reference_no'] ?? $movement['reference_id'])) ?></td><td><?= esc($movement['qty'] . ' ' . $movement['uom_code']) ?></td></tr><?php endforeach; ?>
+            <?php if ($stockMovements === []) : ?><tr><td colspan="6" class="text-muted">Belum ada stock movement.</td></tr><?php endif; ?>
+            </tbody>
+        </table></div>
+    </div></div></div>
+</div>
+<div class="row">
     <div class="col-xl-3"><div class="card"><div class="card-body">
         <h4 class="card-title mb-3">Locations</h4>
         <table class="table table-sm mb-0"><tbody><?php foreach ($locations as $location) : ?><tr><td><?= esc($location['branch_code'] . '/' . ($location['department_code'] ?? '-') . '/' . $location['warehouse_code']) ?><br><small><?= esc($location['code'] . ' - ' . $location['name']) ?></small></td><?php if ($canManage) : ?><td class="text-nowrap"><button class="btn btn-outline-primary btn-sm js-edit-location" data-bs-toggle="modal" data-bs-target="#editLocation" data-id="<?= (int) $location['id'] ?>" data-code="<?= esc($location['code'], 'attr') ?>" data-name="<?= esc($location['name'], 'attr') ?>">Edit</button> <form class="d-inline" method="post" action="<?= site_url('inventory/status/location/' . $location['id']) ?>"><?= csrf_field() ?><input type="hidden" name="status" value="<?= $location['status'] === 'active' ? 'inactive' : 'active' ?>"><button class="btn btn-outline-danger btn-sm"><?= $location['status'] === 'active' ? 'Hapus' : 'Aktifkan' ?></button></form></td><?php endif; ?></tr><?php endforeach; ?><?php if ($locations === []) : ?><tr><td class="text-muted">Belum ada location.</td></tr><?php endif; ?></tbody></table>

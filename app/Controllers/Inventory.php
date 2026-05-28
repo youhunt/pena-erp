@@ -48,6 +48,8 @@ final class Inventory extends BaseController
             'currencies'    => $model->currencyOptions($companyId),
             'productProfiles' => $model->productProfiles($companyId),
             'productPrices' => $model->productPrices($companyId),
+            'stockBalances' => $model->stockBalances($companyId),
+            'stockMovements' => $model->stockMovements($companyId),
         ]);
     }
 

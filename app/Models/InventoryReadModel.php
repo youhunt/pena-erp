@@ -206,6 +206,48 @@ final class InventoryReadModel extends Model
     /**
      * @return list<array<string, mixed>>
      */
+    public function stockBalances(int $companyId): array
+    {
+        return $this->db->table('stock_balances b')
+            ->select('b.*, p.sku, p.name AS product_name, u.code AS uom_code, w.code AS warehouse_code, br.code AS branch_code, l.code AS location_code')
+            ->join('products p', 'p.id = b.product_id AND p.company_id = b.company_id')
+            ->join('units_of_measure u', 'u.id = p.base_uom_id AND u.company_id = p.company_id')
+            ->join('warehouses w', 'w.id = b.warehouse_id AND w.company_id = b.company_id')
+            ->join('branches br', 'br.id = w.branch_id AND br.company_id = w.company_id')
+            ->join('warehouse_bins l', 'l.id = b.bin_id AND l.company_id = b.company_id', 'left')
+            ->where('b.company_id', $companyId)
+            ->where('b.deleted_at', null)
+            ->orderBy('br.code', 'ASC')
+            ->orderBy('w.code', 'ASC')
+            ->orderBy('p.sku', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function stockMovements(int $companyId, int $limit = 25): array
+    {
+        return $this->db->table('stock_movements m')
+            ->select('m.*, p.sku, p.name AS product_name, u.code AS uom_code, w.code AS warehouse_code, br.code AS branch_code, l.code AS location_code')
+            ->join('products p', 'p.id = m.product_id AND p.company_id = m.company_id')
+            ->join('units_of_measure u', 'u.id = p.base_uom_id AND u.company_id = p.company_id')
+            ->join('warehouses w', 'w.id = m.warehouse_id AND w.company_id = m.company_id')
+            ->join('branches br', 'br.id = w.branch_id AND br.company_id = w.company_id')
+            ->join('warehouse_bins l', 'l.id = m.bin_id AND l.company_id = m.company_id', 'left')
+            ->where('m.company_id', $companyId)
+            ->where('m.deleted_at', null)
+            ->orderBy('m.posted_at', 'DESC')
+            ->orderBy('m.id', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function taxOptions(int $companyId): array
     {
         return $this->db->table('tax_codes')

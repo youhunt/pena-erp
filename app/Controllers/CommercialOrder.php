@@ -31,13 +31,13 @@ final class CommercialOrder extends BaseController
         }
 
         $header = $this->salesHeader((int) $context['company_id']);
-        $line = $this->line();
+        $lines  = $this->lines();
 
-        if (! $this->validateData($header + $line, $this->orderRules('sales')) || ! $this->datesAreValid($header, 'requested_ship_date')) {
-            return $this->invalid('sales');
+        if (! $this->validateData($header, $this->headerRules('sales')) || ! $this->linesAreValid($lines) || ! $this->datesAreValid($header, 'requested_ship_date')) {
+            return $this->invalid('sales', $this->validator?->getErrors() ?: ['lines' => 'Minimal satu line order valid wajib diisi.']);
         }
 
-        if (! (new CommercialOrderWriteModel())->createSalesOrder($header, $line, $this->actorId())) {
+        if (! (new CommercialOrderWriteModel())->createSalesOrder($header, $lines, $this->actorId())) {
             return $this->invalid('sales', ['reference' => 'Customer, warehouse, currency, terms, produk, atau kode dokumen tidak valid untuk company aktif.']);
         }
 
@@ -53,13 +53,13 @@ final class CommercialOrder extends BaseController
         }
 
         $header = $this->purchaseHeader((int) $context['company_id']);
-        $line = $this->line();
+        $lines  = $this->lines();
 
-        if (! $this->validateData($header + $line, $this->orderRules('purchasing')) || ! $this->datesAreValid($header, 'expected_receipt_date')) {
-            return $this->invalid('purchasing');
+        if (! $this->validateData($header, $this->headerRules('purchasing')) || ! $this->linesAreValid($lines) || ! $this->datesAreValid($header, 'expected_receipt_date')) {
+            return $this->invalid('purchasing', $this->validator?->getErrors() ?: ['lines' => 'Minimal satu line order valid wajib diisi.']);
         }
 
-        if (! (new CommercialOrderWriteModel())->createPurchaseOrder($header, $line, $this->actorId())) {
+        if (! (new CommercialOrderWriteModel())->createPurchaseOrder($header, $lines, $this->actorId())) {
             return $this->invalid('purchasing', ['reference' => 'Supplier, warehouse, currency, terms, produk, atau kode dokumen tidak valid untuk company aktif.']);
         }
 
@@ -127,32 +127,73 @@ final class CommercialOrder extends BaseController
         ];
     }
 
-    /** @return array<string, mixed> */
-    private function line(): array
+    /** @return list<array{product_id:int, qty:string, unit_price:string}> */
+    private function lines(): array
     {
-        return [
+        $posted = $this->request->getPost('lines');
+
+        if (is_array($posted)) {
+            $lines = [];
+
+            foreach ($posted as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+
+                $productId = (int) ($line['product_id'] ?? 0);
+                $qty       = (string) ($line['qty'] ?? '0');
+                $unitPrice = (string) ($line['unit_price'] ?? '0');
+
+                if ($productId <= 0 && (float) $qty <= 0) {
+                    continue;
+                }
+
+                $lines[] = [
+                    'product_id' => $productId,
+                    'qty'        => $qty,
+                    'unit_price' => $unitPrice,
+                ];
+            }
+
+            return $lines;
+        }
+
+        return [[
             'product_id' => (int) $this->request->getPost('product_id'),
             'qty'        => (string) $this->request->getPost('qty'),
             'unit_price' => (string) $this->request->getPost('unit_price'),
-        ];
+        ]];
     }
 
     /** @return array<string, string> */
-    private function orderRules(string $side): array
+    private function headerRules(string $side): array
     {
         $rules = [
             'warehouse_id'        => 'required|is_natural_no_zero',
             'currency_id'         => 'required|is_natural_no_zero',
             'transaction_code_id' => 'required|is_natural_no_zero',
             'order_date'          => 'required|valid_date[Y-m-d]',
-            'product_id'          => 'required|is_natural_no_zero',
-            'qty'                 => 'required|decimal|greater_than[0]',
-            'unit_price'          => 'required|decimal|greater_than_equal_to[0]',
         ];
 
         $rules[$side === 'sales' ? 'customer_id' : 'supplier_id'] = 'required|is_natural_no_zero';
 
         return $rules;
+    }
+
+    /** @param list<array{product_id:int, qty:string, unit_price:string}> $lines */
+    private function linesAreValid(array $lines): bool
+    {
+        if ($lines === []) {
+            return false;
+        }
+
+        foreach ($lines as $index => $line) {
+            if ((int) $line['product_id'] <= 0 || (float) $line['qty'] <= 0 || (float) $line['unit_price'] < 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param array<string, mixed> $header */

@@ -30,6 +30,55 @@ final class CommercialOrderWriteModel extends Model
         return $this->createOrder('purchasing', $header, $lines, $actorId);
     }
 
+    public function confirmSalesOrder(int $salesOrderId, int $companyId, int $actorId): bool
+    {
+        $order = $this->db->table('sales_orders')
+            ->where('id', $salesOrderId)
+            ->where('company_id', $companyId)
+            ->where('deleted_at IS NULL', null, false)
+            ->get()
+            ->getFirstRow('array');
+
+        if ($order === null || (string) $order['status'] !== 'draft') {
+            return false;
+        }
+
+        $lineCount = $this->db->table('sales_order_items')
+            ->where('sales_order_id', $salesOrderId)
+            ->where('company_id', $companyId)
+            ->where('deleted_at IS NULL', null, false)
+            ->countAllResults();
+
+        if ($lineCount <= 0) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $this->db->transStart();
+
+        $this->db->table('sales_orders')
+            ->where('id', $salesOrderId)
+            ->where('company_id', $companyId)
+            ->update([
+                'status'     => 'confirmed',
+                'updated_by' => $actorId,
+                'updated_at' => $now,
+            ]);
+
+        $this->audit()->record('SALES_ORDER_CONFIRMED', 'sales_order', $salesOrderId, $companyId, (int) $order['branch_id'], $actorId, [
+            'order_no'     => (string) $order['order_no'],
+            'old_status'   => 'draft',
+            'new_status'   => 'confirmed',
+            'line_count'   => $lineCount,
+            'total_amount' => (float) $order['total_amount'],
+        ]);
+
+        $this->complete('Konfirmasi Sales Order gagal dan transaksi dibatalkan.');
+
+        return true;
+    }
+
     /**
      * @param array<string, mixed> $header
      * @param array<int|string, mixed> $lines
@@ -129,7 +178,7 @@ final class CommercialOrderWriteModel extends Model
             $this->audit()->record('PURCHASE_ORDER_CREATED', 'purchase_order', $orderId, $companyId, (int) $warehouse['branch_id'], $actorId, $order + ['line_count' => count($linePlans)]);
         }
 
-        $this->complete();
+        $this->complete('Pembuatan commercial order gagal dan transaksi dibatalkan.');
 
         return true;
     }
@@ -187,8 +236,8 @@ final class CommercialOrderWriteModel extends Model
         if (isset($lines['product_id'])) {
             return [[
                 'product_id' => (int) $lines['product_id'],
-                'qty'        => (float) $lines['qty'],
-                'unit_price' => (float) $lines['unit_price'],
+                'qty'        => $this->decimal($lines['qty'] ?? 0),
+                'unit_price' => $this->decimal($lines['unit_price'] ?? 0),
             ]];
         }
 
@@ -200,8 +249,8 @@ final class CommercialOrderWriteModel extends Model
             }
 
             $productId = (int) ($line['product_id'] ?? 0);
-            $qty       = (float) ($line['qty'] ?? 0);
-            $unitPrice = (float) ($line['unit_price'] ?? 0);
+            $qty       = $this->decimal($line['qty'] ?? 0);
+            $unitPrice = $this->decimal($line['unit_price'] ?? 0);
 
             if ($productId <= 0 && $qty <= 0) {
                 continue;
@@ -343,6 +392,11 @@ final class CommercialOrderWriteModel extends Model
             ->countAllResults() === 1;
     }
 
+    private function decimal(mixed $value): float
+    {
+        return (float) str_replace(',', '.', trim((string) $value));
+    }
+
     private function money(float $value): string
     {
         return number_format($value, 4, '.', '');
@@ -353,12 +407,12 @@ final class CommercialOrderWriteModel extends Model
         return new AuditTrailService($this->db);
     }
 
-    private function complete(): void
+    private function complete(string $message): void
     {
         $this->db->transComplete();
 
         if (! $this->db->transStatus()) {
-            throw new RuntimeException('Pembuatan commercial order gagal dan transaksi dibatalkan.');
+            throw new RuntimeException($message);
         }
     }
 }

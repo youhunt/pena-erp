@@ -14,12 +14,14 @@ final class CommercialOrderReadModel extends Model
     public function salesOrders(int $companyId): array
     {
         return $this->db->table('sales_orders o')
-            ->select('o.*, c.code AS customer_code, c.name AS customer_name, w.code AS warehouse_code, b.code AS branch_code, cur.code AS currency_code')
+            ->select('o.*, c.code AS customer_code, c.name AS customer_name, w.code AS warehouse_code, b.code AS branch_code, cur.code AS currency_code, COUNT(oi.id) AS item_count')
             ->join('customers c', 'c.id = o.customer_id AND c.company_id = o.company_id')
             ->join('warehouses w', 'w.id = o.warehouse_id AND w.company_id = o.company_id')
             ->join('branches b', 'b.id = o.branch_id AND b.company_id = o.company_id')
             ->join('currencies cur', 'cur.id = o.currency_id AND cur.company_id = o.company_id')
+            ->join('sales_order_items oi', 'oi.sales_order_id = o.id AND oi.deleted_at IS NULL', 'left')
             ->where('o.company_id', $companyId)->where('o.deleted_at', null)
+            ->groupBy('o.id, c.code, c.name, w.code, b.code, cur.code')
             ->orderBy('o.order_date', 'DESC')->orderBy('o.id', 'DESC')
             ->get()->getResultArray();
     }
@@ -28,12 +30,14 @@ final class CommercialOrderReadModel extends Model
     public function purchaseOrders(int $companyId): array
     {
         return $this->db->table('purchase_orders o')
-            ->select('o.*, s.code AS supplier_code, s.name AS supplier_name, w.code AS warehouse_code, b.code AS branch_code, cur.code AS currency_code')
+            ->select('o.*, s.code AS supplier_code, s.name AS supplier_name, w.code AS warehouse_code, b.code AS branch_code, cur.code AS currency_code, COUNT(oi.id) AS item_count')
             ->join('suppliers s', 's.id = o.supplier_id AND s.company_id = o.company_id')
             ->join('warehouses w', 'w.id = o.warehouse_id AND w.company_id = o.company_id')
             ->join('branches b', 'b.id = o.branch_id AND b.company_id = o.company_id')
             ->join('currencies cur', 'cur.id = o.currency_id AND cur.company_id = o.company_id')
+            ->join('purchase_order_items oi', 'oi.purchase_order_id = o.id AND oi.deleted_at IS NULL', 'left')
             ->where('o.company_id', $companyId)->where('o.deleted_at', null)
+            ->groupBy('o.id, s.code, s.name, w.code, b.code, cur.code')
             ->orderBy('o.order_date', 'DESC')->orderBy('o.id', 'DESC')
             ->get()->getResultArray();
     }

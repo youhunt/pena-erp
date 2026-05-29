@@ -43,7 +43,7 @@ $routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordreq
     $routes->post('departments', 'Setup::createDepartment');
     $routes->post('departments/(:num)', 'Setup::updateDepartment/$1');
     $routes->post('transaction-codes', 'Setup::createTransactionCode');
-    $routes->post('transaction-codes/(:num)', 'Setup::updateTransactionCode/$1');
+    $routes->post('transaction-codes/(:num)', 'Setup::updateTransactionCode');
     $routes->post('addresses', 'Setup::createAddress');
     $routes->post('addresses/(:num)', 'Setup::updateAddress/$1');
     $routes->post('currencies', 'Setup::createCurrency');
@@ -70,6 +70,7 @@ $routes->group('sales/master', ['filter' => ['session', 'sessionsecurity', 'pass
 $routes->group('sales/orders', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'CommercialOrder::sales');
     $routes->post('', 'CommercialOrder::createSalesOrder');
+    $routes->post('(:num)/confirm', 'CommercialOrder::confirmSalesOrder/$1');
 });
 
 $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
@@ -96,7 +97,6 @@ $routes->group('purchasing', ['filter' => ['session', 'sessionsecurity', 'passwo
     $routes->post('receipts/create', 'GoodsReceipt::create');
     $routes->post('receipts/(:num)/post', 'GoodsReceipt::post/$1');
     $routes->get('receipts/po-items/(:num)', 'GoodsReceipt::poItems/$1');
-    $routes->post('receipts/(:num)/post', 'GoodsReceipt::post/$1');
 });
 
 $routes->group('pos/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {

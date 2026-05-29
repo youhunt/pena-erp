@@ -14,40 +14,39 @@ final class CommercialOrderWriteModel extends Model
 
     /**
      * @param array<string, mixed> $header
-     * @param array<string, mixed> $line
+     * @param array<int|string, mixed> $lines
      */
-    public function createSalesOrder(array $header, array $line, int $actorId): bool
+    public function createSalesOrder(array $header, array $lines, int $actorId): bool
     {
-        return $this->createOrder('sales', $header, $line, $actorId);
+        return $this->createOrder('sales', $header, $lines, $actorId);
     }
 
     /**
      * @param array<string, mixed> $header
-     * @param array<string, mixed> $line
+     * @param array<int|string, mixed> $lines
      */
-    public function createPurchaseOrder(array $header, array $line, int $actorId): bool
+    public function createPurchaseOrder(array $header, array $lines, int $actorId): bool
     {
-        return $this->createOrder('purchasing', $header, $line, $actorId);
+        return $this->createOrder('purchasing', $header, $lines, $actorId);
     }
 
     /**
      * @param array<string, mixed> $header
-     * @param array<string, mixed> $line
+     * @param array<int|string, mixed> $lines
      */
-    private function createOrder(string $side, array $header, array $line, int $actorId): bool
+    private function createOrder(string $side, array $header, array $lines, int $actorId): bool
     {
         $companyId = (int) $header['company_id'];
         $warehouse = $this->record('warehouses', $companyId, (int) $header['warehouse_id'], 'is_active', true);
-        $product = $this->record('products', $companyId, (int) $line['product_id']);
 
-        if ($warehouse === null || $product === null) {
+        if ($warehouse === null) {
             return false;
         }
 
         $partnerTable = $side === 'sales' ? 'customers' : 'suppliers';
-        $termTable = $side === 'sales' ? 'customer_terms' : 'supplier_terms';
-        $partnerKey = $side === 'sales' ? 'customer_id' : 'supplier_id';
-        $module = $side === 'sales' ? 'sales' : 'purchasing';
+        $termTable    = $side === 'sales' ? 'customer_terms' : 'supplier_terms';
+        $partnerKey   = $side === 'sales' ? 'customer_id' : 'supplier_id';
+        $module       = $side === 'sales' ? 'sales' : 'purchasing';
 
         if (! $this->activePartner($partnerTable, $companyId, (int) $header[$partnerKey])
             || ! $this->recordExists('branches', $companyId, (int) $warehouse['branch_id'])
@@ -57,19 +56,16 @@ final class CommercialOrderWriteModel extends Model
             return false;
         }
 
-        $qty = (float) $line['qty'];
-        $unitPrice = (float) $line['unit_price'];
+        $linePlans = $this->prepareLines($companyId, $side, $lines);
 
-        if ($qty <= 0 || $unitPrice < 0) {
+        if ($linePlans === []) {
             return false;
         }
 
-        $tax = $this->taxForProduct($companyId, (int) $product['id'], $side === 'sales' ? 'sales' : 'purchase');
-        $taxRate = $tax === null ? 0.0 : (float) $tax['rate'];
-        $subtotal = round($qty * $unitPrice, 4);
-        $taxAmount = round($subtotal * $taxRate, 4);
-        $totalAmount = round($subtotal + $taxAmount, 4);
-        $now = date('Y-m-d H:i:s');
+        $subtotal    = array_sum(array_column($linePlans, 'subtotal'));
+        $taxAmount   = array_sum(array_column($linePlans, 'tax_amount'));
+        $totalAmount = $subtotal + $taxAmount;
+        $now         = date('Y-m-d H:i:s');
 
         $this->db->transStart();
 
@@ -96,8 +92,12 @@ final class CommercialOrderWriteModel extends Model
             ];
             $this->db->table('sales_orders')->insert($order);
             $orderId = (int) $this->db->insertID();
-            $this->db->table('sales_order_items')->insert($this->lineData($companyId, 'sales_order_id', $orderId, $product, $tax, $qty, $unitPrice, $subtotal, $taxRate, $taxAmount, $actorId, $now));
-            $this->audit()->record('SALES_ORDER_CREATED', 'sales_order', $orderId, $companyId, (int) $warehouse['branch_id'], $actorId, $order);
+
+            foreach ($linePlans as $plan) {
+                $this->db->table('sales_order_items')->insert($this->salesLineData($companyId, $orderId, $plan, $actorId, $now));
+            }
+
+            $this->audit()->record('SALES_ORDER_CREATED', 'sales_order', $orderId, $companyId, (int) $warehouse['branch_id'], $actorId, $order + ['line_count' => count($linePlans)]);
         } else {
             $poNo = $this->nextDocumentNo($companyId, (int) $header['transaction_code_id'], $actorId);
             $order = [
@@ -121,8 +121,12 @@ final class CommercialOrderWriteModel extends Model
             ];
             $this->db->table('purchase_orders')->insert($order);
             $orderId = (int) $this->db->insertID();
-            $this->db->table('purchase_order_items')->insert($this->lineData($companyId, 'purchase_order_id', $orderId, $product, $tax, $qty, $unitPrice, $subtotal, $taxRate, $taxAmount, $actorId, $now));
-            $this->audit()->record('PURCHASE_ORDER_CREATED', 'purchase_order', $orderId, $companyId, (int) $warehouse['branch_id'], $actorId, $order);
+
+            foreach ($linePlans as $plan) {
+                $this->db->table('purchase_order_items')->insert($this->purchaseLineData($companyId, $orderId, $plan, $actorId, $now));
+            }
+
+            $this->audit()->record('PURCHASE_ORDER_CREATED', 'purchase_order', $orderId, $companyId, (int) $warehouse['branch_id'], $actorId, $order + ['line_count' => count($linePlans)]);
         }
 
         $this->complete();
@@ -131,26 +135,138 @@ final class CommercialOrderWriteModel extends Model
     }
 
     /**
-     * @param array<string, mixed>      $product
-     * @param array<string, mixed>|null $tax
+     * @param array<int|string, mixed> $lines
+     * @return list<array<string, mixed>>
+     */
+    private function prepareLines(int $companyId, string $side, array $lines): array
+    {
+        $normalized = $this->normalizeLines($lines);
+        $plans = [];
+
+        foreach ($normalized as $line) {
+            $product = $this->record('products', $companyId, (int) $line['product_id']);
+
+            if ($product === null) {
+                return [];
+            }
+
+            $qty       = (float) $line['qty'];
+            $unitPrice = (float) $line['unit_price'];
+
+            if ($qty <= 0 || $unitPrice < 0) {
+                return [];
+            }
+
+            $tax       = $this->taxForProduct($companyId, (int) $product['id'], $side === 'sales' ? 'sales' : 'purchase');
+            $taxRate   = $tax === null ? 0.0 : (float) $tax['rate'];
+            $subtotal  = round($qty * $unitPrice, 4);
+            $taxAmount = round($subtotal * $taxRate, 4);
+
+            $plans[] = [
+                'product'    => $product,
+                'tax'        => $tax,
+                'qty'        => $qty,
+                'unit_price' => $unitPrice,
+                'tax_rate'   => $taxRate,
+                'subtotal'   => $subtotal,
+                'tax_amount' => $taxAmount,
+            ];
+        }
+
+        return $plans;
+    }
+
+    /**
+     * Supports both legacy single-line payload and new multi-line array payload.
      *
+     * @param array<int|string, mixed> $lines
+     * @return list<array{product_id:int, qty:float, unit_price:float}>
+     */
+    private function normalizeLines(array $lines): array
+    {
+        if (isset($lines['product_id'])) {
+            return [[
+                'product_id' => (int) $lines['product_id'],
+                'qty'        => (float) $lines['qty'],
+                'unit_price' => (float) $lines['unit_price'],
+            ]];
+        }
+
+        $normalized = [];
+
+        foreach ($lines as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $productId = (int) ($line['product_id'] ?? 0);
+            $qty       = (float) ($line['qty'] ?? 0);
+            $unitPrice = (float) ($line['unit_price'] ?? 0);
+
+            if ($productId <= 0 && $qty <= 0) {
+                continue;
+            }
+
+            $normalized[] = [
+                'product_id' => $productId,
+                'qty'        => $qty,
+                'unit_price' => $unitPrice,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $plan
      * @return array<string, mixed>
      */
-    private function lineData(int $companyId, string $orderKey, int $orderId, array $product, ?array $tax, float $qty, float $unitPrice, float $subtotal, float $taxRate, float $taxAmount, int $actorId, string $now): array
+    private function salesLineData(int $companyId, int $orderId, array $plan, int $actorId, string $now): array
     {
+        $product = $plan['product'];
+        $tax     = $plan['tax'];
+
         return [
-            'company_id'  => $companyId,
-            $orderKey     => $orderId,
-            'product_id'  => (int) $product['id'],
-            'uom_id'      => (int) $product['base_uom_id'],
-            'tax_code_id' => $tax === null ? null : (int) $tax['id'],
-            'qty'         => $this->money($qty),
-            'unit_price'  => $this->money($unitPrice),
-            'tax_rate'    => number_format($taxRate, 6, '.', ''),
-            'tax_amount'  => $this->money($taxAmount),
-            'line_total'  => $this->money($subtotal),
-            'created_by'  => $actorId,
-            'created_at'  => $now,
+            'company_id'     => $companyId,
+            'sales_order_id' => $orderId,
+            'product_id'     => (int) $product['id'],
+            'uom_id'         => (int) $product['base_uom_id'],
+            'tax_code_id'    => $tax === null ? null : (int) $tax['id'],
+            'qty'            => $this->money((float) $plan['qty']),
+            'unit_price'     => $this->money((float) $plan['unit_price']),
+            'tax_rate'       => number_format((float) $plan['tax_rate'], 6, '.', ''),
+            'tax_amount'     => $this->money((float) $plan['tax_amount']),
+            'line_total'     => $this->money((float) $plan['subtotal']),
+            'created_by'     => $actorId,
+            'created_at'     => $now,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $plan
+     * @return array<string, mixed>
+     */
+    private function purchaseLineData(int $companyId, int $orderId, array $plan, int $actorId, string $now): array
+    {
+        $product = $plan['product'];
+        $tax     = $plan['tax'];
+        $qty     = (float) $plan['qty'];
+
+        return [
+            'company_id'        => $companyId,
+            'purchase_order_id' => $orderId,
+            'product_id'        => (int) $product['id'],
+            'uom_id'            => (int) $product['base_uom_id'],
+            'tax_code_id'       => $tax === null ? null : (int) $tax['id'],
+            'qty'               => $this->money($qty),
+            'qty_ordered'       => $this->money($qty),
+            'qty_remaining'     => $this->money($qty),
+            'unit_price'        => $this->money((float) $plan['unit_price']),
+            'tax_rate'          => number_format((float) $plan['tax_rate'], 6, '.', ''),
+            'tax_amount'        => $this->money((float) $plan['tax_amount']),
+            'line_total'        => $this->money((float) $plan['subtotal']),
+            'created_by'        => $actorId,
+            'created_at'        => $now,
         ];
     }
 

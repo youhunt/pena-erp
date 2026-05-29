@@ -25,7 +25,6 @@ final class CommercialOrder extends BaseController
     public function createSalesOrder(): RedirectResponse
     {
         $context = $this->context('sales.order.manage');
-
         if ($context === null) {
             return $this->denied('sales');
         }
@@ -44,10 +43,28 @@ final class CommercialOrder extends BaseController
         return $this->completed('sales', 'Sales Order draft berhasil dibuat.');
     }
 
+    public function confirmSalesOrder(int $id): RedirectResponse
+    {
+        $context = $this->context('sales.order.manage');
+        if ($context === null) {
+            return $this->denied('sales');
+        }
+
+        try {
+            $ok = (new CommercialOrderWriteModel())->confirmSalesOrder($id, (int) $context['company_id'], $this->actorId());
+            if (! $ok) {
+                return $this->invalid('sales', ['status' => 'Sales Order tidak ditemukan, bukan draft, atau tidak memiliki item.']);
+            }
+
+            return $this->completed('sales', 'Sales Order berhasil dikonfirmasi.');
+        } catch (\Throwable $e) {
+            return $this->invalid('sales', ['error' => $e->getMessage()]);
+        }
+    }
+
     public function createPurchaseOrder(): RedirectResponse
     {
         $context = $this->context('purchasing.po.manage');
-
         if ($context === null) {
             return $this->denied('purchasing');
         }
@@ -69,10 +86,8 @@ final class CommercialOrder extends BaseController
     private function render(string $side, string $viewPermission, string $managePermission): string
     {
         $context = $this->context($viewPermission);
-
         if ($context === null) {
             $this->response->setStatusCode(403);
-
             return view('workspace/module_denied', ['moduleCode' => $side]);
         }
 
@@ -95,7 +110,6 @@ final class CommercialOrder extends BaseController
         ]);
     }
 
-    /** @return array<string, mixed> */
     private function salesHeader(int $companyId): array
     {
         return [
@@ -111,7 +125,6 @@ final class CommercialOrder extends BaseController
         ];
     }
 
-    /** @return array<string, mixed> */
     private function purchaseHeader(int $companyId): array
     {
         return [
@@ -127,45 +140,37 @@ final class CommercialOrder extends BaseController
         ];
     }
 
-    /** @return list<array{product_id:int, qty:string, unit_price:string}> */
     private function lines(): array
     {
         $posted = $this->request->getPost('lines');
-
-        if (is_array($posted)) {
-            $lines = [];
-
-            foreach ($posted as $line) {
-                if (! is_array($line)) {
-                    continue;
-                }
-
-                $productId = (int) ($line['product_id'] ?? 0);
-                $qty       = (string) ($line['qty'] ?? '0');
-                $unitPrice = (string) ($line['unit_price'] ?? '0');
-
-                if ($productId <= 0 && (float) $qty <= 0) {
-                    continue;
-                }
-
-                $lines[] = [
-                    'product_id' => $productId,
-                    'qty'        => $qty,
-                    'unit_price' => $unitPrice,
-                ];
-            }
-
-            return $lines;
+        if (! is_array($posted)) {
+            return [[
+                'product_id' => (int) $this->request->getPost('product_id'),
+                'qty'        => (string) $this->request->getPost('qty'),
+                'unit_price' => (string) $this->request->getPost('unit_price'),
+            ]];
         }
 
-        return [[
-            'product_id' => (int) $this->request->getPost('product_id'),
-            'qty'        => (string) $this->request->getPost('qty'),
-            'unit_price' => (string) $this->request->getPost('unit_price'),
-        ]];
+        $lines = [];
+        foreach ($posted as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
+
+            $productId = (int) ($line['product_id'] ?? 0);
+            $qty       = (string) ($line['qty'] ?? '0');
+            $unitPrice = (string) ($line['unit_price'] ?? '0');
+
+            if ($productId <= 0 && $this->decimal($qty) <= 0) {
+                continue;
+            }
+
+            $lines[] = ['product_id' => $productId, 'qty' => $qty, 'unit_price' => $unitPrice];
+        }
+
+        return $lines;
     }
 
-    /** @return array<string, string> */
     private function headerRules(string $side): array
     {
         $rules = [
@@ -174,29 +179,24 @@ final class CommercialOrder extends BaseController
             'transaction_code_id' => 'required|is_natural_no_zero',
             'order_date'          => 'required|valid_date[Y-m-d]',
         ];
-
         $rules[$side === 'sales' ? 'customer_id' : 'supplier_id'] = 'required|is_natural_no_zero';
-
         return $rules;
     }
 
-    /** @param list<array{product_id:int, qty:string, unit_price:string}> $lines */
     private function linesAreValid(array $lines): bool
     {
         if ($lines === []) {
             return false;
         }
 
-        foreach ($lines as $index => $line) {
-            if ((int) $line['product_id'] <= 0 || (float) $line['qty'] <= 0 || (float) $line['unit_price'] < 0) {
+        foreach ($lines as $line) {
+            if ((int) $line['product_id'] <= 0 || $this->decimal($line['qty']) <= 0 || $this->decimal($line['unit_price']) < 0) {
                 return false;
             }
         }
-
         return true;
     }
 
-    /** @param array<string, mixed> $header */
     private function datesAreValid(array $header, string $field): bool
     {
         return ($header[$field] ?? null) === null || strtotime((string) $header[$field]) >= strtotime((string) $header['order_date']);
@@ -205,27 +205,24 @@ final class CommercialOrder extends BaseController
     private function nullableInt(string $field): ?int
     {
         $value = (int) $this->request->getPost($field);
-
         return $value > 0 ? $value : null;
     }
 
     private function nullableString(string $field): ?string
     {
         $value = trim((string) $this->request->getPost($field));
-
         return $value === '' ? null : $value;
     }
 
-    /** @return array<string, mixed>|null */
+    private function decimal(mixed $value): float
+    {
+        return (float) str_replace(',', '.', trim((string) $value));
+    }
+
     private function context(string $permission): ?array
     {
         $context = (new TenantContextService())->current($this->actorId());
-
-        if ($context === null || ! $this->can((int) $context['company_id'], $permission)) {
-            return null;
-        }
-
-        return $context;
+        return $context !== null && $this->can((int) $context['company_id'], $permission) ? $context : null;
     }
 
     private function can(int $companyId, string $permission): bool
@@ -243,7 +240,6 @@ final class CommercialOrder extends BaseController
         return redirect()->to(site_url('workspace'))->with('errors', ['access' => 'Anda tidak memiliki izin mengelola ' . $side . ' order pada company aktif.']);
     }
 
-    /** @param array<string, string>|null $errors */
     private function invalid(string $side, ?array $errors = null): RedirectResponse
     {
         return redirect()->to(site_url($side === 'sales' ? 'sales/orders' : 'purchasing/orders'))->withInput()->with('errors', $errors ?? $this->validator->getErrors());

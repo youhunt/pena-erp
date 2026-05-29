@@ -20,7 +20,6 @@ final class GoodsReceiptWriteModel extends Model
         $companyId = (int) session('tenant.company_id');
         $userId    = (int) auth()->id();
 
-        // Validasi PO milik company aktif
         $po = $this->db->table('purchase_orders')
             ->where('id', (int) $data['purchase_order_id'])
             ->where('company_id', $companyId)
@@ -32,31 +31,6 @@ final class GoodsReceiptWriteModel extends Model
             throw new \RuntimeException('Purchase Order tidak ditemukan atau bukan berstatus draft pada company aktif.');
         }
 
-        // Validasi PO item
-        $item = $this->db->table('purchase_order_items')
-            ->where('id', (int) $data['purchase_order_item_id'])
-            ->where('purchase_order_id', $po->id)
-            ->where('company_id', $companyId)
-            ->where('deleted_at', null)
-            ->get()->getRow();
-
-        if (! $item) {
-            throw new \RuntimeException('Item Purchase Order tidak ditemukan.');
-        }
-
-        $qtyReceived = (float) $data['qty_received'];
-
-        if ($qtyReceived <= 0) {
-            throw new \RuntimeException('Qty diterima harus lebih dari nol.');
-        }
-
-        if ((float) $item->qty_remaining < $qtyReceived) {
-            throw new \RuntimeException(
-                sprintf('Qty diterima (%.4f) melebihi sisa PO (%.4f).', $qtyReceived, (float) $item->qty_remaining)
-            );
-        }
-
-        // Validasi warehouse milik company aktif
         $warehouse = $this->db->table('warehouses')
             ->where('id', (int) $data['warehouse_id'])
             ->where('company_id', $companyId)
@@ -68,18 +42,62 @@ final class GoodsReceiptWriteModel extends Model
             throw new \RuntimeException('Warehouse tidak ditemukan atau tidak aktif pada company aktif.');
         }
 
-        $product = $this->db->table('products')
-            ->where('id', (int) $item->product_id)
-            ->where('company_id', $companyId)
-            ->where('deleted_at', null)
-            ->get()->getRow();
+        $lines = $this->normalizeReceiptLines($data);
 
-        if (! $product) {
-            throw new \RuntimeException('Produk pada PO item tidak ditemukan.');
+        if ($lines === []) {
+            throw new \RuntimeException('Minimal satu item Goods Receipt wajib diisi.');
+        }
+
+        $preparedLines = [];
+        $totalQty      = 0.0;
+        $totalAmount   = 0.0;
+
+        foreach ($lines as $line) {
+            $item = $this->db->table('purchase_order_items')
+                ->where('id', (int) $line['purchase_order_item_id'])
+                ->where('purchase_order_id', $po->id)
+                ->where('company_id', $companyId)
+                ->where('deleted_at', null)
+                ->get()->getRow();
+
+            if (! $item) {
+                throw new \RuntimeException('Item Purchase Order tidak ditemukan.');
+            }
+
+            $qtyReceived = (float) $line['qty_received'];
+
+            if ($qtyReceived <= 0) {
+                throw new \RuntimeException('Qty diterima harus lebih dari nol.');
+            }
+
+            if ((float) $item->qty_remaining < $qtyReceived) {
+                throw new \RuntimeException(sprintf('Qty diterima (%.4f) melebihi sisa PO (%.4f).', $qtyReceived, (float) $item->qty_remaining));
+            }
+
+            $product = $this->db->table('products')
+                ->where('id', (int) $item->product_id)
+                ->where('company_id', $companyId)
+                ->where('deleted_at', null)
+                ->get()->getRow();
+
+            if (! $product) {
+                throw new \RuntimeException('Produk pada PO item tidak ditemukan.');
+            }
+
+            $lineTotal = $qtyReceived * (float) $item->unit_price;
+
+            $preparedLines[] = [
+                'po_item'      => $item,
+                'qty_received' => $qtyReceived,
+                'unit_cost'    => (float) $item->unit_price,
+                'line_total'   => $lineTotal,
+            ];
+
+            $totalQty    += $qtyReceived;
+            $totalAmount += $lineTotal;
         }
 
         $receiptNumber = $this->nextReceiptNumber($companyId);
-        $lineTotal     = $qtyReceived * (float) $item->unit_price;
         $now           = date('Y-m-d H:i:s');
 
         $this->db->transStart();
@@ -92,28 +110,32 @@ final class GoodsReceiptWriteModel extends Model
             'receipt_number'    => $receiptNumber,
             'receipt_date'      => date('Y-m-d'),
             'status'            => 'draft',
-            'total_qty'         => $qtyReceived,
-            'total_amount'      => $lineTotal,
+            'total_qty'         => $totalQty,
+            'total_amount'      => $totalAmount,
             'created_by'        => $userId,
             'updated_by'        => $userId,
             'created_at'        => $now,
             'updated_at'        => $now,
         ], true);
 
-        $this->db->table('goods_receipt_items')->insert([
-            'goods_receipt_id'       => $receiptId,
-            'purchase_order_item_id' => $item->id,
-            'product_id'             => $item->product_id,
-            'warehouse_id'           => $warehouse->id,
-            'qty_received'           => $qtyReceived,
-            'unit_cost'              => (float) $item->unit_price,
-            'line_total'             => $lineTotal,
-            'status'                 => 'draft',
-            'created_by'             => $userId,
-            'updated_by'             => $userId,
-            'created_at'             => $now,
-            'updated_at'             => $now,
-        ]);
+        foreach ($preparedLines as $line) {
+            $poItem = $line['po_item'];
+
+            $this->db->table('goods_receipt_items')->insert([
+                'goods_receipt_id'       => $receiptId,
+                'purchase_order_item_id' => $poItem->id,
+                'product_id'             => $poItem->product_id,
+                'warehouse_id'           => $warehouse->id,
+                'qty_received'           => $line['qty_received'],
+                'unit_cost'              => $line['unit_cost'],
+                'line_total'             => $line['line_total'],
+                'status'                 => 'draft',
+                'created_by'             => $userId,
+                'updated_by'             => $userId,
+                'created_at'             => $now,
+                'updated_at'             => $now,
+            ]);
+        }
 
         $this->audit($companyId, $userId, 'GOODS_RECEIPT_CREATED', "GR draft {$receiptNumber} dibuat dari PO {$po->po_no}", $receiptId);
 
@@ -145,86 +167,93 @@ final class GoodsReceiptWriteModel extends Model
             throw new \RuntimeException('Goods Receipt sudah pernah diposting.');
         }
 
-        $item = $this->db->table('goods_receipt_items')
+        $items = $this->db->table('goods_receipt_items')
             ->where('goods_receipt_id', $receipt->id)
             ->where('deleted_at', null)
-            ->get()->getRow();
+            ->get()->getResult();
 
-        if (! $item) {
+        if ($items === []) {
             throw new \RuntimeException('Goods Receipt tidak memiliki item.');
         }
 
-        $poItem = $this->db->table('purchase_order_items')
-            ->where('id', $item->purchase_order_item_id)
-            ->where('company_id', $companyId)
-            ->where('deleted_at', null)
-            ->get()->getRow();
+        $poItems = [];
 
-        if (! $poItem) {
-            throw new \RuntimeException('PO item tidak ditemukan.');
-        }
+        foreach ($items as $item) {
+            $poItem = $this->db->table('purchase_order_items')
+                ->where('id', $item->purchase_order_item_id)
+                ->where('company_id', $companyId)
+                ->where('deleted_at', null)
+                ->get()->getRow();
 
-        if ((float) $poItem->qty_remaining < (float) $item->qty_received) {
-            throw new \RuntimeException('Sisa qty PO tidak mencukupi untuk posting receipt ini.');
+            if (! $poItem) {
+                throw new \RuntimeException('PO item tidak ditemukan.');
+            }
+
+            if ((float) $poItem->qty_remaining < (float) $item->qty_received) {
+                throw new \RuntimeException('Sisa qty PO tidak mencukupi untuk posting receipt ini.');
+            }
+
+            $poItems[(int) $item->id] = $poItem;
         }
 
         $now = date('Y-m-d H:i:s');
 
         $this->db->transStart();
 
-        // Kurangi qty_remaining PO item
-        $this->db->table('purchase_order_items')
-            ->where('id', $poItem->id)
-            ->update([
-                'qty_remaining' => (float) $poItem->qty_remaining - (float) $item->qty_received,
-                'updated_at'    => $now,
-            ]);
+        foreach ($items as $item) {
+            $poItem = $poItems[(int) $item->id];
+            $qty    = (float) $item->qty_received;
 
-        // Update stock balance
-        $balance = $this->db->table('stock_balances')
-            ->where('company_id', $companyId)
-            ->where('warehouse_id', $receipt->warehouse_id)
-            ->where('product_id', $item->product_id)
-            ->get()->getRow();
-
-        if ($balance) {
-            $this->db->table('stock_balances')
-                ->where('id', $balance->id)
+            $this->db->table('purchase_order_items')
+                ->where('id', $poItem->id)
                 ->update([
-                    'qty_on_hand' => (float) $balance->qty_on_hand + (float) $item->qty_received,
+                    'qty_remaining' => (float) $poItem->qty_remaining - $qty,
+                    'updated_at'    => $now,
+                ]);
+
+            $balance = $this->db->table('stock_balances')
+                ->where('company_id', $companyId)
+                ->where('warehouse_id', $item->warehouse_id)
+                ->where('product_id', $item->product_id)
+                ->get()->getRow();
+
+            if ($balance) {
+                $this->db->table('stock_balances')
+                    ->where('id', $balance->id)
+                    ->update([
+                        'qty_on_hand' => (float) $balance->qty_on_hand + $qty,
+                        'updated_at'  => $now,
+                    ]);
+            } else {
+                $this->db->table('stock_balances')->insert([
+                    'company_id'  => $companyId,
+                    'warehouse_id' => $item->warehouse_id,
+                    'product_id'  => $item->product_id,
+                    'qty_on_hand' => $qty,
+                    'created_at'  => $now,
                     'updated_at'  => $now,
                 ]);
-        } else {
-            $this->db->table('stock_balances')->insert([
-                'company_id'  => $companyId,
-                'warehouse_id' => $receipt->warehouse_id,
-                'product_id'  => $item->product_id,
-                'qty_on_hand' => (float) $item->qty_received,
-                'created_at'  => $now,
-                'updated_at'  => $now,
+            }
+
+            $this->db->table('stock_movements')->insert([
+                'company_id'     => $companyId,
+                'warehouse_id'   => $item->warehouse_id,
+                'product_id'     => $item->product_id,
+                'movement_type'  => 'receipt_in',
+                'qty'            => $qty,
+                'reference_type' => 'goods_receipt',
+                'reference_id'   => $receipt->id,
+                'created_by'     => $userId,
+                'created_at'     => $now,
             ]);
+
+            $this->db->table('goods_receipt_items')
+                ->where('id', $item->id)
+                ->update(['status' => 'posted', 'updated_by' => $userId, 'updated_at' => $now]);
         }
 
-        // Catat stock movement immutable
-        $this->db->table('stock_movements')->insert([
-            'company_id'     => $companyId,
-            'warehouse_id'   => $receipt->warehouse_id,
-            'product_id'     => $item->product_id,
-            'movement_type'  => 'receipt_in',
-            'qty'            => (float) $item->qty_received,
-            'reference_type' => 'goods_receipt',
-            'reference_id'   => $receipt->id,
-            'created_by'     => $userId,
-            'created_at'     => $now,
-        ]);
-
-        // Update status GR header dan item
         $this->db->table('goods_receipts')
             ->where('id', $receipt->id)
-            ->update(['status' => 'posted', 'updated_by' => $userId, 'updated_at' => $now]);
-
-        $this->db->table('goods_receipt_items')
-            ->where('id', $item->id)
             ->update(['status' => 'posted', 'updated_by' => $userId, 'updated_at' => $now]);
 
         $this->audit($companyId, $userId, 'GOODS_RECEIPT_POSTED', "GR {$receipt->receipt_number} diposting ke stock ledger", $receipt->id);
@@ -236,6 +265,42 @@ final class GoodsReceiptWriteModel extends Model
         }
 
         return ['id' => $receipt->id, 'receipt_number' => $receipt->receipt_number, 'status' => 'posted'];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return list<array{purchase_order_item_id:int, qty_received:float}>
+     */
+    private function normalizeReceiptLines(array $data): array
+    {
+        if (isset($data['items']) && is_array($data['items'])) {
+            $lines = [];
+
+            foreach ($data['items'] as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $poItemId = (int) ($item['purchase_order_item_id'] ?? 0);
+                $qty      = (float) ($item['qty_received'] ?? 0);
+
+                if ($poItemId <= 0 && $qty <= 0) {
+                    continue;
+                }
+
+                $lines[] = [
+                    'purchase_order_item_id' => $poItemId,
+                    'qty_received'           => $qty,
+                ];
+            }
+
+            return $lines;
+        }
+
+        return [[
+            'purchase_order_item_id' => (int) $data['purchase_order_item_id'],
+            'qty_received'           => (float) $data['qty_received'],
+        ]];
     }
 
     protected function nextReceiptNumber(int $companyId): string

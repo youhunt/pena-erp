@@ -9,9 +9,7 @@ use App\Models\GoodsReceiptReadModel;
 use App\Models\GoodsReceiptWriteModel;
 use App\Services\TenantContextService;
 use CodeIgniter\HTTP\RedirectResponse;
-use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
-use Psr\Log\LoggerInterface;
 
 final class GoodsReceipt extends BaseController
 {
@@ -61,6 +59,9 @@ final class GoodsReceipt extends BaseController
 
         try {
             $result = (new GoodsReceiptWriteModel())->createDraftReceipt([
+                'company_id'             => (int) $context['company_id'],
+                'branch_id'              => isset($context['branch_id']) ? (int) $context['branch_id'] : null,
+                'actor_id'               => $this->actorId(),
                 'purchase_order_id'      => (int) $this->request->getPost('purchase_order_id'),
                 'purchase_order_item_id' => (int) $this->request->getPost('purchase_order_item_id'),
                 'warehouse_id'           => (int) $this->request->getPost('warehouse_id'),
@@ -85,7 +86,11 @@ final class GoodsReceipt extends BaseController
         }
 
         try {
-            $result = (new GoodsReceiptWriteModel())->postReceipt($id);
+            $result = (new GoodsReceiptWriteModel())->postReceipt(
+                $id,
+                (int) $context['company_id'],
+                $this->actorId()
+            );
 
             return redirect()->to(site_url('purchasing/receipts'))
                 ->with('message', 'Goods Receipt berhasil diposting: ' . $result['id']);

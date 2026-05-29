@@ -59,13 +59,15 @@ final class GoodsReceipt extends BaseController
 
         try {
             $result = (new GoodsReceiptWriteModel())->createDraftReceipt([
-                'company_id'             => (int) $context['company_id'],
-                'branch_id'              => isset($context['branch_id']) ? (int) $context['branch_id'] : null,
-                'actor_id'               => $this->actorId(),
-                'purchase_order_id'      => (int) $this->request->getPost('purchase_order_id'),
+                'company_id'        => (int) $context['company_id'],
+                'branch_id'         => isset($context['branch_id']) ? (int) $context['branch_id'] : null,
+                'actor_id'          => $this->actorId(),
+                'purchase_order_id' => (int) $this->request->getPost('purchase_order_id'),
+                'warehouse_id'      => (int) $this->request->getPost('warehouse_id'),
+                'items'             => $this->receiptItems(),
+                // Legacy fallback for the old one-line form contract.
                 'purchase_order_item_id' => (int) $this->request->getPost('purchase_order_item_id'),
-                'warehouse_id'           => (int) $this->request->getPost('warehouse_id'),
-                'qty_received'           => (float) $this->request->getPost('qty_received'),
+                'qty_received'           => (string) $this->request->getPost('qty_received'),
             ]);
 
             return redirect()->to(site_url('purchasing/receipts'))
@@ -79,20 +81,9 @@ final class GoodsReceipt extends BaseController
 
     public function post(int $id): RedirectResponse
     {
-        log_message('error', 'GR POST CONTROLLER START: ' . json_encode([
-            'receipt_id' => $id,
-            'actor_id'   => $this->actorId(),
-            'method'     => $this->request->getMethod(),
-            'post'       => $this->request->getPost(),
-        ]));
-
         $context = $this->context('purchasing.gr.manage');
 
-        log_message('error', 'GR POST CONTEXT: ' . json_encode($context));
-
         if ($context === null) {
-            log_message('error', 'GR POST DENIED: context null or permission missing');
-
             return $this->denied();
         }
 
@@ -103,17 +94,44 @@ final class GoodsReceipt extends BaseController
                 $this->actorId()
             );
 
-            log_message('error', 'GR POST SUCCESS CONTROLLER: ' . json_encode($result));
-
             return redirect()->to(site_url('purchasing/receipts'))
-                ->with('message', 'Goods Receipt berhasil diposting: ' . $result['id']);
+                ->with('message', 'Goods Receipt berhasil diposting: ' . $result['receipt_number']);
         } catch (\Throwable $e) {
-            log_message('error', 'GR POST CONTROLLER ERROR: ' . $e->getMessage());
-            log_message('error', 'GR POST CONTROLLER TRACE: ' . $e->getTraceAsString());
-
             return redirect()->back()
                 ->with('errors', ['error' => $e->getMessage()]);
         }
+    }
+
+    /** @return list<array{purchase_order_item_id:int, qty_received:string}> */
+    private function receiptItems(): array
+    {
+        $posted = $this->request->getPost('items');
+
+        if (! is_array($posted)) {
+            return [];
+        }
+
+        $items = [];
+
+        foreach ($posted as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $poItemId = (int) ($item['purchase_order_item_id'] ?? 0);
+            $qty      = trim((string) ($item['qty_received'] ?? ''));
+
+            if ($poItemId <= 0 && $qty === '') {
+                continue;
+            }
+
+            $items[] = [
+                'purchase_order_item_id' => $poItemId,
+                'qty_received'           => $qty,
+            ];
+        }
+
+        return $items;
     }
 
     // -------------------------------------------------------------------------

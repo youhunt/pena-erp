@@ -43,7 +43,7 @@ $routes->group('setup', ['filter' => ['session', 'sessionsecurity', 'passwordreq
     $routes->post('departments', 'Setup::createDepartment');
     $routes->post('departments/(:num)', 'Setup::updateDepartment/$1');
     $routes->post('transaction-codes', 'Setup::createTransactionCode');
-    $routes->post('transaction-codes/(:num)', 'Setup::updateTransactionCode');
+    $routes->post('transaction-codes/(:num)', 'Setup::updateTransactionCode/$1');
     $routes->post('addresses', 'Setup::createAddress');
     $routes->post('addresses/(:num)', 'Setup::updateAddress/$1');
     $routes->post('currencies', 'Setup::createCurrency');

@@ -187,7 +187,7 @@
                 <!-- Step 4: Qty Received -->
                 <div class="col-md-3" id="qtySection" style="display:none">
                     <label class="form-label fw-semibold">Qty Diterima <span class="text-danger">*</span></label>
-                    <input id="qtyReceived" type="number" name="qty_received" step="0.0001" min="0.0001"
+                    <input id="qtyReceived" type="text" name="qty_received" inputmode="decimal"
                            class="form-control" required>
                     <div id="qtyHint" class="form-text text-muted"></div>
                 </div>
@@ -225,6 +225,7 @@
 (function () {
     'use strict';
 
+    var form            = document.getElementById('grForm');
     var poSelect        = document.getElementById('poSelect');
     var poItemSelect    = document.getElementById('poItemSelect');
     var poItemSection   = document.getElementById('poItemSection');
@@ -244,6 +245,10 @@
         return baseUrl + '/' + path.replace(/^\//, '');
     }
 
+    function normalizeDecimal(value) {
+        return String(value || '').replace(/\s/g, '').replace(',', '.');
+    }
+
     function resetItemFields() {
         poItemSelect.innerHTML = '<option value="">-- Pilih item setelah memilih PO --</option>';
         poItemSection.style.display = 'none';
@@ -251,6 +256,7 @@
         qtySection.style.display = 'none';
         costSection.style.display = 'none';
         qtyReceived.value = '';
+        qtyReceived.removeAttribute('data-max');
         unitCostDisplay.value = '';
         qtyHint.textContent = '';
         submitBtn.disabled = true;
@@ -291,7 +297,6 @@
                 });
                 poItemSelect.innerHTML = opts.join('');
 
-                // Pre-select warehouse dari PO jika ada
                 var poOpt = poSelect.selectedOptions[0];
                 if (poOpt && poOpt.dataset.warehouse && warehouseSelect) {
                     warehouseSelect.value = poOpt.dataset.warehouse;
@@ -317,14 +322,37 @@
         var qtyRemaining = parseFloat(opt.dataset.qty || 0);
         var unitCost     = parseFloat(opt.dataset.cost || 0);
 
-        qtyReceived.max   = qtyRemaining;
+        qtyReceived.dataset.max = qtyRemaining.toFixed(4);
         qtyReceived.value = qtyRemaining.toFixed(4);
-        qtyHint.textContent = 'Maks: ' + qtyRemaining.toFixed(4);
+        qtyHint.textContent = 'Maks: ' + qtyRemaining.toFixed(4) + ' — gunakan titik atau koma, contoh 1.0000';
         unitCostDisplay.value = unitCost.toLocaleString('id-ID', { minimumFractionDigits: 4 });
 
         qtySection.style.display = '';
         costSection.style.display = '';
         submitBtn.disabled = false;
+    }
+
+    function validateQty() {
+        if (!qtyReceived || !qtyReceived.value) return false;
+
+        var max = parseFloat(qtyReceived.dataset.max || '0');
+        var qty = parseFloat(normalizeDecimal(qtyReceived.value));
+
+        if (!Number.isFinite(qty) || qty <= 0) {
+            qtyHint.textContent = 'Qty harus lebih dari nol.';
+            submitBtn.disabled = true;
+            return false;
+        }
+
+        if (max > 0 && qty > max) {
+            qtyHint.textContent = 'Qty tidak boleh melebihi sisa PO: ' + max.toFixed(4);
+            submitBtn.disabled = true;
+            return false;
+        }
+
+        qtyHint.textContent = 'Maks: ' + max.toFixed(4) + ' — nilai tersimpan: ' + qty.toFixed(4);
+        submitBtn.disabled = false;
+        return true;
     }
 
     if (poSelect) {
@@ -337,7 +365,21 @@
         poItemSelect.addEventListener('change', onItemChange);
     }
 
-    // Reset saat modal ditutup
+    if (qtyReceived) {
+        qtyReceived.addEventListener('input', validateQty);
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (event) {
+            if (!validateQty()) {
+                event.preventDefault();
+                return;
+            }
+
+            qtyReceived.value = normalizeDecimal(qtyReceived.value);
+        });
+    }
+
     var modal = document.getElementById('addGrModal');
     if (modal) {
         modal.addEventListener('hidden.bs.modal', function () {

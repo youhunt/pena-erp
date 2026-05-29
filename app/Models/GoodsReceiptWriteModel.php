@@ -17,8 +17,13 @@ final class GoodsReceiptWriteModel extends Model
     /** @param array<string, mixed> $data */
     public function createDraftReceipt(array $data): array
     {
-        $companyId = (int) session('tenant.company_id');
-        $userId    = (int) auth()->id();
+        $companyId = (int) ($data['company_id'] ?? 0);
+        $branchId  = isset($data['branch_id']) ? (int) $data['branch_id'] : null;
+        $userId    = (int) ($data['actor_id'] ?? auth()->id());
+
+        if ($companyId <= 0) {
+            throw new \RuntimeException('Company context Goods Receipt tidak valid.');
+        }
 
         $po = $this->db->table('purchase_orders')
             ->where('id', (int) $data['purchase_order_id'])
@@ -40,6 +45,10 @@ final class GoodsReceiptWriteModel extends Model
 
         if (! $warehouse) {
             throw new \RuntimeException('Warehouse tidak ditemukan atau tidak aktif pada company aktif.');
+        }
+
+        if ($branchId !== null && (int) $warehouse->branch_id !== $branchId) {
+            throw new \RuntimeException('Warehouse tujuan tidak berada pada branch aktif.');
         }
 
         $lines = $this->normalizeReceiptLines($data);
@@ -104,7 +113,7 @@ final class GoodsReceiptWriteModel extends Model
 
         $receiptId = $this->db->table('goods_receipts')->insert([
             'company_id'        => $companyId,
-            'branch_id'         => $po->branch_id ?? null,
+            'branch_id'         => $po->branch_id ?? $branchId,
             'warehouse_id'      => $warehouse->id,
             'purchase_order_id' => $po->id,
             'receipt_number'    => $receiptNumber,
@@ -148,10 +157,11 @@ final class GoodsReceiptWriteModel extends Model
         return ['id' => $receiptId, 'receipt_number' => $receiptNumber, 'status' => 'draft'];
     }
 
-    public function postReceipt(int $receiptId): array
+    public function postReceipt(int $receiptId, int $companyId, int $userId): array
     {
-        $companyId = (int) session('tenant.company_id');
-        $userId    = (int) auth()->id();
+        if ($companyId <= 0) {
+            throw new \RuntimeException('Company context Goods Receipt tidak valid.');
+        }
 
         $receipt = $this->db->table('goods_receipts')
             ->where('id', $receiptId)
@@ -208,6 +218,8 @@ final class GoodsReceiptWriteModel extends Model
                 ->where('id', $poItem->id)
                 ->update([
                     'qty_remaining' => (float) $poItem->qty_remaining - $qty,
+                    'received_qty'  => (float) ($poItem->received_qty ?? 0) + $qty,
+                    'updated_by'    => $userId,
                     'updated_at'    => $now,
                 ]);
 

@@ -58,13 +58,20 @@ final class GoodsReceiptReadModel extends Model
     /** JSON payload untuk AJAX: items dari PO yang dipilih */
     public function poItemsForAjax(int $companyId, int $purchaseOrderId): array
     {
+        $fields = $this->db->getFieldNames('purchase_order_items');
+        $hasQtyOrdered   = in_array('qty_ordered', $fields, true);
+        $hasQtyRemaining = in_array('qty_remaining', $fields, true);
+
+        $qtyOrderedExpr = $hasQtyOrdered ? 'poi.qty_ordered' : 'poi.qty';
+        $qtyRemainExpr  = $hasQtyRemaining ? 'poi.qty_remaining' : 'poi.qty';
+
         return $this->db->table('purchase_order_items poi')
-            ->select('poi.id, poi.product_id, poi.qty_ordered, poi.qty_remaining, poi.unit_price, p.name as product_name, p.sku as product_sku, u.code as uom_code')
+            ->select("poi.id, poi.product_id, {$qtyOrderedExpr} AS qty_ordered, {$qtyRemainExpr} AS qty_remaining, poi.unit_price, p.name as product_name, p.sku as product_sku, u.code as uom_code", false)
             ->join('products p', 'p.id = poi.product_id', 'left')
             ->join('units_of_measure u', 'u.id = p.base_uom_id', 'left')
             ->where('poi.company_id', $companyId)
             ->where('poi.purchase_order_id', $purchaseOrderId)
-            ->where('poi.qty_remaining >', 0)
+            ->where("{$qtyRemainExpr} >", 0, false)
             ->where('poi.deleted_at', null)
             ->get()
             ->getResultArray();

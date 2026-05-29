@@ -94,7 +94,8 @@ $routes->group('purchasing/orders', ['filter' => ['session', 'sessionsecurity', 
 $routes->group('purchasing', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes) {
     $routes->get('receipts', 'GoodsReceipt::index');
     $routes->post('receipts/create', 'GoodsReceipt::create');
-    $routes->get('receipts/post/(:num)', 'GoodsReceipt::post/$1');
+    $routes->post('receipts/(:num)/post', 'GoodsReceipt::post/$1');
+    $routes->get('receipts/po-items/(:num)', 'GoodsReceipt::poItems/$1');
 });
 
 $routes->group('pos/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {

@@ -57,6 +57,7 @@ final class MultiCompanyDemoSeeder extends Seeder
         $this->provisionCommercialMasters($tenantIds, $now);
         $this->provisionFinanceMasters($tenantIds, $now);
         $this->provisionPosMasters($tenantIds, $now);
+        $this->provisionPurchaseDemoData($tenantIds, $branchIds, $now);
 
         $users = [
             'owner@demo.pena-erp.test'      => 'demo.owner',
@@ -143,6 +144,8 @@ final class MultiCompanyDemoSeeder extends Seeder
             'inventory.master.manage' => ['Kelola Master Inventory', 'inventory'],
             'purchasing.po.view'     => ['Lihat Purchase Order', 'purchasing'],
             'purchasing.po.manage'   => ['Kelola Purchase Order', 'purchasing'],
+            'purchasing.gr.view'     => ['Lihat Goods Receipt', 'purchasing'],
+            'purchasing.gr.manage'   => ['Kelola Goods Receipt', 'purchasing'],
             'purchasing.master.view' => ['Lihat Purchasing Master', 'purchasing'],
             'purchasing.master.manage' => ['Kelola Purchasing Master', 'purchasing'],
             'sales.order.view'       => ['Lihat Sales Order', 'sales'],
@@ -170,7 +173,8 @@ final class MultiCompanyDemoSeeder extends Seeder
             'setup'      => ['Setup Master', 'setup', 'bx bx-cog', 15, 'setup.master.view'],
             'inventory'  => ['Inventory', 'inventory', 'bx bx-package', 20, 'inventory.stock.view'],
             'purchase-order' => ['Purchase Order', 'purchasing/orders', 'bx bx-cart-download', 30, 'purchasing.po.view'],
-            'purchasing' => ['Purchasing Master', 'purchasing/master', 'bx bx-cart', 32, 'purchasing.master.view'],
+            'goods-receipt'  => ['Goods Receipt', 'purchasing/receipts', 'bx bx-package', 31, 'purchasing.gr.view'],
+            'purchasing'     => ['Purchasing Master', 'purchasing/master', 'bx bx-cart', 32, 'purchasing.master.view'],
             'sales-order' => ['Sales Order', 'sales/orders', 'bx bx-receipt', 40, 'sales.order.view'],
             'sales'      => ['Sales Master', 'sales/master', 'bx bx-user-pin', 42, 'sales.master.view'],
             'pos'        => ['POS Master', 'pos/master', 'bx bx-store', 45, 'pos.master.view'],
@@ -187,10 +191,10 @@ final class MultiCompanyDemoSeeder extends Seeder
 
         $roleGrants = [
             'owner'      => array_keys($permissions),
-            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.po.manage', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.order.manage', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
+            'manager'    => ['company.dashboard.view', 'setup.master.view', 'setup.master.manage', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.po.view', 'purchasing.po.manage', 'purchasing.gr.view', 'purchasing.gr.manage', 'purchasing.master.view', 'purchasing.master.manage', 'sales.order.view', 'sales.order.manage', 'sales.master.view', 'sales.master.manage', 'pos.master.view', 'pos.master.manage', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
             'finance'    => ['company.dashboard.view', 'finance.master.view', 'finance.master.manage', 'finance.invoice.view', 'finance.invoice.manage', 'cashbank.view', 'reports.view', 'documents.upload'],
-            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.po.manage', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
-            'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'documents.upload'],
+            'purchasing' => ['company.dashboard.view', 'inventory.stock.view', 'purchasing.po.view', 'purchasing.po.manage', 'purchasing.gr.view', 'purchasing.gr.manage', 'purchasing.master.view', 'purchasing.master.manage', 'documents.upload'],
+            'warehouse'  => ['company.dashboard.view', 'inventory.stock.view', 'inventory.master.manage', 'purchasing.gr.view', 'documents.upload'],
             'sales'      => ['company.dashboard.view', 'inventory.stock.view', 'sales.order.view', 'sales.order.manage', 'sales.master.view', 'sales.master.manage', 'pos.master.view'],
             'cashier'    => ['company.dashboard.view', 'sales.order.view', 'sales.order.manage', 'pos.master.view', 'pos.master.manage', 'cashbank.view'],
         ];
@@ -1101,5 +1105,69 @@ final class MultiCompanyDemoSeeder extends Seeder
                 'created_at' => $now,
             ]);
         }
+    }
+
+    /**
+     * Buat demo Purchase Order draft di PENA agar Goods Receipt bisa langsung ditest.
+     *
+     * @param array<string, int>                $tenantIds
+     * @param array<string, array<string, int>> $branchIds
+     */
+    private function provisionPurchaseDemoData(array $tenantIds, array $branchIds, string $now): void
+    {
+        if (! $this->db->tableExists('purchase_orders') || ! $this->db->tableExists('purchase_order_items')) {
+            return;
+        }
+
+        $companyId = $tenantIds['PENA'];
+        $branchId  = $branchIds['PENA']['JKT'];
+
+        // Idempotent — skip jika sudah ada
+        if ($this->db->table('purchase_orders')->where(['company_id' => $companyId, 'status' => 'draft'])->countAllResults() > 0) {
+            return;
+        }
+
+        $supplier = $this->db->table('suppliers')->where(['company_id' => $companyId, 'code' => 'SUP-DEMO'])->get()->getFirstRow('array');
+        $warehouse = $this->db->table('warehouses')->where(['company_id' => $companyId, 'is_active' => true])->orderBy('id', 'ASC')->get()->getFirstRow('array');
+        $currency = $this->db->table('currencies')->where(['company_id' => $companyId, 'code' => 'IDR'])->get()->getFirstRow('array');
+        $product = $this->db->table('products')->where(['company_id' => $companyId, 'status' => 'active', 'product_type' => 'stock'])->orderBy('id', 'ASC')->get()->getFirstRow('array');
+        $txCode = $this->db->table('transaction_codes')->where(['company_id' => $companyId, 'module' => 'purchasing'])->orderBy('id', 'ASC')->get()->getFirstRow('array');
+
+        if ($supplier === null || $warehouse === null || $currency === null || $product === null || $txCode === null) {
+            return;
+        }
+
+        // Insert PO header
+        $this->db->table('purchase_orders')->insert([
+            'company_id'            => $companyId,
+            'branch_id'             => $branchId,
+            'warehouse_id'          => (int) $warehouse['id'],
+            'supplier_id'           => (int) $supplier['id'],
+            'currency_id'           => (int) $currency['id'],
+            'transaction_code_id'   => (int) $txCode['id'],
+            'po_no'                 => 'JKT-PO-' . date('Y') . '-DEMO001',
+            'order_date'            => date('Y-m-d'),
+            'expected_receipt_date' => date('Y-m-d', strtotime('+7 days')),
+            'status'                => 'draft',
+            'total_amount'          => '3250000.0000',
+            'created_at'            => $now,
+            'updated_at'            => $now,
+        ]);
+        $poId = (int) $this->db->insertID();
+
+        // Insert PO item
+        $this->db->table('purchase_order_items')->insert([
+            'company_id'           => $companyId,
+            'purchase_order_id'    => $poId,
+            'product_id'           => (int) $product['id'],
+            'warehouse_id'         => (int) $warehouse['id'],
+            'qty_ordered'          => '50.0000',
+            'qty_remaining'        => '50.0000',
+            'unit_price'           => '65000.0000',
+            'line_total'           => '3250000.0000',
+            'status'               => 'draft',
+            'created_at'           => $now,
+            'updated_at'           => $now,
+        ]);
     }
 }

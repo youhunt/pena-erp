@@ -71,6 +71,12 @@ integrasi Skote, worker OCR/AI, dan deployment production.
 - Tahap 24 dimulai: Sales Order dan Purchase Order draft MVP tersedia dengan
   grid, tombol tambah data, numbering tenant/site, validasi FK company aktif,
   item satu line, VAT, dan audit create.
+- Tahap 25 dimulai: Goods Receipt MVP diperbaiki menjadi proper — permission
+  guard `purchasing.gr.view/manage`, AJAX endpoint load PO items saat PO
+  dipilih, modal form Skote dengan dropdown warehouse aktif dan auto-fill qty
+  dari sisa PO, tombol Post via POST, menu sidebar Goods Receipt, permission
+  baru di seeder untuk role purchasing/warehouse/manager/owner, dan PO demo
+  draft di PENA untuk testing langsung.
 
 ```bash
 composer install

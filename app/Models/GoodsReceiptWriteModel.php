@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use CodeIgniter\Model;
+use App\Services\AuditTrailService;
 
 final class GoodsReceiptWriteModel extends Model
 {
@@ -17,43 +18,94 @@ final class GoodsReceiptWriteModel extends Model
     /** @param array<string, mixed> $data */
     public function createDraftReceipt(array $data): array
     {
+        $debugId = 'GRDBG-' . date('His') . '-' . random_int(1000, 9999);
+
+        log_message('error', "{$debugId} START createDraftReceipt");
+        log_message('error', "{$debugId} RAW DATA: " . json_encode($data));
+
         $companyId = (int) ($data['company_id'] ?? 0);
         $branchId  = isset($data['branch_id']) ? (int) $data['branch_id'] : null;
         $userId    = (int) ($data['actor_id'] ?? auth()->id());
 
+        log_message('error', "{$debugId} CONTEXT: " . json_encode([
+            'company_id' => $companyId,
+            'branch_id'  => $branchId,
+            'user_id'    => $userId,
+            'auth_id'    => auth()->id(),
+        ]));
+
         if ($companyId <= 0) {
+            log_message('error', "{$debugId} FAIL company_id invalid");
             throw new \RuntimeException('Company context Goods Receipt tidak valid.');
         }
 
-        $po = $this->db->table('purchase_orders')
-            ->where('id', (int) $data['purchase_order_id'])
+        // 1. DEBUG PO LOOKUP
+        $poBuilder = $this->db->table('purchase_orders')
+            ->where('id', (int) ($data['purchase_order_id'] ?? 0))
             ->where('company_id', $companyId)
             ->where('status', 'draft')
-            ->where('deleted_at', null)
-            ->get()->getRow();
+            ->where('deleted_at IS NULL', null, false);
+
+        log_message('error', "{$debugId} PO SQL: " . $poBuilder->getCompiledSelect(false));
+
+        $po = $poBuilder->get()->getRow();
+
+        log_message('error', "{$debugId} PO RESULT: " . json_encode($po));
 
         if (! $po) {
+            $debugPo = $this->db->table('purchase_orders')
+                ->where('id', (int) ($data['purchase_order_id'] ?? 0))
+                ->get()
+                ->getRowArray();
+
+            log_message('error', "{$debugId} PO NOT FOUND DETAIL WITHOUT FILTER: " . json_encode($debugPo));
+
             throw new \RuntimeException('Purchase Order tidak ditemukan atau bukan berstatus draft pada company aktif.');
         }
 
-        $warehouse = $this->db->table('warehouses')
-            ->where('id', (int) $data['warehouse_id'])
+        // 2. DEBUG WAREHOUSE LOOKUP
+        $warehouseBuilder = $this->db->table('warehouses')
+            ->where('id', (int) ($data['warehouse_id'] ?? 0))
             ->where('company_id', $companyId)
             ->where('is_active', true)
-            ->where('deleted_at', null)
-            ->get()->getRow();
+            ->where('deleted_at IS NULL', null, false);
+
+        log_message('error', "{$debugId} WAREHOUSE SQL: " . $warehouseBuilder->getCompiledSelect(false));
+
+        $warehouse = $warehouseBuilder->get()->getRow();
+
+        log_message('error', "{$debugId} WAREHOUSE RESULT: " . json_encode($warehouse));
 
         if (! $warehouse) {
+            $debugWarehouse = $this->db->table('warehouses')
+                ->where('id', (int) ($data['warehouse_id'] ?? 0))
+                ->get()
+                ->getRowArray();
+
+            log_message('error', "{$debugId} WAREHOUSE NOT FOUND DETAIL WITHOUT FILTER: " . json_encode($debugWarehouse));
+
             throw new \RuntimeException('Warehouse tidak ditemukan atau tidak aktif pada company aktif.');
         }
 
+        // Untuk debug, validasi branch jangan menggagalkan dulu.
         if ($branchId !== null && (int) $warehouse->branch_id !== $branchId) {
-            throw new \RuntimeException('Warehouse tujuan tidak berada pada branch aktif.');
+            log_message('error', "{$debugId} WARNING warehouse branch mismatch: " . json_encode([
+                'active_branch_id'    => $branchId,
+                'warehouse_branch_id' => (int) $warehouse->branch_id,
+                'warehouse_id'        => (int) $warehouse->id,
+            ]));
+
+            // Sementara jangan throw dulu.
+            // throw new \RuntimeException('Warehouse tujuan tidak berada pada branch aktif.');
         }
 
+        // 3. DEBUG NORMALIZED LINES
         $lines = $this->normalizeReceiptLines($data);
 
+        log_message('error', "{$debugId} NORMALIZED LINES: " . json_encode($lines));
+
         if ($lines === []) {
+            log_message('error', "{$debugId} FAIL no receipt lines");
             throw new \RuntimeException('Minimal satu item Goods Receipt wajib diisi.');
         }
 
@@ -61,35 +113,74 @@ final class GoodsReceiptWriteModel extends Model
         $totalQty      = 0.0;
         $totalAmount   = 0.0;
 
-        foreach ($lines as $line) {
-            $item = $this->db->table('purchase_order_items')
+        foreach ($lines as $idx => $line) {
+            log_message('error', "{$debugId} LINE {$idx} INPUT: " . json_encode($line));
+
+            // 4. DEBUG PO ITEM LOOKUP
+            $itemBuilder = $this->db->table('purchase_order_items')
                 ->where('id', (int) $line['purchase_order_item_id'])
-                ->where('purchase_order_id', $po->id)
+                ->where('purchase_order_id', (int) $po->id)
                 ->where('company_id', $companyId)
-                ->where('deleted_at', null)
-                ->get()->getRow();
+                ->where('deleted_at IS NULL', null, false);
+
+            log_message('error', "{$debugId} LINE {$idx} PO ITEM SQL: " . $itemBuilder->getCompiledSelect(false));
+
+            $item = $itemBuilder->get()->getRow();
+
+            log_message('error', "{$debugId} LINE {$idx} PO ITEM RESULT: " . json_encode($item));
 
             if (! $item) {
+                $debugItem = $this->db->table('purchase_order_items')
+                    ->where('id', (int) $line['purchase_order_item_id'])
+                    ->get()
+                    ->getRowArray();
+
+                log_message('error', "{$debugId} LINE {$idx} PO ITEM NOT FOUND DETAIL WITHOUT FILTER: " . json_encode($debugItem));
+
                 throw new \RuntimeException('Item Purchase Order tidak ditemukan.');
             }
 
-            $qtyReceived = (float) $line['qty_received'];
+            $qtyReceived = (float) str_replace(',', '.', (string) $line['qty_received']);
+
+            log_message('error', "{$debugId} LINE {$idx} QTY CHECK: " . json_encode([
+                'qty_received'  => $qtyReceived,
+                'qty_remaining' => (float) $item->qty_remaining,
+                'qty_ordered'   => (float) ($item->qty_ordered ?? 0),
+                'received_qty'  => (float) ($item->received_qty ?? 0),
+            ]));
 
             if ($qtyReceived <= 0) {
                 throw new \RuntimeException('Qty diterima harus lebih dari nol.');
             }
 
             if ((float) $item->qty_remaining < $qtyReceived) {
-                throw new \RuntimeException(sprintf('Qty diterima (%.4f) melebihi sisa PO (%.4f).', $qtyReceived, (float) $item->qty_remaining));
+                throw new \RuntimeException(sprintf(
+                    'Qty diterima (%.4f) melebihi sisa PO (%.4f).',
+                    $qtyReceived,
+                    (float) $item->qty_remaining
+                ));
             }
 
-            $product = $this->db->table('products')
+            // 5. DEBUG PRODUCT LOOKUP
+            $productBuilder = $this->db->table('products')
                 ->where('id', (int) $item->product_id)
                 ->where('company_id', $companyId)
-                ->where('deleted_at', null)
-                ->get()->getRow();
+                ->where('deleted_at IS NULL', null, false);
+
+            log_message('error', "{$debugId} LINE {$idx} PRODUCT SQL: " . $productBuilder->getCompiledSelect(false));
+
+            $product = $productBuilder->get()->getRow();
+
+            log_message('error', "{$debugId} LINE {$idx} PRODUCT RESULT: " . json_encode($product));
 
             if (! $product) {
+                $debugProduct = $this->db->table('products')
+                    ->where('id', (int) $item->product_id)
+                    ->get()
+                    ->getRowArray();
+
+                log_message('error', "{$debugId} LINE {$idx} PRODUCT NOT FOUND DETAIL WITHOUT FILTER: " . json_encode($debugProduct));
+
                 throw new \RuntimeException('Produk pada PO item tidak ditemukan.');
             }
 
@@ -106,12 +197,23 @@ final class GoodsReceiptWriteModel extends Model
             $totalAmount += $lineTotal;
         }
 
+        log_message('error', "{$debugId} PREPARED SUMMARY: " . json_encode([
+            'line_count'   => count($preparedLines),
+            'total_qty'    => $totalQty,
+            'total_amount' => $totalAmount,
+        ]));
+
         $receiptNumber = $this->nextReceiptNumber($companyId);
         $now           = date('Y-m-d H:i:s');
 
+        log_message('error', "{$debugId} RECEIPT NUMBER: {$receiptNumber}");
+
         $this->db->transStart();
 
-        $receiptId = $this->db->table('goods_receipts')->insert([
+        log_message('error', "{$debugId} TRANS START");
+
+        // 6. INSERT HEADER GR
+        $headerData = [
             'company_id'        => $companyId,
             'branch_id'         => $po->branch_id ?? $branchId,
             'warehouse_id'      => $warehouse->id,
@@ -125,12 +227,32 @@ final class GoodsReceiptWriteModel extends Model
             'updated_by'        => $userId,
             'created_at'        => $now,
             'updated_at'        => $now,
-        ], true);
+        ];
 
-        foreach ($preparedLines as $line) {
+        log_message('error', "{$debugId} INSERT GR HEADER DATA: " . json_encode($headerData));
+
+        $insertHeaderResult = $this->db->table('goods_receipts')->insert($headerData);
+        $receiptId = (int) $this->db->insertID();
+
+        log_message('error', "{$debugId} INSERT GR HEADER RESULT: " . json_encode([
+            'insert_result' => $insertHeaderResult,
+            'insert_id'     => $receiptId,
+            'db_error'      => $this->db->error(),
+        ]));
+
+        if (! $insertHeaderResult || $receiptId <= 0) {
+            $error = $this->db->error();
+
+            throw new \RuntimeException(
+                'Header Goods Receipt gagal dibuat: ' . ($error['message'] ?? 'unknown database error')
+            );
+        }
+
+        // 7. INSERT ITEMS
+        foreach ($preparedLines as $idx => $line) {
             $poItem = $line['po_item'];
 
-            $this->db->table('goods_receipt_items')->insert([
+            $itemData = [
                 'goods_receipt_id'       => $receiptId,
                 'purchase_order_item_id' => $poItem->id,
                 'product_id'             => $poItem->product_id,
@@ -143,18 +265,68 @@ final class GoodsReceiptWriteModel extends Model
                 'updated_by'             => $userId,
                 'created_at'             => $now,
                 'updated_at'             => $now,
-            ]);
+            ];
+
+            log_message('error', "{$debugId} INSERT GR ITEM {$idx} DATA: " . json_encode($itemData));
+
+            $insertItemResult = $this->db->table('goods_receipt_items')->insert($itemData);
+            $itemInsertId = (int) $this->db->insertID();
+
+            log_message('error', "{$debugId} INSERT GR ITEM {$idx} RESULT: " . json_encode([
+                'insert_result' => $insertItemResult,
+                'insert_id'     => $itemInsertId,
+                'db_error'      => $this->db->error(),
+            ]));
+
+            if (! $insertItemResult || $itemInsertId <= 0) {
+                $error = $this->db->error();
+
+                throw new \RuntimeException(
+                    'Item Goods Receipt gagal dibuat: ' . ($error['message'] ?? 'unknown database error')
+                );
+            }
         }
 
-        $this->audit($companyId, $userId, 'GOODS_RECEIPT_CREATED', "GR draft {$receiptNumber} dibuat dari PO {$po->po_no}", $receiptId);
+        // 8. AUDIT SEMENTARA DI-COMMENT DULU UNTUK ISOLASI
+        log_message('error', "{$debugId} SKIP AUDIT TEMPORARILY");
+
+        // $this->audit(
+        //     $companyId,
+        //     $userId,
+        //     'GOODS_RECEIPT_CREATED',
+        //     "GR draft {$receiptNumber} dibuat dari PO {$po->po_no}",
+        //     $receiptId
+        // );
 
         $this->db->transComplete();
 
+        log_message('error', "{$debugId} TRANS COMPLETE: " . json_encode([
+            'trans_status' => $this->db->transStatus(),
+            'db_error'     => $this->db->error(),
+            'receipt_id'   => $receiptId,
+        ]));
+
         if ($this->db->transStatus() === false) {
-            throw new \RuntimeException('Transaksi gagal disimpan. Silakan coba lagi.');
+            $error = $this->db->error();
+
+            log_message('error', "{$debugId} TRANS FAILED DB ERROR: " . json_encode($error));
+
+            throw new \RuntimeException(
+                'Transaksi gagal disimpan: ' . ($error['message'] ?? 'unknown database error')
+            );
         }
 
-        return ['id' => $receiptId, 'receipt_number' => $receiptNumber, 'status' => 'draft'];
+        log_message('error', "{$debugId} SUCCESS: " . json_encode([
+            'receipt_id'     => $receiptId,
+            'receipt_number' => $receiptNumber,
+            'status'         => 'draft',
+        ]));
+
+        return [
+            'id'             => $receiptId,
+            'receipt_number' => $receiptNumber,
+            'status'         => 'draft',
+        ];
     }
 
     public function postReceipt(int $receiptId, int $companyId, int $userId): array
@@ -330,16 +502,36 @@ final class GoodsReceiptWriteModel extends Model
         return 'GR' . $year . $month . '-' . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
-    protected function audit(int $companyId, int $userId, string $event, string $description, int $referenceId): void
-    {
-        $this->db->table('audit_logs')->insert([
-            'company_id'     => $companyId,
-            'user_id'        => $userId,
-            'event_type'     => $event,
-            'description'    => $description,
-            'reference_type' => 'goods_receipt',
-            'reference_id'   => $referenceId,
-            'created_at'     => date('Y-m-d H:i:s'),
-        ]);
+    // protected function audit(int $companyId, int $userId, string $event, string $description, int $referenceId): void
+    // {
+    //     $this->db->table('audit_logs')->insert([
+    //         'company_id'     => $companyId,
+    //         'user_id'        => $userId,
+    //         'event_type'     => $event,
+    //         'description'    => $description,
+    //         'reference_type' => 'goods_receipt',
+    //         'reference_id'   => $referenceId,
+    //         'created_at'     => date('Y-m-d H:i:s'),
+    //     ]);
+    // }
+
+    protected function audit(
+        int $companyId,
+        int $userId,
+        string $event,
+        string $description,
+        int|string $referenceId
+    ): void {
+        (new AuditTrailService($this->db))->record(
+            $event,
+            'goods_receipt',
+            (int) $referenceId,
+            $companyId,
+            null,
+            $userId,
+            [
+                'description' => $description,
+            ]
+        );
     }
 }

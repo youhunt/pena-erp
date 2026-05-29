@@ -79,9 +79,20 @@ final class GoodsReceipt extends BaseController
 
     public function post(int $id): RedirectResponse
     {
+        log_message('error', 'GR POST CONTROLLER START: ' . json_encode([
+            'receipt_id' => $id,
+            'actor_id'   => $this->actorId(),
+            'method'     => $this->request->getMethod(),
+            'post'       => $this->request->getPost(),
+        ]));
+
         $context = $this->context('purchasing.gr.manage');
 
+        log_message('error', 'GR POST CONTEXT: ' . json_encode($context));
+
         if ($context === null) {
+            log_message('error', 'GR POST DENIED: context null or permission missing');
+
             return $this->denied();
         }
 
@@ -92,9 +103,14 @@ final class GoodsReceipt extends BaseController
                 $this->actorId()
             );
 
+            log_message('error', 'GR POST SUCCESS CONTROLLER: ' . json_encode($result));
+
             return redirect()->to(site_url('purchasing/receipts'))
                 ->with('message', 'Goods Receipt berhasil diposting: ' . $result['id']);
         } catch (\Throwable $e) {
+            log_message('error', 'GR POST CONTROLLER ERROR: ' . $e->getMessage());
+            log_message('error', 'GR POST CONTROLLER TRACE: ' . $e->getTraceAsString());
+
             return redirect()->back()
                 ->with('errors', ['error' => $e->getMessage()]);
         }

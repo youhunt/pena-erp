@@ -155,7 +155,7 @@ $routes->group('finance/invoices', ['filter' => ['session', 'sessionsecurity', '
     $routes->post('payments/(:num)/allocations/(:num)/delete', 'FinanceInvoice::deleteAllocation/$1/$2');
 });
 
-$routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.company.manage']], static function ($routes): void {
+$routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('companies', 'Administration::companies');
     $routes->get('companies/new', 'Administration::newCompany');
     $routes->post('companies', 'Administration::createCompany');
@@ -186,7 +186,7 @@ $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('rbac/menu-mappings', 'Administration::grantMenuPermission');
     $routes->post('rbac/menu-mappings/revoke', 'Administration::revokeMenuPermission');
 });
-$routes->get('administration/audit', 'Administration::audit', ['filter' => ['session', 'sessionsecurity', 'passwordrequired', 'permission:platform.audit.view']]);
+$routes->get('administration/audit', 'Administration::audit', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
 
 // ERP accounts are provisioned by administrators; public registration is disabled.
 service('auth')->routes($routes, ['except' => ['register']]);

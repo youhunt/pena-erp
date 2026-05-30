@@ -73,6 +73,13 @@ $routes->group('sales/orders', ['filter' => ['session', 'sessionsecurity', 'pass
     $routes->post('(:num)/confirm', 'CommercialOrder::confirmSalesOrder/$1');
 });
 
+$routes->group('sales', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('deliveries', 'SalesDelivery::index');
+    $routes->post('deliveries/create', 'SalesDelivery::create');
+    $routes->post('deliveries/(:num)/post', 'SalesDelivery::post/$1');
+    $routes->get('deliveries/so-items/(:num)', 'SalesDelivery::soItems/$1');
+});
+
 $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'CommercialMaster::purchasing');
     $routes->post('terms', 'CommercialMaster::createSupplierTerm');

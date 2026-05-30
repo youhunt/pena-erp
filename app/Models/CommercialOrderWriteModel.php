@@ -274,14 +274,15 @@ final class CommercialOrderWriteModel extends Model
     {
         $product = $plan['product'];
         $tax     = $plan['tax'];
+        $qty     = (float) $plan['qty'];
 
-        return [
+        $data = [
             'company_id'     => $companyId,
             'sales_order_id' => $orderId,
             'product_id'     => (int) $product['id'],
             'uom_id'         => (int) $product['base_uom_id'],
             'tax_code_id'    => $tax === null ? null : (int) $tax['id'],
-            'qty'            => $this->money((float) $plan['qty']),
+            'qty'            => $this->money($qty),
             'unit_price'     => $this->money((float) $plan['unit_price']),
             'tax_rate'       => number_format((float) $plan['tax_rate'], 6, '.', ''),
             'tax_amount'     => $this->money((float) $plan['tax_amount']),
@@ -289,6 +290,16 @@ final class CommercialOrderWriteModel extends Model
             'created_by'     => $actorId,
             'created_at'     => $now,
         ];
+
+        if ($this->db->fieldExists('qty_delivered', 'sales_order_items')) {
+            $data['qty_delivered'] = $this->money(0.0);
+        }
+
+        if ($this->db->fieldExists('qty_remaining', 'sales_order_items')) {
+            $data['qty_remaining'] = $this->money($qty);
+        }
+
+        return $data;
     }
 
     /**

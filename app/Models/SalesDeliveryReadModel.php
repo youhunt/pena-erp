@@ -37,7 +37,7 @@ final class SalesDeliveryReadModel extends Model
             ->join('sales_order_items soi', 'soi.sales_order_id = so.id AND soi.company_id = so.company_id AND soi.deleted_at IS NULL')
             ->join('customers c', 'c.id = so.customer_id AND c.company_id = so.company_id', 'left')
             ->where('so.company_id', $companyId)
-            ->where('so.status', 'confirmed')
+            ->whereIn('so.status', ['confirmed', 'partial_delivered'])
             ->where('so.deleted_at IS NULL', null, false)
             ->groupBy('so.id, so.order_no, so.warehouse_id, c.name')
             ->having('total_qty_remaining >', 0)

@@ -2,11 +2,69 @@
 $tenantContext = $tenantContext ?? (new \App\Services\TenantContextService())->current((int) auth()->id());
 $user = auth()->user();
 $username = $user?->username ?? $user?->email ?? 'User';
-$canManageCompanies = $user?->can('platform.company.manage') ?? false;
-$canViewAudit = $user?->can('platform.audit.view') ?? false;
 $tenantMenus = $tenantContext === null
     ? []
     : (new \App\Services\TenantMenuService())->accessibleMenus((int) auth()->id(), (int) $tenantContext['company_id']);
+
+$groupedTenantMenus = [];
+$groupMeta = [
+    'administration' => ['label' => 'Administration', 'icon' => 'bx bx-cog', 'order' => 10],
+    'master'         => ['label' => 'Master Data', 'icon' => 'bx bx-data', 'order' => 20],
+    'purchasing'     => ['label' => 'Purchasing', 'icon' => 'bx bx-cart-alt', 'order' => 30],
+    'sales'          => ['label' => 'Sales', 'icon' => 'bx bx-store', 'order' => 40],
+    'inventory'      => ['label' => 'Inventory', 'icon' => 'bx bx-package', 'order' => 50],
+    'finance'        => ['label' => 'Finance', 'icon' => 'bx bx-wallet', 'order' => 60],
+    'pos'            => ['label' => 'POS', 'icon' => 'bx bx-calculator', 'order' => 70],
+    'reporting_ai'   => ['label' => 'Reporting & AI', 'icon' => 'bx bx-bar-chart-alt-2', 'order' => 80],
+    'other'          => ['label' => 'Other Modules', 'icon' => 'bx bx-grid-alt', 'order' => 99],
+];
+
+$resolveMenuGroup = static function (array $menu): string {
+    $route = (string) ($menu['route'] ?? '');
+    $code  = (string) ($menu['code'] ?? '');
+
+    if (str_starts_with($route, 'administration/')) {
+        return 'administration';
+    }
+
+    if (in_array($route, ['setup', 'sales/master', 'purchasing/master'], true)) {
+        return 'master';
+    }
+
+    if ($route === 'inventory') {
+        return 'inventory';
+    }
+
+    if (str_starts_with($route, 'purchasing/orders') || str_starts_with($route, 'purchasing/receipts')) {
+        return 'purchasing';
+    }
+
+    if (str_starts_with($route, 'sales/orders') || str_starts_with($route, 'sales/deliveries')) {
+        return 'sales';
+    }
+
+    if (str_starts_with($route, 'finance/')) {
+        return 'finance';
+    }
+
+    if (str_starts_with($route, 'pos/')) {
+        return 'pos';
+    }
+
+    if (str_contains($route, 'report') || str_contains($code, 'report') || str_contains($route, 'ai/') || str_contains($code, 'ai-')) {
+        return 'reporting_ai';
+    }
+
+    return 'other';
+};
+
+foreach ($tenantMenus as $tenantMenu) {
+    $groupedTenantMenus[$resolveMenuGroup($tenantMenu)][] = $tenantMenu;
+}
+
+uksort($groupedTenantMenus, static function (string $a, string $b) use ($groupMeta): int {
+    return ($groupMeta[$a]['order'] ?? 999) <=> ($groupMeta[$b]['order'] ?? 999);
+});
 ?>
 <!doctype html>
 <html lang="id">
@@ -53,6 +111,10 @@ $tenantMenus = $tenantContext === null
                             <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="<?= site_url('account/security/password') ?>">
+                                <i class="bx bx-key font-size-16 align-middle me-1"></i> Ubah Password
+                            </a>
+                            <div class="dropdown-divider"></div>
                             <a class="dropdown-item text-danger" href="<?= url_to('logout') ?>">
                                 <i class="bx bx-power-off font-size-16 align-middle me-1 text-danger"></i> Keluar
                             </a>
@@ -77,50 +139,31 @@ $tenantMenus = $tenantContext === null
                                 <i class="bx bx-briefcase-alt-2"></i><span>Workspace</span>
                             </a>
                         </li>
-                        <?php if ($tenantMenus !== []) : ?>
+
+                        <?php if ($groupedTenantMenus !== [] && $tenantContext !== null) : ?>
                             <li class="menu-title">Modul <?= esc($tenantContext['company_code']) ?></li>
-                            <?php foreach ($tenantMenus as $tenantMenu) : ?>
-                                <li>
-                                    <a href="<?= site_url($tenantMenu['route']) ?>" class="waves-effect">
-                                        <i class="<?= esc($tenantMenu['icon'] ?: 'bx bx-grid-alt') ?>"></i><span><?= esc($tenantMenu['label']) ?></span>
-                                    </a>
-                                </li>
+                            <?php foreach ($groupedTenantMenus as $groupKey => $menus) : ?>
+                                <?php $meta = $groupMeta[$groupKey] ?? $groupMeta['other']; ?>
+                                <?php if (count($menus) === 1 && $groupKey === 'other') : ?>
+                                    <?php $menu = $menus[0]; ?>
+                                    <li>
+                                        <a href="<?= site_url($menu['route']) ?>" class="waves-effect">
+                                            <i class="<?= esc($menu['icon'] ?: 'bx bx-grid-alt') ?>"></i><span><?= esc($menu['label']) ?></span>
+                                        </a>
+                                    </li>
+                                <?php else : ?>
+                                    <li>
+                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                            <i class="<?= esc($meta['icon']) ?>"></i><span><?= esc($meta['label']) ?></span>
+                                        </a>
+                                        <ul class="sub-menu" aria-expanded="false">
+                                            <?php foreach ($menus as $menu) : ?>
+                                                <li><a href="<?= site_url($menu['route']) ?>"><?= esc($menu['label']) ?></a></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </li>
+                                <?php endif; ?>
                             <?php endforeach; ?>
-                        <?php endif; ?>
-                        <?php if ($canManageCompanies) : ?>
-                            <li class="menu-title">Administrasi</li>
-                            <li>
-                                <a href="<?= site_url('administration/companies') ?>" class="waves-effect">
-                                    <i class="bx bx-buildings"></i><span>Company</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="<?= site_url('administration/branches') ?>" class="waves-effect">
-                                    <i class="bx bx-map"></i><span>Site</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="<?= site_url('administration/regions') ?>" class="waves-effect">
-                                    <i class="bx bx-world"></i><span>Master Wilayah</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="<?= site_url('administration/access') ?>" class="waves-effect">
-                                    <i class="bx bx-user-check"></i><span>Akses User</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="<?= site_url('administration/rbac') ?>" class="waves-effect">
-                                    <i class="bx bx-lock-open-alt"></i><span>Role & Permission</span>
-                                </a>
-                            </li>
-                        <?php endif; ?>
-                        <?php if ($canViewAudit) : ?>
-                            <li>
-                                <a href="<?= site_url('administration/audit') ?>" class="waves-effect">
-                                    <i class="bx bx-history"></i><span>Audit Trail</span>
-                                </a>
-                            </li>
                         <?php endif; ?>
                     </ul>
                 </div>

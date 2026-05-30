@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Authorization\TenantAuthorizationService;
+use App\Models\FinanceInvoiceSourceModel;
 use App\Models\FinanceReadModel;
 use App\Models\FinanceWriteModel;
 use App\Services\TenantContextService;
@@ -24,6 +25,7 @@ final class FinanceInvoice extends BaseController
 
         $companyId = (int) $context['company_id'];
         $reader = new FinanceReadModel();
+        $sourceReader = new FinanceInvoiceSourceModel();
 
         return view('finance/transactions', [
             'tenantContext'    => $context,
@@ -35,6 +37,8 @@ final class FinanceInvoice extends BaseController
             'customers'        => $reader->customers($companyId),
             'currencies'       => $reader->currencies($companyId),
             'cashBanks'        => $reader->cashBankAccounts($companyId),
+            'purchaseOrders'   => $sourceReader->purchaseOrderOptions($companyId),
+            'salesOrders'      => $sourceReader->salesOrderOptions($companyId),
         ]);
     }
 
@@ -46,17 +50,18 @@ final class FinanceInvoice extends BaseController
         }
 
         $companyId = (int) $context['company_id'];
+        $purchaseOrderId = (int) $this->request->getPost('purchase_order_id');
         $data = [
-            'company_id'       => $companyId,
-            'supplier_id'      => (int) $this->request->getPost('supplier_id'),
-            'purchase_order_id' => ($this->request->getPost('purchase_order_id') !== null ? (int) $this->request->getPost('purchase_order_id') : null),
-            'invoice_no'       => trim((string) $this->request->getPost('invoice_no')),
-            'invoice_date'     => (string) $this->request->getPost('invoice_date'),
-            'due_date'         => (string) $this->request->getPost('due_date'),
-            'currency_id'      => (int) $this->request->getPost('currency_id'),
-            'subtotal'         => (string) $this->request->getPost('subtotal'),
-            'tax_amount'       => (string) $this->request->getPost('tax_amount'),
-            'total_amount'     => (string) $this->request->getPost('total_amount'),
+            'company_id'         => $companyId,
+            'supplier_id'        => (int) $this->request->getPost('supplier_id'),
+            'purchase_order_id'  => $purchaseOrderId > 0 ? $purchaseOrderId : null,
+            'invoice_no'         => trim((string) $this->request->getPost('invoice_no')),
+            'invoice_date'       => (string) $this->request->getPost('invoice_date'),
+            'due_date'           => (string) $this->request->getPost('due_date'),
+            'currency_id'        => (int) $this->request->getPost('currency_id'),
+            'subtotal'           => (string) $this->request->getPost('subtotal'),
+            'tax_amount'         => (string) $this->request->getPost('tax_amount'),
+            'total_amount'       => (string) $this->request->getPost('total_amount'),
         ];
 
         $rules = [
@@ -79,7 +84,7 @@ final class FinanceInvoice extends BaseController
         }
 
         if (! (new FinanceWriteModel())->createPurchaseInvoice($data, $this->actorId())) {
-            return $this->invalid(['reference' => 'Supplier, currency, atau nomor invoice tidak valid.']);
+            return $this->invalid(['reference' => 'Supplier, currency, nomor invoice, atau dokumen sumber tidak valid.']);
         }
 
         return $this->completed('Purchase Invoice berhasil disimpan.');
@@ -93,10 +98,11 @@ final class FinanceInvoice extends BaseController
         }
 
         $companyId = (int) $context['company_id'];
+        $salesOrderId = (int) $this->request->getPost('sales_order_id');
         $data = [
             'company_id'      => $companyId,
             'customer_id'     => (int) $this->request->getPost('customer_id'),
-            'sales_order_id'  => ($this->request->getPost('sales_order_id') !== null ? (int) $this->request->getPost('sales_order_id') : null),
+            'sales_order_id'  => $salesOrderId > 0 ? $salesOrderId : null,
             'invoice_no'      => trim((string) $this->request->getPost('invoice_no')),
             'invoice_date'    => (string) $this->request->getPost('invoice_date'),
             'due_date'        => (string) $this->request->getPost('due_date'),
@@ -126,7 +132,7 @@ final class FinanceInvoice extends BaseController
         }
 
         if (! (new FinanceWriteModel())->createSalesInvoice($data, $this->actorId())) {
-            return $this->invalid(['reference' => 'Customer, currency, atau nomor invoice tidak valid.']);
+            return $this->invalid(['reference' => 'Customer, currency, nomor invoice, atau dokumen sumber tidak valid.']);
         }
 
         return $this->completed('Sales Invoice berhasil disimpan.');
@@ -244,12 +250,12 @@ final class FinanceInvoice extends BaseController
 
         $companyId = (int) $context['company_id'];
         $data = [
-            'company_id'      => $companyId,
-            'payment_id'      => $paymentId,
-            'document_type'   => (string) $this->request->getPost('document_type'),
-            'document_id'     => (int) $this->request->getPost('document_id'),
-            'allocated_amount'=> (string) $this->request->getPost('allocated_amount'),
-            'description'     => (string) $this->request->getPost('description'),
+            'company_id'       => $companyId,
+            'payment_id'       => $paymentId,
+            'document_type'    => (string) $this->request->getPost('document_type'),
+            'document_id'      => (int) $this->request->getPost('document_id'),
+            'allocated_amount' => (string) $this->request->getPost('allocated_amount'),
+            'description'      => (string) $this->request->getPost('description'),
         ];
 
         if (! (new FinanceWriteModel())->createPaymentAllocation($data, $this->actorId())) {

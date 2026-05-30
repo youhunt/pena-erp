@@ -11,6 +11,8 @@ $partnerLabel = $sales ? 'Customer' : 'Supplier';
 $numberField = $sales ? 'order_no' : 'po_no';
 $refField = $sales ? 'customer_po_no' : 'supplier_ref_no';
 $dateField = $sales ? 'requested_ship_date' : 'expected_receipt_date';
+$confirmRoute = $sales ? 'sales/orders' : 'purchasing/orders';
+$confirmLabel = $sales ? 'Confirm Sales Order' : 'Confirm Purchase Order';
 ?>
 <div class="page-title-box d-flex align-items-center justify-content-between">
     <div>
@@ -28,7 +30,7 @@ $dateField = $sales ? 'requested_ship_date' : 'expected_receipt_date';
 <?php if (session('errors') !== null) : ?><div class="alert alert-danger"><?php foreach ((array) session('errors') as $error) : ?><div><?= esc($error) ?></div><?php endforeach; ?></div><?php endif; ?>
 
 <div class="row">
-    <div class="col-md-4"><div class="card border-secondary"><div class="card-body"><h5 class="card-title">Total Draft</h5><p class="display-6 mb-0"><?= count($orders) ?></p></div></div></div>
+    <div class="col-md-4"><div class="card border-secondary"><div class="card-body"><h5 class="card-title">Total Draft</h5><p class="display-6 mb-0"><?= count(array_filter((array) $orders, static fn ($order) => ($order['status'] ?? '') === 'draft')) ?></p></div></div></div>
     <div class="col-md-4"><div class="card border-secondary"><div class="card-body"><h5 class="card-title"><?= esc($partnerLabel) ?> Aktif</h5><p class="display-6 mb-0"><?= count($partners) ?></p></div></div></div>
     <div class="col-md-4"><div class="card border-secondary"><div class="card-body"><h5 class="card-title">Product Pilihan</h5><p class="display-6 mb-0"><?= count($products) ?></p></div></div></div>
 </div>
@@ -38,7 +40,7 @@ $dateField = $sales ? 'requested_ship_date' : 'expected_receipt_date';
         <h4 class="card-title mb-3">Daftar <?= esc($title) ?></h4>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead><tr><th>No</th><th><?= esc($partnerLabel) ?></th><th>Site / Warehouse</th><th>Tanggal</th><th>Reference</th><th>Total</th><th>Status</th><?php if ($canManage && $sales) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
+                <thead><tr><th>No</th><th><?= esc($partnerLabel) ?></th><th>Site / Warehouse</th><th>Tanggal</th><th>Reference</th><th>Total</th><th>Status</th><?php if ($canManage) : ?><th class="text-end">Aksi</th><?php endif; ?></tr></thead>
                 <tbody>
                 <?php foreach ($orders as $order) : ?>
                     <tr>
@@ -55,12 +57,12 @@ $dateField = $sales ? 'requested_ship_date' : 'expected_receipt_date';
                                 <span class="badge bg-secondary"><?= esc($order['status']) ?></span>
                             <?php endif; ?>
                         </td>
-                        <?php if ($canManage && $sales) : ?>
+                        <?php if ($canManage) : ?>
                             <td class="text-end">
                                 <?php if (($order['status'] ?? '') === 'draft') : ?>
-                                    <form method="post" action="<?= site_url('sales/orders/' . (int) $order['id'] . '/confirm') ?>" class="d-inline">
+                                    <form method="post" action="<?= site_url($confirmRoute . '/' . (int) $order['id'] . '/confirm') ?>" class="d-inline">
                                         <?= csrf_field() ?>
-                                        <button class="btn btn-sm btn-success" onclick="return confirm('Confirm Sales Order <?= esc($order[$numberField]) ?>?')">
+                                        <button class="btn btn-sm btn-success" onclick="return confirm('<?= esc($confirmLabel) ?> <?= esc($order[$numberField]) ?>?')">
                                             <i class="bx bx-check me-1"></i>Confirm
                                         </button>
                                     </form>
@@ -71,7 +73,7 @@ $dateField = $sales ? 'requested_ship_date' : 'expected_receipt_date';
                         <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
-                <?php if ($orders === []) : ?><tr><td colspan="<?= ($canManage && $sales) ? 8 : 7 ?>" class="text-center text-muted py-4">Belum ada draft <?= esc(strtolower($title)) ?>.</td></tr><?php endif; ?>
+                <?php if ($orders === []) : ?><tr><td colspan="<?= $canManage ? 8 : 7 ?>" class="text-center text-muted py-4">Belum ada draft <?= esc(strtolower($title)) ?>.</td></tr><?php endif; ?>
                 </tbody>
             </table>
         </div>

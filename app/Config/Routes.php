@@ -185,6 +185,7 @@ $routes->group('administration', ['filter' => ['session', 'sessionsecurity', 'pa
     $routes->post('rbac/grants/revoke', 'Administration::revokePermission');
     $routes->post('rbac/menu-mappings', 'Administration::grantMenuPermission');
     $routes->post('rbac/menu-mappings/revoke', 'Administration::revokeMenuPermission');
+    $routes->get('menu-debug', 'TenantMenuDebug::index');
 });
 $routes->get('administration/audit', 'Administration::audit', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']]);
 

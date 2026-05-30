@@ -97,6 +97,7 @@ $routes->group('purchasing/master', ['filter' => ['session', 'sessionsecurity', 
 $routes->group('purchasing/orders', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'CommercialOrder::purchasing');
     $routes->post('', 'CommercialOrder::createPurchaseOrder');
+    $routes->post('(:num)/confirm', 'PurchaseOrderLifecycle::confirm/$1');
 });
 
 $routes->group('purchasing', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes) {

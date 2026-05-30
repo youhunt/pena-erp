@@ -27,7 +27,7 @@ final class GoodsReceiptReadModel extends Model
             ->getResult();
     }
 
-    /** Hanya PO draft yang masih punya item tersisa yang bisa dijadikan GR */
+    /** Hanya PO confirmed yang masih punya item tersisa yang bisa dijadikan GR */
     public function listPurchaseOrders(int $companyId): array
     {
         $qtyRemainExpr = $this->poRemainingQuantityExpression();
@@ -37,7 +37,7 @@ final class GoodsReceiptReadModel extends Model
             ->join('suppliers s', 's.id = po.supplier_id AND s.company_id = po.company_id', 'left')
             ->join('purchase_order_items poi', 'poi.purchase_order_id = po.id AND poi.company_id = po.company_id AND poi.deleted_at IS NULL', 'inner')
             ->where('po.company_id', $companyId)
-            ->where('po.status', 'draft')
+            ->where('po.status', 'confirmed')
             ->where('po.deleted_at', null)
             ->groupBy('po.id, po.po_no, po.status, po.warehouse_id, s.name, s.code')
             ->having('total_qty_remaining >', 0)

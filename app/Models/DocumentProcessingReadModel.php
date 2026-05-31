@@ -76,4 +76,59 @@ final class DocumentProcessingReadModel extends Model
 
         return $row === null ? null : $row;
     }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function fields(int $companyId, int $extractionId): array
+    {
+        return $this->db->table('document_extraction_fields')
+            ->where('company_id', $companyId)
+            ->where('extraction_id', $extractionId)
+            ->orderBy('field_path', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function items(int $companyId, int $extractionId): array
+    {
+        return $this->db->table('document_extraction_items i')
+            ->select('i.*, p.sku AS product_sku, p.name AS product_name, u.code AS uom_code')
+            ->join('products p', 'p.id = i.product_id AND p.company_id = i.company_id', 'left')
+            ->join('units_of_measure u', 'u.id = i.uom_id AND u.company_id = i.company_id', 'left')
+            ->where('i.company_id', $companyId)
+            ->where('i.extraction_id', $extractionId)
+            ->orderBy('i.line_no', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function validationLogs(int $companyId, int $documentId): array
+    {
+        return $this->db->table('document_validation_logs')
+            ->where('company_id', $companyId)
+            ->where('document_upload_id', $documentId)
+            ->orderBy('id', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function conversionLinks(int $companyId, int $documentId): array
+    {
+        return $this->db->table('document_conversion_links')
+            ->where('company_id', $companyId)
+            ->where('document_upload_id', $documentId)
+            ->orderBy('id', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
 }

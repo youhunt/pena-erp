@@ -43,15 +43,22 @@ final class DocumentProcessing extends BaseController
         $document = $model->document($companyId, $documentId);
 
         if ($document === null) {
-            return redirect()->to(site_url('documents'))->with('error', 'Dokumen tidak ditemukan pada company aktif.');
+            return redirect()->to(site_url('workspace/modules/documents'))->with('error', 'Dokumen tidak ditemukan pada company aktif.');
         }
+
+        $extraction = $model->latestExtraction($companyId, $documentId);
+        $extractionId = $extraction === null ? 0 : (int) $extraction['id'];
 
         return view('document_processing/review', [
             'tenantContext' => $context,
             'document' => $document,
             'jobs' => $model->jobs($companyId, $documentId),
             'ocr' => $model->latestOcr($companyId, $documentId),
-            'extraction' => $model->latestExtraction($companyId, $documentId),
+            'extraction' => $extraction,
+            'fields' => $extractionId > 0 ? $model->fields($companyId, $extractionId) : [],
+            'items' => $extractionId > 0 ? $model->items($companyId, $extractionId) : [],
+            'validationLogs' => $model->validationLogs($companyId, $documentId),
+            'conversionLinks' => $model->conversionLinks($companyId, $documentId),
         ]);
     }
 

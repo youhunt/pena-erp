@@ -8,11 +8,18 @@
         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
             <div>
                 <h4 class="mb-sm-0 font-size-18">Master Data Import</h4>
-                <p class="text-muted mb-0 mt-1">Upload massal master data tenant seperti Item, Customer, Supplier, Warehouse, UOM, dan COA.</p>
+                <p class="text-muted mb-0 mt-1">Upload massal master data tenant. Tahap aktif: Unit of Measure dan Product Category.</p>
             </div>
         </div>
     </div>
 </div>
+
+<?php if (session('message')) : ?>
+    <div class="alert alert-success"><?= esc(session('message')) ?></div>
+<?php endif; ?>
+<?php if (session('error')) : ?>
+    <div class="alert alert-danger"><?= esc(session('error')) ?></div>
+<?php endif; ?>
 
 <div class="row">
     <div class="col-xl-8">
@@ -21,32 +28,37 @@
                 <div class="d-flex align-items-start justify-content-between gap-3">
                     <div>
                         <h4 class="card-title mb-2">Upload File Import</h4>
-                        <p class="text-muted mb-3">Pilih jenis master, upload file CSV/XLSX, lalu sistem akan validasi header dan row sebelum data benar-benar masuk ke master.</p>
+                        <p class="text-muted mb-3">Download template CSV, isi data, upload, validasi row, lalu commit batch jika tidak ada error.</p>
                     </div>
-                    <span class="badge bg-warning text-dark">Foundation</span>
+                    <span class="badge bg-success">CSV Active</span>
                 </div>
 
-                <div class="row g-3">
-                    <div class="col-md-5">
-                        <label class="form-label">Jenis Master</label>
-                        <select class="form-select" disabled>
-                            <option>Pilih jenis master...</option>
-                            <?php foreach ($catalog as $type => $definition) : ?>
-                                <option><?= esc($definition['label']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                <form method="post" action="<?= site_url('master-import/upload') ?>" enctype="multipart/form-data">
+                    <?= csrf_field() ?>
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Jenis Master</label>
+                            <select class="form-select" name="import_type" required>
+                                <option value="">Pilih jenis master...</option>
+                                <option value="units_of_measure">Unit of Measure</option>
+                                <option value="product_categories">Product Category</option>
+                            </select>
+                            <small class="text-muted">Import lain menyusul setelah mapping FK aman.</small>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">File CSV</label>
+                            <input type="file" name="import_file" class="form-control" accept=".csv,text/csv" required>
+                            <small class="text-muted">Gunakan delimiter koma.</small>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Upload</button>
+                        </div>
                     </div>
-                    <div class="col-md-5">
-                        <label class="form-label">File CSV / XLSX</label>
-                        <input type="file" class="form-control" disabled>
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="button" class="btn btn-primary w-100" disabled>Upload</button>
-                    </div>
-                </div>
+                </form>
 
-                <div class="alert alert-info mt-3 mb-0">
-                    Tahap ini menyiapkan UI, tabel batch, row log, dan template catalog. Proses upload/validasi/import akan diaktifkan pada tahap berikutnya agar aman untuk data tenant.
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('master-import/template/units_of_measure') ?>">Download UOM Template</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="<?= site_url('master-import/template/product_categories') ?>">Download Category Template</a>
                 </div>
             </div>
         </div>
@@ -61,15 +73,7 @@
                     <table class="table table-sm table-bordered align-middle mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th>ID</th>
-                                <th>Type</th>
-                                <th>File</th>
-                                <th>Status</th>
-                                <th>Total</th>
-                                <th>Valid</th>
-                                <th>Error</th>
-                                <th>Imported</th>
-                                <th>Created</th>
+                                <th>ID</th><th>Type</th><th>File</th><th>Status</th><th>Total</th><th>Valid</th><th>Error</th><th>Imported</th><th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -86,7 +90,15 @@
                                     <td><?= (int) $batch['valid_rows'] ?></td>
                                     <td><?= (int) $batch['error_rows'] ?></td>
                                     <td><?= (int) $batch['imported_rows'] ?></td>
-                                    <td><?= esc($batch['created_at']) ?></td>
+                                    <td>
+                                        <a class="btn btn-sm btn-outline-primary" href="<?= site_url('master-import/' . $batch['id']) ?>">Detail</a>
+                                        <?php if ($batch['status'] === 'validated' && (int) $batch['error_rows'] === 0) : ?>
+                                            <form method="post" action="<?= site_url('master-import/' . $batch['id'] . '/commit') ?>" class="d-inline">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-sm btn-success">Commit</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -101,10 +113,10 @@
             <div class="card-body">
                 <h4 class="card-title">Import Flow</h4>
                 <div class="vstack gap-2">
-                    <div class="border rounded p-2"><strong>1. Download template</strong><br><span class="text-muted">User memakai format kolom standar.</span></div>
-                    <div class="border rounded p-2"><strong>2. Upload file</strong><br><span class="text-muted">File disimpan sebagai batch import.</span></div>
-                    <div class="border rounded p-2"><strong>3. Validate rows</strong><br><span class="text-muted">Header, mandatory field, duplicate, dan FK dicek.</span></div>
-                    <div class="border rounded p-2"><strong>4. Review errors</strong><br><span class="text-muted">Row error dapat diperbaiki sebelum commit.</span></div>
+                    <div class="border rounded p-2"><strong>1. Download template</strong><br><span class="text-muted">Pakai format kolom standar.</span></div>
+                    <div class="border rounded p-2"><strong>2. Upload CSV</strong><br><span class="text-muted">File disimpan sebagai batch import.</span></div>
+                    <div class="border rounded p-2"><strong>3. Validate rows</strong><br><span class="text-muted">Header dan mandatory field dicek.</span></div>
+                    <div class="border rounded p-2"><strong>4. Review errors</strong><br><span class="text-muted">Cek detail row jika ada error.</span></div>
                     <div class="border rounded p-2"><strong>5. Commit import</strong><br><span class="text-muted">Data valid masuk ke master tenant.</span></div>
                 </div>
             </div>

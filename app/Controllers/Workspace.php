@@ -94,10 +94,24 @@ final class Workspace extends BaseController
             static fn (array $item): bool => $item['code'] === $moduleCode,
         ))[0] ?? null;
 
-        if ($menu === null && $moduleCode !== 'master-import') {
+        if ($menu === null && ! in_array($moduleCode, ['master-import'], true)) {
             $this->response->setStatusCode(403);
 
             return view('workspace/module_denied', ['moduleCode' => $moduleCode]);
+        }
+
+        $commercial = new CommercialReferenceMaster();
+        $commercialRoutes = [
+            'sales-customer-terms' => 'customerTerms',
+            'sales-customer-promo' => 'customerPromotions',
+            'sales-customer-address' => 'customerAddresses',
+            'purchase-supplier-terms' => 'supplierTerms',
+            'purchase-supplier-promo' => 'supplierPromotions',
+            'purchase-supplier-address' => 'supplierAddresses',
+        ];
+
+        if (isset($commercialRoutes[$moduleCode])) {
+            return $commercial->{$commercialRoutes[$moduleCode]}();
         }
 
         if ($moduleCode === 'documents') {

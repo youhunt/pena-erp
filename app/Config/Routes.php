@@ -11,6 +11,13 @@ $routes->get('workspace/modules/(:segment)', 'Workspace::module/$1', ['filter' =
 $routes->get('account/security/password', 'AccountSecurity::password', ['filter' => ['session', 'sessionsecurity']]);
 $routes->post('account/security/password', 'AccountSecurity::updatePassword', ['filter' => ['session', 'sessionsecurity']]);
 
+$routes->group('master-import', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('template/(:segment)', 'MasterImport::template/$1');
+    $routes->post('upload', 'MasterImport::upload');
+    $routes->post('(:num)/commit', 'MasterImport::commit/$1');
+    $routes->get('(:num)', 'MasterImport::show/$1');
+});
+
 $routes->group('inventory', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('', 'Inventory::index');
     $routes->post('uoms', 'Inventory::createUnitOfMeasure');

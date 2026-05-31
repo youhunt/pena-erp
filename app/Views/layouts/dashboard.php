@@ -8,51 +8,52 @@ $tenantMenus = $tenantContext === null
 
 $groupedTenantMenus = [];
 $groupMeta = [
-    'administration' => ['label' => 'Administration', 'icon' => 'bx bx-cog', 'order' => 10],
-    'master'         => ['label' => 'Master Data', 'icon' => 'bx bx-data', 'order' => 20],
-    'purchasing'     => ['label' => 'Purchasing', 'icon' => 'bx bx-cart-alt', 'order' => 30],
-    'sales'          => ['label' => 'Sales', 'icon' => 'bx bx-store', 'order' => 40],
-    'inventory'      => ['label' => 'Inventory', 'icon' => 'bx bx-package', 'order' => 50],
-    'finance'        => ['label' => 'Finance', 'icon' => 'bx bx-wallet', 'order' => 60],
-    'pos'            => ['label' => 'POS', 'icon' => 'bx bx-calculator', 'order' => 70],
-    'reporting_ai'   => ['label' => 'Reporting & AI', 'icon' => 'bx bx-bar-chart-alt-2', 'order' => 80],
-    'other'          => ['label' => 'Other Modules', 'icon' => 'bx bx-grid-alt', 'order' => 99],
+    'setup'       => ['label' => 'Setup', 'icon' => 'bx bx-cog', 'order' => 10],
+    'pos'         => ['label' => 'POS', 'icon' => 'bx bx-calculator', 'order' => 20],
+    'sales'       => ['label' => 'Sales', 'icon' => 'bx bx-store', 'order' => 30],
+    'purchase'    => ['label' => 'Purchase', 'icon' => 'bx bx-cart-alt', 'order' => 40],
+    'inventory'   => ['label' => 'Inventory', 'icon' => 'bx bx-package', 'order' => 50],
+    'planning'    => ['label' => 'Planning', 'icon' => 'bx bx-line-chart', 'order' => 60],
+    'production'  => ['label' => 'Production', 'icon' => 'bx bx-factory', 'order' => 70],
+    'ap'          => ['label' => 'Accounts Payable', 'icon' => 'bx bx-receipt', 'order' => 80],
+    'ar'          => ['label' => 'Accounts Receivable', 'icon' => 'bx bx-receipt', 'order' => 90],
+    'costing'     => ['label' => 'Costing', 'icon' => 'bx bx-purchase-tag', 'order' => 100],
+    'cash_bank'   => ['label' => 'Cash Bank', 'icon' => 'bx bx-bank', 'order' => 110],
+    'gl'          => ['label' => 'GL', 'icon' => 'bx bx-book', 'order' => 120],
+    'fa'          => ['label' => 'FA', 'icon' => 'bx bx-building', 'order' => 130],
+    'admin'       => ['label' => 'Administration', 'icon' => 'bx bx-shield-quarter', 'order' => 140],
+    'tools'       => ['label' => 'Tools & AI', 'icon' => 'bx bx-grid-alt', 'order' => 150],
+    'other'       => ['label' => 'Other Modules', 'icon' => 'bx bx-grid-alt', 'order' => 999],
 ];
 
 $resolveMenuGroup = static function (array $menu): string {
+    $code = (string) ($menu['code'] ?? '');
     $route = (string) ($menu['route'] ?? '');
-    $code  = (string) ($menu['code'] ?? '');
 
-    if (str_starts_with($route, 'administration/')) {
-        return 'administration';
+    foreach (['setup', 'pos', 'sales', 'planning', 'production', 'ap', 'ar', 'costing', 'gl', 'fa'] as $prefix) {
+        if (str_starts_with($code, $prefix . '-')) {
+            return $prefix;
+        }
     }
 
-    if (in_array($route, ['setup', 'sales/master', 'purchasing/master'], true)) {
-        return 'master';
+    if (str_starts_with($code, 'purchase-')) {
+        return 'purchase';
     }
 
-    if ($route === 'inventory') {
+    if (str_starts_with($code, 'inventory-')) {
         return 'inventory';
     }
 
-    if (str_starts_with($route, 'purchasing/orders') || str_starts_with($route, 'purchasing/receipts')) {
-        return 'purchasing';
+    if (str_starts_with($code, 'cash-bank-')) {
+        return 'cash_bank';
     }
 
-    if (str_starts_with($route, 'sales/orders') || str_starts_with($route, 'sales/deliveries')) {
-        return 'sales';
+    if (str_starts_with($route, 'administration/')) {
+        return 'admin';
     }
 
-    if (str_starts_with($route, 'finance/')) {
-        return 'finance';
-    }
-
-    if (str_starts_with($route, 'pos/')) {
-        return 'pos';
-    }
-
-    if (str_contains($route, 'report') || str_contains($code, 'report') || str_contains($route, 'ai/') || str_contains($code, 'ai-')) {
-        return 'reporting_ai';
+    if (in_array($code, ['master-import', 'documents'], true)) {
+        return 'tools';
     }
 
     return 'other';
@@ -144,25 +145,16 @@ uksort($groupedTenantMenus, static function (string $a, string $b) use ($groupMe
                             <li class="menu-title">Modul <?= esc($tenantContext['company_code']) ?></li>
                             <?php foreach ($groupedTenantMenus as $groupKey => $menus) : ?>
                                 <?php $meta = $groupMeta[$groupKey] ?? $groupMeta['other']; ?>
-                                <?php if (count($menus) === 1 && $groupKey === 'other') : ?>
-                                    <?php $menu = $menus[0]; ?>
-                                    <li>
-                                        <a href="<?= site_url($menu['route']) ?>" class="waves-effect">
-                                            <i class="<?= esc($menu['icon'] ?: 'bx bx-grid-alt') ?>"></i><span><?= esc($menu['label']) ?></span>
-                                        </a>
-                                    </li>
-                                <?php else : ?>
-                                    <li>
-                                        <a href="javascript: void(0);" class="has-arrow waves-effect">
-                                            <i class="<?= esc($meta['icon']) ?>"></i><span><?= esc($meta['label']) ?></span>
-                                        </a>
-                                        <ul class="sub-menu" aria-expanded="false">
-                                            <?php foreach ($menus as $menu) : ?>
-                                                <li><a href="<?= site_url($menu['route']) ?>"><?= esc($menu['label']) ?></a></li>
-                                            <?php endforeach; ?>
-                                        </ul>
-                                    </li>
-                                <?php endif; ?>
+                                <li>
+                                    <a href="javascript: void(0);" class="has-arrow waves-effect">
+                                        <i class="<?= esc($meta['icon']) ?>"></i><span><?= esc($meta['label']) ?></span>
+                                    </a>
+                                    <ul class="sub-menu" aria-expanded="false">
+                                        <?php foreach ($menus as $menu) : ?>
+                                            <li><a href="<?= site_url($menu['route']) ?>"><?= esc($menu['label']) ?></a></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </li>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </ul>

@@ -11,6 +11,16 @@ $routes->get('workspace/modules/(:segment)', 'Workspace::module/$1', ['filter' =
 $routes->get('account/security/password', 'AccountSecurity::password', ['filter' => ['session', 'sessionsecurity']]);
 $routes->post('account/security/password', 'AccountSecurity::updatePassword', ['filter' => ['session', 'sessionsecurity']]);
 
+$routes->group('sales/customers', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'CustomerMaster::index');
+    $routes->post('', 'CustomerMaster::store');
+});
+
+$routes->group('purchasing/suppliers', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
+    $routes->get('', 'SupplierMaster::index');
+    $routes->post('', 'SupplierMaster::store');
+});
+
 $routes->group('master-import', ['filter' => ['session', 'sessionsecurity', 'passwordrequired']], static function ($routes): void {
     $routes->get('template/(:segment)', 'MasterImport::template/$1');
     $routes->post('upload', 'MasterImport::upload');

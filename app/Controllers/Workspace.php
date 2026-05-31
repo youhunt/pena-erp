@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Authorization\TenantAuthorizationService;
 use App\Models\AdministrationReadModel;
+use App\Models\DocumentProcessingReadModel;
 use App\Services\TenantMenuService;
 use App\Services\TenantContextService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -95,6 +96,13 @@ final class Workspace extends BaseController
             $this->response->setStatusCode(403);
 
             return view('workspace/module_denied', ['moduleCode' => $moduleCode]);
+        }
+
+        if ($moduleCode === 'documents') {
+            return view('document_processing/index', [
+                'tenantContext' => $context,
+                'documents' => (new DocumentProcessingReadModel())->documents((int) $context['company_id']),
+            ]);
         }
 
         return view('workspace/module', [

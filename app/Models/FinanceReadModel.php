@@ -116,23 +116,31 @@ final class FinanceReadModel extends Model
     /** @return list<array<string, mixed>> */
     public function purchaseInvoices(int $companyId): array
     {
-        return $this->db->table('purchase_invoices i')
-            ->select('i.*, s.code AS supplier_code, s.name AS supplier_name')
+        $rows = $this->db->table('purchase_invoices i')
+            ->select("i.*, s.code AS supplier_code, s.name AS supplier_name, COALESCE(SUM(a.allocated_amount), 0) AS paid_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount), 0)) AS outstanding_amount", false)
             ->join('suppliers s', 's.id = i.supplier_id AND s.company_id = i.company_id', 'left')
+            ->join('payment_allocations a', "a.company_id = i.company_id AND a.document_type = 'purchase_invoice' AND a.document_id = i.id AND a.deleted_at IS NULL", 'left')
             ->where('i.company_id', $companyId)->where('i.deleted_at', null)
+            ->groupBy('i.id, s.code, s.name')
             ->orderBy('i.invoice_date', 'DESC')->orderBy('i.id', 'DESC')
             ->get()->getResultArray();
+
+        return $this->appendPaymentStatus($rows);
     }
 
     /** @return list<array<string, mixed>> */
     public function salesInvoices(int $companyId): array
     {
-        return $this->db->table('sales_invoices i')
-            ->select('i.*, c.code AS customer_code, c.name AS customer_name')
+        $rows = $this->db->table('sales_invoices i')
+            ->select("i.*, c.code AS customer_code, c.name AS customer_name, COALESCE(SUM(a.allocated_amount), 0) AS paid_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount), 0)) AS outstanding_amount", false)
             ->join('customers c', 'c.id = i.customer_id AND c.company_id = i.company_id', 'left')
+            ->join('payment_allocations a', "a.company_id = i.company_id AND a.document_type = 'sales_invoice' AND a.document_id = i.id AND a.deleted_at IS NULL", 'left')
             ->where('i.company_id', $companyId)->where('i.deleted_at', null)
+            ->groupBy('i.id, c.code, c.name')
             ->orderBy('i.invoice_date', 'DESC')->orderBy('i.id', 'DESC')
             ->get()->getResultArray();
+
+        return $this->appendPaymentStatus($rows);
     }
 
     /** @return list<array<string, mixed>> */
@@ -151,9 +159,10 @@ final class FinanceReadModel extends Model
     public function paymentAllocations(int $companyId, int $paymentId): array
     {
         return $this->db->table('payment_allocations a')
-            ->select('a.*, p.payment_no, p.payment_type, i.invoice_no AS document_no')
+            ->select("a.*, p.payment_no, p.payment_type, COALESCE(si.invoice_no, pi.invoice_no) AS document_no", false)
             ->join('payments p', 'p.id = a.payment_id AND p.company_id = a.company_id', 'left')
-            ->join('sales_invoices i', "i.id = a.document_id AND a.document_type = 'sales_invoice' AND i.company_id = a.company_id", 'left')
+            ->join('sales_invoices si', "si.id = a.document_id AND a.document_type = 'sales_invoice' AND si.company_id = a.company_id", 'left')
+            ->join('purchase_invoices pi', "pi.id = a.document_id AND a.document_type = 'purchase_invoice' AND pi.company_id = a.company_id", 'left')
             ->where('a.company_id', $companyId)->where('a.payment_id', $paymentId)->where('a.deleted_at', null)
             ->orderBy('a.id', 'ASC')->get()->getResultArray();
     }
@@ -167,10 +176,9 @@ final class FinanceReadModel extends Model
         }
 
         if (! empty($payment->customer_id)) {
-            // customer payment -> sales invoices
             return $this->db->table('sales_invoices i')
-                ->select("i.id, i.invoice_no, i.invoice_date, i.total_amount, COALESCE(SUM(a.allocated_amount), 0) AS allocated_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount),0)) AS outstanding_amount, 'sales_invoice' AS document_type")
-                ->join('payment_allocations a', "a.document_type = 'sales_invoice' AND a.document_id = i.id AND a.deleted_at IS NULL", 'left')
+                ->select("i.id, i.invoice_no, i.invoice_date, i.total_amount, COALESCE(SUM(a.allocated_amount), 0) AS allocated_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount),0)) AS outstanding_amount, 'sales_invoice' AS document_type", false)
+                ->join('payment_allocations a', "a.document_type = 'sales_invoice' AND a.document_id = i.id AND a.company_id = i.company_id AND a.deleted_at IS NULL", 'left')
                 ->where('i.company_id', $companyId)->where('i.customer_id', $payment->customer_id)->where('i.status', 'posted')
                 ->groupBy('i.id')
                 ->having('outstanding_amount >', 0)
@@ -178,10 +186,9 @@ final class FinanceReadModel extends Model
         }
 
         if (! empty($payment->supplier_id)) {
-            // supplier payment -> purchase invoices
             return $this->db->table('purchase_invoices i')
-                ->select("i.id, i.invoice_no, i.invoice_date, i.total_amount, COALESCE(SUM(a.allocated_amount), 0) AS allocated_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount),0)) AS outstanding_amount, 'purchase_invoice' AS document_type")
-                ->join('payment_allocations a', "a.document_type = 'purchase_invoice' AND a.document_id = i.id AND a.deleted_at IS NULL", 'left')
+                ->select("i.id, i.invoice_no, i.invoice_date, i.total_amount, COALESCE(SUM(a.allocated_amount), 0) AS allocated_amount, (i.total_amount - COALESCE(SUM(a.allocated_amount),0)) AS outstanding_amount, 'purchase_invoice' AS document_type", false)
+                ->join('payment_allocations a', "a.document_type = 'purchase_invoice' AND a.document_id = i.id AND a.company_id = i.company_id AND a.deleted_at IS NULL", 'left')
                 ->where('i.company_id', $companyId)->where('i.supplier_id', $payment->supplier_id)->where('i.status', 'posted')
                 ->groupBy('i.id')
                 ->having('outstanding_amount >', 0)
@@ -261,7 +268,37 @@ final class FinanceReadModel extends Model
     private function activeOptions(string $table, int $companyId): array
     {
         return $this->db->table($table)->select('id, code, name')
-            ->where(['company_id' => $companyId, 'status' => 'active'])->where('deleted_at', null)
-            ->orderBy('code', 'ASC')->get()->getResultArray();
+            ->where(['company_id' => $companyId, 'status' => 'active'])
+            ->where('deleted_at', null)->orderBy('code', 'ASC')->get()->getResultArray();
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     * @return list<array<string, mixed>>
+     */
+    private function appendPaymentStatus(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            $status = (string) ($row['status'] ?? 'draft');
+            $total = (float) ($row['total_amount'] ?? 0);
+            $paid = (float) ($row['paid_amount'] ?? 0);
+            $outstanding = max(0.0, $total - $paid);
+
+            $row['paid_amount'] = $paid;
+            $row['outstanding_amount'] = $outstanding;
+
+            if ($status === 'draft') {
+                $row['payment_status'] = 'draft';
+            } elseif ($paid <= 0.00001) {
+                $row['payment_status'] = 'unpaid';
+            } elseif ($outstanding <= 0.00001) {
+                $row['payment_status'] = 'paid';
+            } else {
+                $row['payment_status'] = 'partial_paid';
+            }
+        }
+        unset($row);
+
+        return $rows;
     }
 }

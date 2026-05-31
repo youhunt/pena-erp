@@ -7,6 +7,8 @@ namespace App\Controllers;
 use App\Authorization\TenantAuthorizationService;
 use App\Models\AdministrationReadModel;
 use App\Models\DocumentProcessingReadModel;
+use App\Models\MasterImportReadModel;
+use App\Services\MasterImport\MasterImportCatalog;
 use App\Services\TenantMenuService;
 use App\Services\TenantContextService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -92,7 +94,7 @@ final class Workspace extends BaseController
             static fn (array $item): bool => $item['code'] === $moduleCode,
         ))[0] ?? null;
 
-        if ($menu === null) {
+        if ($menu === null && $moduleCode !== 'master-import') {
             $this->response->setStatusCode(403);
 
             return view('workspace/module_denied', ['moduleCode' => $moduleCode]);
@@ -102,6 +104,14 @@ final class Workspace extends BaseController
             return view('document_processing/index', [
                 'tenantContext' => $context,
                 'documents' => (new DocumentProcessingReadModel())->documents((int) $context['company_id']),
+            ]);
+        }
+
+        if ($moduleCode === 'master-import') {
+            return view('master_import/index', [
+                'tenantContext' => $context,
+                'catalog' => (new MasterImportCatalog())->all(),
+                'batches' => (new MasterImportReadModel())->batches((int) $context['company_id']),
             ]);
         }
 

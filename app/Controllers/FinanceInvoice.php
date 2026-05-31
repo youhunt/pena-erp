@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Authorization\TenantAuthorizationService;
 use App\Models\FinanceInvoiceSourceModel;
+use App\Models\FinanceInvoiceSourceValidatorModel;
 use App\Models\FinanceReadModel;
 use App\Models\FinanceWriteModel;
 use App\Services\TenantContextService;
@@ -83,6 +84,10 @@ final class FinanceInvoice extends BaseController
             return $this->invalid(['due_date' => 'Due date tidak boleh sebelum invoice date.']);
         }
 
+        if (! (new FinanceInvoiceSourceValidatorModel())->validPurchaseInvoiceSource($data)) {
+            return $this->invalid(['purchase_order_id' => 'Sumber PO tidak valid, supplier/currency tidak cocok, atau total invoice melebihi total PO.']);
+        }
+
         if (! (new FinanceWriteModel())->createPurchaseInvoice($data, $this->actorId())) {
             return $this->invalid(['reference' => 'Supplier, currency, nomor invoice, atau dokumen sumber tidak valid.']);
         }
@@ -129,6 +134,10 @@ final class FinanceInvoice extends BaseController
 
         if (strtotime($data['due_date']) < strtotime($data['invoice_date'])) {
             return $this->invalid(['due_date' => 'Due date tidak boleh sebelum invoice date.']);
+        }
+
+        if (! (new FinanceInvoiceSourceValidatorModel())->validSalesInvoiceSource($data)) {
+            return $this->invalid(['sales_order_id' => 'Sumber SO tidak valid, customer/currency tidak cocok, atau total invoice melebihi total SO.']);
         }
 
         if (! (new FinanceWriteModel())->createSalesInvoice($data, $this->actorId())) {
@@ -193,7 +202,7 @@ final class FinanceInvoice extends BaseController
         }
 
         if (! (new FinanceWriteModel())->postPurchaseInvoice((int) $context['company_id'], $invoiceId, $this->actorId())) {
-            return $this->invalid(['reference' => 'Invoice tidak dapat diposting. Pastikan status draft dan periode AP terbuka.']);
+            return $this->invalid(['reference' => 'Invoice tidak dapat diposting. Pastikan status draft, periode AP terbuka, GL Book aktif, dan akun default tersedia.']);
         }
 
         return $this->completed('Purchase Invoice berhasil diposting.');
@@ -207,7 +216,7 @@ final class FinanceInvoice extends BaseController
         }
 
         if (! (new FinanceWriteModel())->postSalesInvoice((int) $context['company_id'], $invoiceId, $this->actorId())) {
-            return $this->invalid(['reference' => 'Invoice tidak dapat diposting. Pastikan status draft dan periode AR terbuka.']);
+            return $this->invalid(['reference' => 'Invoice tidak dapat diposting. Pastikan status draft, periode AR terbuka, GL Book aktif, dan akun default tersedia.']);
         }
 
         return $this->completed('Sales Invoice berhasil diposting.');
@@ -221,7 +230,7 @@ final class FinanceInvoice extends BaseController
         }
 
         if (! (new FinanceWriteModel())->postPayment((int) $context['company_id'], $paymentId, $this->actorId())) {
-            return $this->invalid(['reference' => 'Payment tidak dapat diposting. Pastikan status draft dan periode Cash/Bank terbuka.']);
+            return $this->invalid(['reference' => 'Payment tidak dapat diposting. Pastikan status draft, periode Cash/Bank terbuka, GL Book aktif, akun bank/default tersedia.']);
         }
 
         return $this->completed('Payment berhasil diposting.');
